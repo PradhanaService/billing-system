@@ -78,6 +78,7 @@ builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<UserService>();
 builder.Services.AddScoped<WaterBilling.Services.Masters.SupplierService>();
 builder.Services.AddScoped<WaterBilling.Services.Masters.CustomerService>();
+builder.Services.AddScoped<WaterBilling.Services.Masters.VehicleService>();
 
 var app = builder.Build();
 

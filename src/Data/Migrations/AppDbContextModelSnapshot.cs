@@ -281,6 +281,118 @@ namespace WaterBilling.Data.Migrations
 
                     b.ToTable("Users");
                 });
+
+            modelBuilder.Entity("WaterBilling.Data.Entities.Vehicle", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("BillingBasis")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("DriverLicenceNo")
+                        .HasMaxLength(25)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("DriverName")
+                        .HasMaxLength(80)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("DriverPhone")
+                        .HasMaxLength(15)
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Nickname")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("NormalizedVehicleNo")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("RatePaise")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(12)
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("SupplierId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("TankCapacityLitres")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("TripCostPaise")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("VehicleNo")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("WaterDetails")
+                        .HasMaxLength(120)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Code")
+                        .IsUnique();
+
+                    b.HasIndex("NormalizedVehicleNo")
+                        .IsUnique();
+
+                    b.HasIndex("SupplierId", "Status");
+
+                    b.ToTable("Vehicles", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_Vehicles_Basis", "BillingBasis IN ('Trip', 'Volume')");
+
+                            t.HasCheckConstraint("CK_Vehicles_Capacity", "TankCapacityLitres > 0");
+
+                            t.HasCheckConstraint("CK_Vehicles_Rate", "RatePaise > 0");
+
+                            t.HasCheckConstraint("CK_Vehicles_Status", "Status IN ('Active', 'Inactive', 'Maintenance')");
+
+                            t.HasCheckConstraint("CK_Vehicles_TripCost", "TripCostPaise >= 0");
+                        });
+                });
+
+            modelBuilder.Entity("WaterBilling.Data.Entities.Vehicle", b =>
+                {
+                    b.HasOne("WaterBilling.Data.Entities.Supplier", "Supplier")
+                        .WithMany()
+                        .HasForeignKey("SupplierId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Supplier");
+                });
 #pragma warning restore 612, 618
         }
     }

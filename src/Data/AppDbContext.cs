@@ -17,6 +17,7 @@ public class AppDbContext : DbContext
 
     public DbSet<Supplier> Suppliers => Set<Supplier>();
     public DbSet<Customer> Customers => Set<Customer>();
+    public DbSet<Vehicle> Vehicles => Set<Vehicle>();
     public DbSet<User> Users => Set<User>();
     public DbSet<ActivityLog> ActivityLogs => Set<ActivityLog>();
 
@@ -30,6 +31,8 @@ public class AppDbContext : DbContext
         // Enums are stored as their name ("Active"), max 10 characters.
         builder.Properties<RecordStatus>().HaveConversion<string>().HaveMaxLength(10);
         builder.Properties<BalanceSide>().HaveConversion<string>().HaveMaxLength(2);
+        builder.Properties<VehicleStatus>().HaveConversion<string>().HaveMaxLength(12);
+        builder.Properties<BillingBasis>().HaveConversion<string>().HaveMaxLength(10);
         builder.Properties<UserRole>().HaveConversion<string>().HaveMaxLength(20);
         builder.Properties<ActivityCategory>().HaveConversion<string>().HaveMaxLength(10);
     }
@@ -75,6 +78,33 @@ public class AppDbContext : DbContext
             e.Property(c => c.Address).HasMaxLength(500);
             e.Property(c => c.Version).IsConcurrencyToken();
             e.HasIndex(c => c.NormalizedName).IsUnique();
+        });
+
+        model.Entity<Vehicle>(e =>
+        {
+            e.ToTable("Vehicles", t =>
+            {
+                t.HasCheckConstraint("CK_Vehicles_Capacity", "TankCapacityLitres > 0");
+                t.HasCheckConstraint("CK_Vehicles_Rate", "RatePaise > 0");
+                t.HasCheckConstraint("CK_Vehicles_TripCost", "TripCostPaise >= 0");
+                t.HasCheckConstraint("CK_Vehicles_Status", "Status IN ('Active', 'Inactive', 'Maintenance')");
+                t.HasCheckConstraint("CK_Vehicles_Basis", "BillingBasis IN ('Trip', 'Volume')");
+            });
+            e.Property(v => v.Code).HasMaxLength(10).IsRequired();
+            e.Property(v => v.VehicleNo).HasMaxLength(20).IsRequired();
+            e.Property(v => v.NormalizedVehicleNo).HasMaxLength(20).IsRequired();
+            e.Property(v => v.Nickname).HasMaxLength(80).IsRequired();
+            e.Property(v => v.WaterDetails).HasMaxLength(120);
+            e.Property(v => v.DriverName).HasMaxLength(80);
+            e.Property(v => v.DriverPhone).HasMaxLength(15);
+            e.Property(v => v.DriverLicenceNo).HasMaxLength(25);
+            e.Property(v => v.Version).IsConcurrencyToken();
+            e.Ignore(v => v.UnitOfMeasure);
+            // Restrict: a supplier with vehicles can never be deleted from under them.
+            e.HasOne(v => v.Supplier).WithMany().HasForeignKey(v => v.SupplierId).OnDelete(DeleteBehavior.Restrict);
+            e.HasIndex(v => v.Code).IsUnique();
+            e.HasIndex(v => v.NormalizedVehicleNo).IsUnique();
+            e.HasIndex(v => new { v.SupplierId, v.Status });
         });
 
         model.Entity<User>(e =>

@@ -55,7 +55,7 @@ public class SupplierService(IDbContextFactory<AppDbContext> dbFactory, ICurrent
         }
         return await query.OrderBy(s => s.Name)
             .Select(s => new SupplierRow(s.Id, s.Name, s.ShortName, s.ContactPerson, s.Phone, s.Status,
-                0))   // vehicle count arrives in Module 6
+                db.Vehicles.Count(v => v.SupplierId == s.Id && !v.IsDeleted)))
             .ToListAsync();
     }
 
