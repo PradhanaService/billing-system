@@ -88,6 +88,7 @@ builder.Services.AddScoped<WaterBilling.Services.Accounts.LedgerMasterService>()
 builder.Services.AddScoped<WaterBilling.Services.Accounts.StatementService>();
 builder.Services.AddScoped<WaterBilling.Services.Accounts.DaySalesService>();
 builder.Services.AddScoped<WaterBilling.Services.Accounts.DashboardService>();
+builder.Services.AddScoped<WaterBilling.Services.Reports.ReportService>();
 
 // Company details printed on PDFs. QuestPDF is free under its Community licence for
 // businesses with under USD 1M annual revenue.
@@ -192,6 +193,17 @@ app.MapGet("/pdf/statement", async (HttpContext context, CurrentUser currentUser
     var table = WaterBilling.Services.Accounts.StatementService.ToTable(statement);
     return Results.File(WaterBilling.Components.Pdf.ReportPdf.Generate(table, company.Value, clock.GetUtcNow().UtcDateTime), "application/pdf");
 }).RequireAuthorization(nameof(Permission.StatementsView));
+
+app.MapGet("/pdf/report", async (HttpContext context, CurrentUser currentUser,
+    WaterBilling.Services.Reports.ReportService reports,
+    Microsoft.Extensions.Options.IOptions<WaterBilling.Services.Common.CompanyInfo> company, TimeProvider clock,
+    WaterBilling.Services.Reports.ReportKind kind, DateOnly from, DateOnly to, long? supplierId, long? vehicleId) =>
+{
+    currentUser.UseHttpUser(context.User);
+    if (to < from) return Results.BadRequest("The To date is before the From date.");
+    var table = await reports.BuildAsync(kind, new(from, to, supplierId, vehicleId));
+    return Results.File(WaterBilling.Components.Pdf.ReportPdf.Generate(table, company.Value, clock.GetUtcNow().UtcDateTime), "application/pdf");
+}).RequireAuthorization(nameof(Permission.ReportsView));
 
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();

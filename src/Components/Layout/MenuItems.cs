@@ -29,7 +29,7 @@ public static class MenuItems
 
         new("Accounts",     "Ledger Statement",  "/statements",    Permission.StatementsView,  IsReady: true),
         new("Accounts",     "Day Sales",         "/day-sales",     Permission.DaySalesView,    IsReady: true),
-        new("Accounts",     "Reports",           "/reports",       Permission.ReportsView,     IsReady: false),
+        new("Accounts",     "Reports",           "/reports",       Permission.ReportsView,     IsReady: true),
 
         new("Admin",        "Users & Roles",     "/admin/users",   Permission.UsersManage,     IsReady: true),
         new("Admin",        "Activity Log",      "/admin/activity-log", Permission.ActivityLogView, IsReady: false),
