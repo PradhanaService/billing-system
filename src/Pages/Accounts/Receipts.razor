@@ -158,6 +158,7 @@
 
     private async Task SaveAsync()
     {
+        if (Busy) return;   // a click that arrives while saving does nothing (NFR-CON-06)
         Busy = true;
         try
         {

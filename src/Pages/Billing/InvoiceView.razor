@@ -90,6 +90,7 @@ else
     private async Task CancelAsync()
     {
         if (_inv is null) return;
+        if (Busy) return;   // a click that arrives while saving does nothing (NFR-CON-06)
         Busy = true;
         try
         {
