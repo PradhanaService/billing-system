@@ -3,37 +3,37 @@ using WaterBilling.Services.Security;
 namespace WaterBilling.Components.Layout;
 
 // One entry in the side menu.
-//   Group      = heading the item sits under
+//   Group      = heading the item sits under (e.g. "Masters")
 //   Title      = text the user sees
 //   Href       = URL of the page
 //   Permission = who sees it. The page itself checks again; the menu only hides links.
-//   Icon       = icon name (Components/Icon.razor)
-public sealed record MenuItem(string Group, string Title, string Href, Permission Permission, string Icon, bool IsReady = true);
+//   IsReady    = false until the module is built. Unready items show greyed out, not as links.
+public sealed record MenuItem(string Group, string Title, string Href, Permission Permission, bool IsReady);
 
 // The whole menu lives in one list, so it is easy to read and easy to test.
-// Order follows the designs: Dashboard, Vehicle Master, Sales Invoice, Invoice Display,
-// Transactions, Ledger Master, Reports.
 public static class MenuItems
 {
     public static readonly IReadOnlyList<MenuItem> All =
     [
-        new("Main menu", "Dashboard",        "/",                   Permission.DashboardView,   "home"),
-        new("Main menu", "Vehicle Master",   "/vehicles",           Permission.MastersView,     "truck"),
-        new("Main menu", "Sales Invoice",    "/invoices/new",       Permission.InvoiceCreate,   "invoice"),
-        new("Main menu", "Invoice Display",  "/invoices",           Permission.DaySalesView,    "grid"),
-        new("Main menu", "Transactions",     "/transactions",       Permission.ReceiptCreate,   "swap"),
-        new("Main menu", "Ledger Master",    "/ledgers",            Permission.LedgerManage,    "layers"),
-        new("Main menu", "Reports",          "/reports",            Permission.ReportsView,     "chart"),
+        new("Home",         "Dashboard",         "/",              Permission.DashboardView,   IsReady: true),
 
-        new("Accounts",  "Suppliers",        "/suppliers",          Permission.MastersView,     "users"),
-        new("Accounts",  "Customers",        "/customers",          Permission.MastersView,     "briefcase"),
-        new("Accounts",  "Day Sales",        "/day-sales",          Permission.DaySalesView,    "clock"),
-        new("Accounts",  "Ledger Statement", "/statements",         Permission.StatementsView,  "book"),
+        new("Masters",      "Supplier Master",   "/suppliers",     Permission.MastersView,     IsReady: true),
+        new("Masters",      "Customer Master",   "/customers",     Permission.MastersView,     IsReady: true),
+        new("Masters",      "Vehicle Master",    "/vehicles",      Permission.MastersView,     IsReady: true),
+        new("Masters",      "Ledger Master",     "/ledgers",       Permission.LedgerManage,    IsReady: true),
 
-        // Admin only: for every other role these items are not in the menu and the pages answer 404.
-        new("Admin",     "Users & Roles",    "/admin/users",        Permission.UsersManage,     "shield"),
-        new("Admin",     "Activity Log",     "/admin/activity-log", Permission.ActivityLogView, "activity"),
-        new("Admin",     "Backup",           "/admin/backup",       Permission.BackupRun,       "database"),
+        new("Transactions", "Sales Invoice",     "/invoices/new",  Permission.InvoiceCreate,   IsReady: true),
+        new("Transactions", "Invoice Display",   "/invoices",      Permission.DaySalesView,    IsReady: true),
+        new("Transactions", "Receipt",           "/receipts",      Permission.ReceiptCreate,   IsReady: true),
+        new("Transactions", "Payment",           "/payments",      Permission.PaymentCreate,   IsReady: true),
+
+        new("Accounts",     "Ledger Statement",  "/statements",    Permission.StatementsView,  IsReady: true),
+        new("Accounts",     "Day Sales",         "/day-sales",     Permission.DaySalesView,    IsReady: true),
+        new("Accounts",     "Reports",           "/reports",       Permission.ReportsView,     IsReady: true),
+
+        new("Admin",        "Users & Roles",     "/admin/users",   Permission.UsersManage,     IsReady: true),
+        new("Admin",        "Activity Log",      "/admin/activity-log", Permission.ActivityLogView, IsReady: true),
+        new("Admin",        "Backup",            "/admin/backup",  Permission.BackupRun,       IsReady: true),
     ];
 
     public static IEnumerable<MenuItem> For(UserInfo? user) =>

@@ -5,7 +5,7 @@
 
 <PageTitle>Users &amp; Roles</PageTitle>
 
-<PageHeader Title="Users &amp; Roles" IconName="shield" Subtitle="Admin only. Create users, change roles, reset passwords, deactivate." />
+<h1>Users &amp; Roles</h1>
 
 @if (_message is not null)
 {
@@ -74,7 +74,7 @@
     </div>
 }
 
-<div class="table-wrap"><table class="data">
+<table class="data">
     <thead>
         <tr><th>User name</th><th>Full name</th><th>Role</th><th>Status</th><th>Last login</th><th></th></tr>
     </thead>
@@ -102,7 +102,7 @@
             </tr>
         }
     </tbody>
-</table></div>
+</table>
 
 @code {
     private IReadOnlyList<UserRow> _rows = [];
