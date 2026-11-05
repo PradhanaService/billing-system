@@ -1,10 +1,16 @@
 // Program.cs is the entry point. It does two jobs:
-//   1. Register services (things other code can ask for, e.g. a database later).
+//   1. Register services (things other code can ask for).
 //   2. Build the request pipeline (what happens to every browser request, in order).
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Components.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using WaterBilling;
 using WaterBilling.Data;
+using WaterBilling.Services;
+using WaterBilling.Services.Security;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -28,6 +34,49 @@ var connectionString = new SqliteConnectionStringBuilder
 }.ToString();
 builder.Services.AddDbContextFactory<AppDbContext>(options => options.UseSqlite(connectionString));
 
+// Login: a cookie that expires after 30 minutes without activity (NFR-SEC-04).
+builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
+    .AddCookie(options =>
+    {
+        options.LoginPath = "/account/login";
+        options.AccessDeniedPath = "/account/denied";
+        options.ExpireTimeSpan = TimeSpan.FromMinutes(30);
+        options.SlidingExpiration = true;
+        options.Cookie.Name = "wb.auth";
+        options.Cookie.HttpOnly = true;                       // scripts cannot read it
+        options.Cookie.SameSite = SameSiteMode.Strict;        // not sent from other sites
+        options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
+        // On every request: is this login still valid? (user active, password/role unchanged)
+        options.Events.OnValidatePrincipal = async context =>
+        {
+            var auth = context.HttpContext.RequestServices.GetRequiredService<AuthService>();
+            if (context.Principal is null || !await auth.IsStillValidAsync(context.Principal))
+            {
+                context.RejectPrincipal();
+                await context.HttpContext.SignOutAsync();
+            }
+        };
+    });
+
+// One policy per permission, e.g. [Authorize(Policy = "MastersEdit")].
+builder.Services.AddAuthorization(options =>
+{
+    foreach (var permission in Enum.GetValues<Permission>())
+    {
+        options.AddPolicy(permission.ToString(), policy =>
+            policy.RequireAuthenticatedUser().RequireAssertion(ctx =>
+                UserInfo.FromPrincipal(ctx.User)?.Has(permission) == true));
+    }
+});
+builder.Services.AddCascadingAuthenticationState();
+builder.Services.AddScoped<AuthenticationStateProvider, RevalidatingAuthStateProvider>();
+
+// Our services. "Scoped" = one per browser connection (or per HTTP request).
+builder.Services.AddScoped<CurrentUser>();
+builder.Services.AddScoped<ICurrentUser>(sp => sp.GetRequiredService<CurrentUser>());
+builder.Services.AddScoped<AuthService>();
+builder.Services.AddScoped<UserService>();
+
 var app = builder.Build();
 
 // Create the database file, or bring it up to date, before the first request.
@@ -37,6 +86,10 @@ using (var scope = app.Services.CreateScope())
     db.Database.Migrate();
     // WAL mode: readers do not wait for the writer, and a crash mid-save cannot corrupt the file.
     db.Database.ExecuteSqlRaw("PRAGMA journal_mode=WAL;");
+
+    // First start only: create the "admin" user. The password must be changed at first login.
+    var initialPassword = app.Configuration["Seed:AdminPassword"] ?? "Admin@123";
+    await scope.ServiceProvider.GetRequiredService<AuthService>().EnsureAdminExistsAsync(initialPassword);
 }
 
 // ---- 2. Request pipeline (order matters) ----
@@ -70,7 +123,34 @@ app.UseStatusCodePagesWithReExecute("/not-found");
 
 app.UseHttpsRedirection();
 app.UseStaticFiles();
+
+app.UseAuthentication();   // reads the login cookie
+app.UseAuthorization();    // checks [Authorize] on pages and endpoints
+
+// A user with a temporary password may only use the change-password page (FR-ADM-02).
+app.Use(async (context, next) =>
+{
+    var path = context.Request.Path;
+    if (context.User.HasClaim(UserInfo.MustChangeClaim, "true")
+        && !path.StartsWithSegments("/account")
+        && !path.StartsWithSegments("/_framework")
+        && !path.StartsWithSegments("/not-found"))
+    {
+        context.Response.Redirect("/account/change-password");
+        return;
+    }
+    await next();
+});
+
 app.UseAntiforgery();   // blocks forged form posts from other websites
+
+// Logout is a POST (with antiforgery token), so another site cannot log the user out with a link.
+app.MapPost("/account/logout", async (HttpContext context, AuthService auth, [FromForm] string? returnUrl) =>
+{
+    if (UserInfo.FromPrincipal(context.User) is { } user) await auth.LogLogoutAsync(user);
+    await context.SignOutAsync();
+    return Results.Redirect("/account/login");
+});
 
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();

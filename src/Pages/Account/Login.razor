@@ -1,0 +1,68 @@
+@page "/account/login"
+@layout AccountLayout
+@using System.ComponentModel.DataAnnotations
+@using Microsoft.AspNetCore.Authentication
+@inject AuthService Auth
+@inject NavigationManager Nav
+
+@* A plain server page (no live connection): the form posts back to the server,
+   which checks the password and sets the login cookie. *@
+
+<PageTitle>Sign in</PageTitle>
+
+<h1>Sign in</h1>
+
+@if (_error is not null)
+{
+    <div class="alert alert-error" role="alert">@_error</div>
+}
+
+<EditForm Model="Input" method="post" OnValidSubmit="LoginAsync" FormName="login">
+    <DataAnnotationsValidator />
+    <div class="field">
+        <label for="username">User name</label>
+        <InputText id="username" @bind-Value="Input.UserName" autocomplete="username" autofocus />
+        <ValidationMessage For="() => Input.UserName" />
+    </div>
+    <div class="field">
+        <label for="password">Password</label>
+        <InputText id="password" type="password" @bind-Value="Input.Password" autocomplete="current-password" />
+        <ValidationMessage For="() => Input.Password" />
+    </div>
+    <button type="submit" class="btn btn-primary">Sign in</button>
+</EditForm>
+
+@code {
+    [CascadingParameter] private HttpContext HttpContext { get; set; } = default!;
+
+    [SupplyParameterFromForm] private LoginModel Input { get; set; } = new();
+
+    [SupplyParameterFromQuery] private string? ReturnUrl { get; set; }
+
+    private string? _error;
+
+    private async Task LoginAsync()
+    {
+        var result = await Auth.LoginAsync(Input.UserName, Input.Password);
+        if (!result.Ok)
+        {
+            _error = result.Error;
+            return;
+        }
+        await HttpContext.SignInAsync(result.Value!);
+        Nav.NavigateTo(SafeReturnUrl(ReturnUrl));
+    }
+
+    // Only allow going back to a page inside this app. "//evil.com" or "https://..." would
+    // let an attacker send people to a fake site after login (open redirect).
+    internal static string SafeReturnUrl(string? url) =>
+        !string.IsNullOrEmpty(url) && url.StartsWith('/') && !url.StartsWith("//") && !url.StartsWith("/\\")
+            ? url
+            : "/";
+
+    private sealed class LoginModel
+    {
+        [Required(ErrorMessage = "Enter your user name.")] public string UserName { get; set; } = "";
+        [Required(ErrorMessage = "Enter your password.")] public string Password { get; set; } = "";
+    }
+}

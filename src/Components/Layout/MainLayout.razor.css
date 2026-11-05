@@ -21,6 +21,9 @@
 }
 
 .brand { font-weight: 700; font-size: 1.1rem; }
+.user { margin-left: auto; font-size: 0.9rem; display: flex; gap: 0.75rem; align-items: baseline; }
+.user a, .user ::deep .link-button { color: var(--paper); }
+.inline { display: inline; }
 .subtitle { opacity: 0.8; font-size: 0.9rem; }
 
 .sidebar {

@@ -1,0 +1,168 @@
+@page "/admin/users"
+@attribute [Authorize(Policy = nameof(Permission.UsersManage))]
+@inject UserService UserSvc
+@inject TimeProvider Clock
+
+<PageTitle>Users &amp; Roles</PageTitle>
+
+<h1>Users &amp; Roles</h1>
+
+@if (_message is not null)
+{
+    <div class="alert @(_messageOk ? "alert-ok" : "alert-error")" role="status">@_message</div>
+}
+
+<div class="card">
+    <h2>@(_editingId is null ? "Add user" : $"Edit user: {_form.UserName}")</h2>
+    <EditForm Model="_form" OnValidSubmit="SaveAsync">
+        <DataAnnotationsValidator />
+        <div class="form-grid">
+            <div class="field">
+                <label for="uname">User name*</label>
+                <InputText id="uname" @bind-Value="_form.UserName" readonly="@(_editingId is not null)" />
+                <ValidationMessage For="() => _form.UserName" />
+            </div>
+            <div class="field">
+                <label for="fname">Full name*</label>
+                <InputText id="fname" @bind-Value="_form.FullName" />
+                <ValidationMessage For="() => _form.FullName" />
+            </div>
+            <div class="field">
+                <label for="phone">Phone</label>
+                <InputText id="phone" @bind-Value="_form.Phone" />
+            </div>
+            <div class="field">
+                <label for="role">Role*</label>
+                <InputSelect id="role" @bind-Value="_form.Role">
+                    @foreach (var r in Enum.GetValues<UserRole>())
+                    {
+                        <option value="@r">@RolePermissions.DisplayName(r)</option>
+                    }
+                </InputSelect>
+            </div>
+            @if (_editingId is null)
+            {
+                <div class="field">
+                    <label for="tmp">Temporary password*</label>
+                    <InputText id="tmp" type="password" @bind-Value="_form.TemporaryPassword" autocomplete="new-password" />
+                    <small>The user must change it at first login.</small>
+                </div>
+            }
+        </div>
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary" disabled="@_busy">Save</button>
+            @if (_editingId is not null)
+            {
+                <button type="button" class="btn" @onclick="StartNew">Cancel</button>
+            }
+        </div>
+    </EditForm>
+</div>
+
+@if (_resetFor is not null)
+{
+    <div class="card">
+        <h2>Reset password: @_resetFor.UserName</h2>
+        <div class="field">
+            <label for="reset">New temporary password</label>
+            <input id="reset" type="password" @bind="_resetPassword" autocomplete="new-password" />
+        </div>
+        <div class="form-actions">
+            <button class="btn btn-primary" @onclick="ResetAsync" disabled="@_busy">Reset</button>
+            <button class="btn" @onclick="() => _resetFor = null">Cancel</button>
+        </div>
+    </div>
+}
+
+<table class="data">
+    <thead>
+        <tr><th>User name</th><th>Full name</th><th>Role</th><th>Status</th><th>Last login</th><th></th></tr>
+    </thead>
+    <tbody>
+        @foreach (var u in _rows)
+        {
+            <tr class="@(u.Status == RecordStatus.Inactive ? "muted" : "")">
+                <td>@u.UserName</td>
+                <td>@u.FullName</td>
+                <td>@RolePermissions.DisplayName(u.Role)</td>
+                <td><span class="badge @(u.Status == RecordStatus.Inactive ? "badge-off" : "")">@u.Status</span></td>
+                <td>@(u.LastLoginAtUtc is { } t ? IndianTime.FormatDateTime(t) : "never")</td>
+                <td>
+                    <button class="btn btn-small" @onclick="() => Edit(u)">Edit</button>
+                    <button class="btn btn-small" @onclick="() => { _resetFor = u; _resetPassword = string.Empty; }">Reset password</button>
+                    @if (u.Status == RecordStatus.Active)
+                    {
+                        <button class="btn btn-small btn-danger" @onclick="() => SetStatusAsync(u, RecordStatus.Inactive)">Deactivate</button>
+                    }
+                    else
+                    {
+                        <button class="btn btn-small" @onclick="() => SetStatusAsync(u, RecordStatus.Active)">Activate</button>
+                    }
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+@code {
+    private IReadOnlyList<UserRow> _rows = [];
+    private UserForm _form = new();
+    private long? _editingId;
+    private int _editingVersion;
+    private UserRow? _resetFor;
+    private string _resetPassword = "";
+    private string? _message;
+    private bool _messageOk;
+    private bool _busy;   // stops a double click saving twice (NFR-CON-06)
+
+    protected override async Task OnInitializedAsync() => _rows = await UserSvc.ListAsync();
+
+    private void StartNew() { _form = new(); _editingId = null; }
+
+    private void Edit(UserRow u)
+    {
+        _editingId = u.Id;
+        _editingVersion = u.Version;
+        _form = new UserForm { UserName = u.UserName, FullName = u.FullName, Role = u.Role };
+    }
+
+    private async Task SaveAsync()
+    {
+        _busy = true;
+        try
+        {
+            var result = _editingId is { } id
+                ? await UserSvc.UpdateAsync(id, _form, _editingVersion)
+                : (await UserSvc.CreateAsync(_form)) is var r && r.Ok ? Result.Success() : Result.Fail(r.Error!);
+            Show(result, _editingId is null ? "User created." : "User saved.");
+            if (result.Ok) { StartNew(); _rows = await UserSvc.ListAsync(); }
+        }
+        finally { _busy = false; }
+    }
+
+    private async Task SetStatusAsync(UserRow u, RecordStatus status)
+    {
+        var result = await UserSvc.SetStatusAsync(u.Id, status, u.Version);
+        Show(result, status == RecordStatus.Active ? "User activated." : "User deactivated.");
+        _rows = await UserSvc.ListAsync();
+    }
+
+    private async Task ResetAsync()
+    {
+        if (_resetFor is null) return;
+        _busy = true;
+        try
+        {
+            var result = await UserSvc.ResetPasswordAsync(_resetFor.Id, _resetPassword, _resetFor.Version);
+            Show(result, "Password reset. The user must change it at next login.");
+            if (result.Ok) { _resetFor = null; _rows = await UserSvc.ListAsync(); }
+        }
+        finally { _busy = false; }
+    }
+
+    private void Show(Result result, string okText)
+    {
+        _messageOk = result.Ok;
+        _message = result.Ok ? okText : result.Error;
+    }
+}

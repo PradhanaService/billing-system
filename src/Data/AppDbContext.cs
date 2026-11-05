@@ -16,6 +16,8 @@ public class AppDbContext : DbContext
     }
 
     public DbSet<Supplier> Suppliers => Set<Supplier>();
+    public DbSet<User> Users => Set<User>();
+    public DbSet<ActivityLog> ActivityLogs => Set<ActivityLog>();
 
     // Rules that apply to every column of a given C# type.
     protected override void ConfigureConventions(ModelConfigurationBuilder builder)
@@ -27,6 +29,8 @@ public class AppDbContext : DbContext
         // Enums are stored as their name ("Active"), max 10 characters.
         builder.Properties<RecordStatus>().HaveConversion<string>().HaveMaxLength(10);
         builder.Properties<BalanceSide>().HaveConversion<string>().HaveMaxLength(2);
+        builder.Properties<UserRole>().HaveConversion<string>().HaveMaxLength(20);
+        builder.Properties<ActivityCategory>().HaveConversion<string>().HaveMaxLength(10);
     }
 
     // Table layout: lengths, required fields, indexes and checks.
@@ -53,6 +57,27 @@ public class AppDbContext : DbContext
             // Spec: "Indexes: unique on lower-case name; status."
             e.HasIndex(s => s.NormalizedName).IsUnique();
             e.HasIndex(s => s.Status);
+        });
+
+        model.Entity<User>(e =>
+        {
+            e.Property(u => u.UserName).HasMaxLength(50).IsRequired();
+            e.Property(u => u.NormalizedUserName).HasMaxLength(50).IsRequired();
+            e.Property(u => u.FullName).HasMaxLength(100).IsRequired();
+            e.Property(u => u.Phone).HasMaxLength(15);
+            e.Property(u => u.SecurityStamp).HasMaxLength(32).IsRequired();
+            e.Property(u => u.Version).IsConcurrencyToken();
+            e.HasIndex(u => u.NormalizedUserName).IsUnique();
+        });
+
+        model.Entity<ActivityLog>(e =>
+        {
+            e.Property(a => a.UserName).HasMaxLength(50).IsRequired();
+            e.Property(a => a.Role).HasMaxLength(20);
+            e.Property(a => a.Action).HasMaxLength(50).IsRequired();
+            e.Property(a => a.EntityType).HasMaxLength(30);
+            e.HasIndex(a => a.EventAtUtc);
+            e.HasIndex(a => new { a.EntityType, a.EntityId });
         });
     }
 

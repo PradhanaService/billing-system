@@ -14,3 +14,22 @@ public enum BalanceSide
     Dr,
     Cr,
 }
+
+public enum UserRole
+{
+    Admin,
+    DispatchOperator,
+    BillingClerk,
+    Accountant,
+}
+
+// Groups for the activity log, so the Admin can filter it.
+public enum ActivityCategory
+{
+    Auth,
+    Master,
+    Billing,
+    Finance,
+    Day,
+    Admin,
+}

@@ -5,6 +5,20 @@
     <header class="topbar">
         <span class="brand">Shree Karunambika Traders</span>
         <span class="subtitle">Water Supply &amp; Fleet Billing</span>
+        <AuthorizeView>
+            <Authorized>
+                <span class="user">
+                    @context.User.Identity?.Name
+                    (@RoleName(context.User))
+                    <a href="/account/change-password">Change password</a>
+                    <form action="/account/logout" method="post" class="inline">
+                        <AntiforgeryToken />
+                        <input type="hidden" name="returnUrl" value="/" />
+                        <button type="submit" class="link-button">Sign out</button>
+                    </form>
+                </span>
+            </Authorized>
+        </AuthorizeView>
     </header>
 
     <aside class="sidebar">
@@ -21,3 +35,8 @@
     <a href="" class="reload">Reload</a>
     <a class="dismiss">×</a>
 </div>
+
+@code {
+    private static string RoleName(System.Security.Claims.ClaimsPrincipal p) =>
+        UserInfo.FromPrincipal(p) is { } u ? RolePermissions.DisplayName(u.Role) : "";
+}

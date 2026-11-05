@@ -1,8 +1,21 @@
 @* The router looks at the URL and picks the page whose @page matches it.
+   AuthorizeRouteView checks the page's [Authorize] rule before showing it.
    Unknown URLs are handled in Program.cs (UseStatusCodePagesWithReExecute -> /not-found). *@
 <Router AppAssembly="typeof(Program).Assembly">
     <Found Context="routeData">
-        <RouteView RouteData="routeData" DefaultLayout="typeof(MainLayout)" />
+        <AuthorizeRouteView RouteData="routeData" DefaultLayout="typeof(MainLayout)">
+            <NotAuthorized>
+                @if (context.User.Identity?.IsAuthenticated == true)
+                {
+                    <h1>Not allowed</h1>
+                    <p>Your role does not have access to this page.</p>
+                }
+                else
+                {
+                    <RedirectToLogin />
+                }
+            </NotAuthorized>
+        </AuthorizeRouteView>
         <FocusOnNavigate RouteData="routeData" Selector="h1" />
     </Found>
 </Router>

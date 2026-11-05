@@ -12,3 +12,7 @@
 - Done: EF Core + SQLite, `AppDbContext`, Suppliers table with checks and unique name index, first migration, money/volume/IST helpers, audit columns and edit-conflict check, `docs/data-conventions.md`. 36 tests passing.
 - Next: Session 4, Supplier Master (service + screen).
 - Blocked: Q1 (Trip Cost) before Session 5 Vehicle Master; Q2 (meter readings) before meter tables.
+
+## Module 4: Login, roles & activity log
+(Moved ahead of the masters so every later screen checks permissions and logs actions from the start.)
+- Done: cookie login (30 min idle timeout), forced password change at first login, four roles with a permission table, server-side checks in every service, menu filtered by role, Users & Roles screen, append-only activity log (database triggers), sign-out by POST with antiforgery. 79 tests passing.

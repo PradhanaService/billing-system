@@ -1,0 +1,4 @@
+.account-shell { min-height: 100vh; display: flex; align-items: center; justify-content: center; background: var(--panel); }
+.account-card { width: 360px; background: var(--paper); border: 1px solid var(--line); padding: 2rem; }
+.account-brand { font-weight: 700; font-size: 1.2rem; }
+.account-subtitle { color: var(--muted); margin-bottom: 1.5rem; }
