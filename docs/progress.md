@@ -16,3 +16,6 @@
 ## Module 4: Login, roles & activity log
 (Moved ahead of the masters so every later screen checks permissions and logs actions from the start.)
 - Done: cookie login (30 min idle timeout), forced password change at first login, four roles with a permission table, server-side checks in every service, menu filtered by role, Users & Roles screen, append-only activity log (database triggers), sign-out by POST with antiforgery. 79 tests passing.
+
+## Module 5: Supplier & Customer Masters
+- Done: SupplierService and CustomerService (search, active/inactive filter, create, edit, delete-if-no-history), opening balance fixed after creation, edit-conflict check, activity log of every change with before/after. Screens for both. 97 tests passing.

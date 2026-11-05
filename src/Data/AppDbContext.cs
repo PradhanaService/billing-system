@@ -16,6 +16,7 @@ public class AppDbContext : DbContext
     }
 
     public DbSet<Supplier> Suppliers => Set<Supplier>();
+    public DbSet<Customer> Customers => Set<Customer>();
     public DbSet<User> Users => Set<User>();
     public DbSet<ActivityLog> ActivityLogs => Set<ActivityLog>();
 
@@ -52,11 +53,28 @@ public class AppDbContext : DbContext
             e.Property(s => s.ContactPerson).HasMaxLength(80);
             e.Property(s => s.Phone).HasMaxLength(15).IsRequired();
             e.Property(s => s.AltPhone).HasMaxLength(15);
+            e.Property(s => s.Address).HasMaxLength(500);
             e.Property(s => s.Version).IsConcurrencyToken();
 
             // Spec: "Indexes: unique on lower-case name; status."
             e.HasIndex(s => s.NormalizedName).IsUnique();
             e.HasIndex(s => s.Status);
+        });
+
+        model.Entity<Customer>(e =>
+        {
+            e.ToTable("Customers", t =>
+            {
+                t.HasCheckConstraint("CK_Customers_OpeningBalance", "OpeningBalancePaise >= 0");
+                t.HasCheckConstraint("CK_Customers_OpeningBalanceSide", "OpeningBalanceSide IN ('Dr', 'Cr')");
+                t.HasCheckConstraint("CK_Customers_Status", "Status IN ('Active', 'Inactive')");
+            });
+            e.Property(c => c.Name).HasMaxLength(120).IsRequired();
+            e.Property(c => c.NormalizedName).HasMaxLength(120).IsRequired();
+            e.Property(c => c.Phone).HasMaxLength(15).IsRequired();
+            e.Property(c => c.Address).HasMaxLength(500);
+            e.Property(c => c.Version).IsConcurrencyToken();
+            e.HasIndex(c => c.NormalizedName).IsUnique();
         });
 
         model.Entity<User>(e =>
@@ -99,6 +117,11 @@ public class AppDbContext : DbContext
         var now = _clock.GetUtcNow().UtcDateTime;
 
         foreach (var entry in ChangeTracker.Entries<Supplier>())
+        {
+            if (entry.State is EntityState.Added or EntityState.Modified)
+                entry.Entity.RefreshNormalizedName();
+        }
+        foreach (var entry in ChangeTracker.Entries<Customer>())
         {
             if (entry.State is EntityState.Added or EntityState.Modified)
                 entry.Entity.RefreshNormalizedName();

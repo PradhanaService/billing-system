@@ -21,6 +21,10 @@ Rules every table and every module follows. The code that applies them is named 
 - Saving a `DateTime` without a time zone is refused (it could be off by 5½ hours).
 - Shown as IST (UTC + 5:30, no daylight saving): `dd/MM/yyyy hh:mm tt`.
 
+## Text lengths
+SQLite stores every string as `TEXT` and does **not** enforce `HasMaxLength`. The real limit is the
+`[StringLength]` attribute on each form, checked by the service on every save (`FormValidator`).
+
 ## Audit columns
 Every master table has `CreatedAtUtc`, `UpdatedAtUtc` and `Version`, filled automatically in
 `AppDbContext.SaveChanges`. `CreatedBy` / `UpdatedBy` are added in Session 6 (login).

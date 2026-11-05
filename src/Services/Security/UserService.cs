@@ -145,13 +145,7 @@ public class UserService(IDbContextFactory<AppDbContext> dbFactory, ICurrentUser
     private static Task<bool> IsLastActiveAdmin(AppDbContext db, long userId) =>
         db.Users.AllAsync(u => u.Id == userId || u.Role != UserRole.Admin || u.Status != RecordStatus.Active);
 
-    private static string? Validate(UserForm form)
-    {
-        var results = new List<ValidationResult>();
-        return Validator.TryValidateObject(form, new ValidationContext(form), results, validateAllProperties: true)
-            ? null
-            : results[0].ErrorMessage;
-    }
+    private static string? Validate(UserForm form) => FormValidator.FirstError(form);
 
     private static async Task<Result> SaveAsync(AppDbContext db)
     {
