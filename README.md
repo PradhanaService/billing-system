@@ -31,3 +31,7 @@ dotnet test
 | `docs` | Spec, notes, client answers, progress log |
 
 See `CLAUDE.md` for the full project rules.
+
+## Install on the shop PC
+See `docs/install-guide.md`. Short version: run `installer\build-installer.ps1` on Windows, then run
+`installer\output\WaterBillingSetup.exe` on the shop PC.

@@ -54,3 +54,7 @@
 
 ## Module 16: Testing (three rounds) & bug fixing
 - Done: round 1 security review + role-by-page HTTP tests (65); round 2 full business day with four users in the browser; round 3 edge-case tests; re-entry guard on all save buttons; generated requirement-to-test table; `docs/test-report.md`. 311 tests passing.
+
+## Module 17: Installer & deployment
+- Done: Windows service hosting; production settings (localhost:5080 only, data in %ProgramData%\WaterBilling); data-protection keys stored with the data (DPAPI on Windows) so logins survive restarts; self-contained win-x64 publish verified; Inno Setup script (service registration with restart-on-failure, locked-down data folder, shortcuts, upgrade and uninstall keeping data); build script that runs tests first; install guide. 311 tests passing.
+- Not possible here: compiling the .iss needs Inno Setup on Windows (run `installer\build-installer.ps1`).
