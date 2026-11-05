@@ -20,6 +20,7 @@ public class TestAppFactory : WebApplicationFactory<Program>
     {
         builder.UseSetting("Database:Path", Path.Combine(_dbFolder, "test.db"));
         builder.UseSetting("Seed:AdminPassword", SeedPassword);
+        builder.UseSetting("Backup:Folder", Path.Combine(_dbFolder, "backups"));
     }
 
     public HttpClient NewClient() =>

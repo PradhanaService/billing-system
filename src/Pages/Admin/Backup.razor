@@ -1,0 +1,58 @@
+@page "/admin/backup"
+@attribute [Authorize(Policy = nameof(Permission.BackupRun))]
+@inherits UserContextBase
+@using WaterBilling.Services.Admin
+@inject BackupService Svc
+@inject StoragePaths Paths
+
+<PageTitle>Backup</PageTitle>
+
+<h1>Backup</h1>
+
+<PageMessage Text="@MessageText" Ok="@MessageOk" />
+
+<div class="card">
+    <p>A backup is a complete copy of the database. One is taken automatically each day when the app starts.
+       Take one now before any big change, and copy the backup folder to a USB drive or another computer regularly.</p>
+    <p class="muted">Backup folder: <code>@Paths.BackupFolder</code> · keeps the newest @Paths.KeepBackups copies.</p>
+    <button class="btn btn-primary" @onclick="RunAsync" disabled="@Busy">Backup now</button>
+</div>
+
+<table class="data">
+    <thead><tr><th>File</th><th>Taken</th><th class="num">Size</th></tr></thead>
+    <tbody>
+        @foreach (var f in _files)
+        {
+            <tr><td>@f.Name</td><td>@IndianTime.FormatDateTime(DateTime.SpecifyKind(f.CreatedUtc, DateTimeKind.Utc))</td><td class="num">@((f.SizeBytes / 1024.0).ToString("N0")) KB</td></tr>
+        }
+        @if (_files.Count == 0) { <tr><td colspan="3" class="muted">No backups yet.</td></tr> }
+    </tbody>
+</table>
+
+<div class="card" style="margin-top: 1.25rem">
+    <h2>Restoring a backup</h2>
+    <ol>
+        <li>Close the app (stop the Water Billing service or window).</li>
+        <li>In the data folder, rename <code>waterbilling.db</code> to keep it, and delete <code>waterbilling.db-wal</code> and <code>waterbilling.db-shm</code> if present.</li>
+        <li>Copy the chosen backup file into the data folder and rename it to <code>waterbilling.db</code>.</li>
+        <li>Start the app and check the last invoice and the cash book.</li>
+    </ol>
+</div>
+
+@code {
+    private IReadOnlyList<BackupFile> _files = [];
+
+    protected override async Task OnUserReadyAsync() => _files = await Svc.ListAsync();
+
+    private async Task RunAsync()
+    {
+        Busy = true;
+        try
+        {
+            var result = await Svc.RunAsync();
+            if (result.Ok) ShowOk($"Backup {result.Value!.Name} saved and checked."); else ShowError(result.Error!);
+            _files = await Svc.ListAsync();
+        }
+        finally { Busy = false; }
+    }
+}

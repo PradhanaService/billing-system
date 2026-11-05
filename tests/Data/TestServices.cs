@@ -21,4 +21,5 @@ public sealed class TestServices(TestDatabase db, FakeCurrentUser me)
     public DaySalesService DaySales => new(db, me, db.Clock, Poster, Calendar);
     public DashboardService Dashboard => new(db, me, Calendar);
     public WaterBilling.Services.Reports.ReportService Reports => new(db, me);
+    public WaterBilling.Services.Admin.ActivityLogService ActivityLog => new(db, me, db.Clock);
 }

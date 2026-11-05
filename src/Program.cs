@@ -89,6 +89,12 @@ builder.Services.AddScoped<WaterBilling.Services.Accounts.StatementService>();
 builder.Services.AddScoped<WaterBilling.Services.Accounts.DaySalesService>();
 builder.Services.AddScoped<WaterBilling.Services.Accounts.DashboardService>();
 builder.Services.AddScoped<WaterBilling.Services.Reports.ReportService>();
+builder.Services.AddScoped<WaterBilling.Services.Admin.ActivityLogService>();
+builder.Services.AddScoped<WaterBilling.Services.Admin.BackupService>();
+builder.Services.AddSingleton(new WaterBilling.Services.Admin.StoragePaths(
+    dbPath,
+    Path.Combine(builder.Environment.ContentRootPath, builder.Configuration["Backup:Folder"] ?? "App_Data/Backups"),
+    int.TryParse(builder.Configuration["Backup:Keep"], out var keep) && keep > 0 ? keep : 60));
 
 // Company details printed on PDFs. QuestPDF is free under its Community licence for
 // businesses with under USD 1M annual revenue.
@@ -108,6 +114,10 @@ using (var scope = app.Services.CreateScope())
     // First start only: create the "admin" user. The password must be changed at first login.
     var initialPassword = app.Configuration["Seed:AdminPassword"] ?? "Admin@123";
     await scope.ServiceProvider.GetRequiredService<AuthService>().EnsureAdminExistsAsync(initialPassword);
+
+    // One automatic backup per day, taken when the app starts.
+    if (!bool.TryParse(app.Configuration["Backup:Automatic"], out var automatic) || automatic)
+        scope.ServiceProvider.GetRequiredService<WaterBilling.Services.Admin.BackupService>().RunDailyIfMissing();
 }
 
 // ---- 2. Request pipeline (order matters) ----
