@@ -1,0 +1,102 @@
+@page "/invoices/{Id:long}"
+@attribute [Authorize(Policy = nameof(Permission.InvoiceView))]
+@inherits UserContextBase
+@using WaterBilling.Services.Billing
+@inject InvoiceService Svc
+@inject NavigationManager Nav
+
+<PageTitle>Invoice @_inv?.DisplayNo</PageTitle>
+
+@if (_inv is null)
+{
+    <h1>Invoice not found</h1>
+}
+else
+{
+    <h1>Invoice @_inv.DisplayNo
+        @if (_inv.Status == InvoiceStatus.Cancelled) { <span class="badge badge-bad">Cancelled</span> }
+        else { <span class="badge">@_inv.Status</span> }
+    </h1>
+
+    <PageMessage Text="@MessageText" Ok="@MessageOk" />
+
+    <div class="toolbar">
+        <button class="btn" @onclick="() => MoveAsync(false)">◀ Previous</button>
+        <button class="btn" @onclick="() => MoveAsync(true)">Next ▶</button>
+        <a class="btn" href="/pdf/invoice/@_inv.Id" target="_blank" rel="noopener">Print</a>
+        @if (Can(Permission.InvoiceCreate)) { <a class="btn" href="/invoices/new">New invoice</a> }
+    </div>
+
+    @if (_inv.Status == InvoiceStatus.Cancelled)
+    {
+        <div class="alert alert-warn">Cancelled on @IndianTime.FormatDateTime(_inv.CancelledAtUtc!.Value): @_inv.CancelReason (reversal @_inv.ReversalNo)</div>
+    }
+
+    <div class="card">
+        <table class="data">
+            <tbody>
+                <tr><th>Invoice Date</th><td>@IndianTime.FormatDate(_inv.InvoiceDate)</td><th>Payment Mode</th><td>@_inv.PaymentMode</td></tr>
+                <tr><th>Vehicle</th><td>@_inv.VehicleCode / @_inv.VehicleNo (@_inv.VehicleName)</td><th>Supplier</th><td>@_inv.SupplierName</td></tr>
+                <tr><th>Bill To</th><td>@_inv.BillToName (@_inv.BillToType)</td><th>Prepared by</th><td>@_inv.CreatedBy, @IndianTime.FormatDateTime(_inv.CreatedAtUtc)</td></tr>
+                <tr><th>Rate source</th><td>@(_inv.RateSource == RateSource.Master ? "Vehicle Master" : "Changed at billing")</td><th>Paid so far</th><td>₹@Money.Format(_inv.AllocatedPaise)</td></tr>
+                @if (_inv.Narration is not null) { <tr><th>Narration</th><td colspan="3">@_inv.Narration</td></tr> }
+            </tbody>
+        </table>
+    </div>
+
+    <div class="card">
+        <h2>Item Details</h2>
+        <table class="data">
+            <thead><tr><th>S.No</th><th>Material</th><th class="num">Qty</th><th>Measurement</th><th class="num">Rate (₹)</th><th class="num">Total Amount (₹)</th></tr></thead>
+            <tbody>
+                <tr><td>1</td><td>@_inv.Material</td><td class="num">@_inv.Quantity</td><td>@_inv.Measurement</td>
+                    <td class="num">@Money.Format(_inv.RatePaise)</td><td class="num">@Money.Format(_inv.AmountPaise)</td></tr>
+            </tbody>
+            <tfoot><tr><td colspan="5" class="num">Total</td><td class="num">@Money.Format(_inv.AmountPaise)</td></tr></tfoot>
+        </table>
+        <p class="muted">@AmountInWords.Format(_inv.AmountPaise)</p>
+    </div>
+
+    @if (_inv.Status != InvoiceStatus.Cancelled && Can(Permission.InvoiceCancel))
+    {
+        <div class="card">
+            <h2>Cancel this invoice</h2>
+            <p class="muted">A posted invoice is never edited. Cancelling posts a reversal and keeps the number. To correct it, cancel and make a new invoice.</p>
+            <div class="field">
+                <label for="reason">Reason*</label>
+                <input id="reason" @bind="_reason" maxlength="300" />
+            </div>
+            <button class="btn btn-danger" @onclick="CancelAsync" disabled="@Busy">Cancel invoice</button>
+        </div>
+    }
+}
+
+@code {
+    [Parameter] public long Id { get; set; }
+
+    private InvoiceDetail? _inv;
+    private string _reason = "";
+
+    protected override async Task OnParametersSetAsync() => _inv = await Svc.GetAsync(Id);
+
+    private async Task MoveAsync(bool next)
+    {
+        if (_inv is null) return;
+        var target = await Svc.NeighbourAsync(_inv.InvoiceNo, next);
+        if (target is null) ShowError(next ? "This is the latest invoice." : "This is the first invoice.");
+        else { MessageText = null; Nav.NavigateTo($"/invoices/{target}"); }
+    }
+
+    private async Task CancelAsync()
+    {
+        if (_inv is null) return;
+        Busy = true;
+        try
+        {
+            var result = await Svc.CancelAsync(_inv.Id, _reason, _inv.Version);
+            Show(result, $"Invoice {_inv.DisplayNo} cancelled.");
+            if (result.Ok) { _reason = ""; _inv = await Svc.GetAsync(Id); }
+        }
+        finally { Busy = false; }
+    }
+}

@@ -26,3 +26,6 @@
 
 ## Module 7: Ledger core
 - Done: Accounts (seeded), NumberSeries, BusinessDays, Vouchers, append-only LedgerEntries; LedgerPoster (balanced check, open-day check, gapless numbers, running balances, vehicle balances, reversals with original value date); 6 PM business-day calendar; opening balances (P10) posted on party creation; history checks now include ledger lines. Proven that saves cannot interleave. 139 tests passing. See `docs/ledger-design.md`.
+
+## Module 8: Sales Invoice
+- Done: Invoices table; InvoiceService (amount by trip or volume with half-up rounding, gapless number shown before save, P1 credit / P2 cash posting through the party, Bill To supplier or customer tagged with vehicle, rate override needs permission + reason and is logged, cancel by reversal keeping the number, previous/next); Sales Invoice and Invoice View screens; invoice PDF (QuestPDF) behind a permission-checked endpoint; amount in words (Indian system). 166 tests passing.

@@ -23,6 +23,7 @@ public class AppDbContext : DbContext
     public DbSet<BusinessDay> BusinessDays => Set<BusinessDay>();
     public DbSet<Voucher> Vouchers => Set<Voucher>();
     public DbSet<LedgerEntry> LedgerEntries => Set<LedgerEntry>();
+    public DbSet<Invoice> Invoices => Set<Invoice>();
     public DbSet<User> Users => Set<User>();
     public DbSet<ActivityLog> ActivityLogs => Set<ActivityLog>();
 
@@ -44,6 +45,9 @@ public class AppDbContext : DbContext
         builder.Properties<PaymentMode>().HaveConversion<string>().HaveMaxLength(6);
         builder.Properties<PartyType>().HaveConversion<string>().HaveMaxLength(10);
         builder.Properties<BusinessDayStatus>().HaveConversion<string>().HaveMaxLength(10);
+        builder.Properties<InvoicePaymentMode>().HaveConversion<string>().HaveMaxLength(6);
+        builder.Properties<InvoiceStatus>().HaveConversion<string>().HaveMaxLength(10);
+        builder.Properties<RateSource>().HaveConversion<string>().HaveMaxLength(10);
         builder.Properties<UserRole>().HaveConversion<string>().HaveMaxLength(20);
         builder.Properties<ActivityCategory>().HaveConversion<string>().HaveMaxLength(10);
     }
@@ -119,6 +123,38 @@ public class AppDbContext : DbContext
         });
 
         ConfigureLedger(model);
+
+        model.Entity<Invoice>(e =>
+        {
+            e.ToTable("Invoices", t =>
+            {
+                t.HasCheckConstraint("CK_Invoices_Amount", "AmountPaise > 0 AND RatePaise > 0");
+                t.HasCheckConstraint("CK_Invoices_Trips", "Trips >= 1 AND VolumeTenths >= 0");
+                t.HasCheckConstraint("CK_Invoices_Allocated", "AllocatedPaise >= 0 AND AllocatedPaise <= AmountPaise");
+                // Exactly the right party for Bill To (Database Schema page 9).
+                t.HasCheckConstraint("CK_Invoices_BillTo",
+                    "(BillToType = 'Supplier' AND CustomerId IS NULL) OR (BillToType = 'Customer' AND CustomerId IS NOT NULL)");
+            });
+            e.Property(i => i.DisplayNo).HasMaxLength(20).IsRequired();
+            e.Property(i => i.Material).HasMaxLength(120).IsRequired();
+            e.Property(i => i.Narration).HasMaxLength(300);
+            e.Property(i => i.CancelReason).HasMaxLength(300);
+            e.Property(i => i.Version).IsConcurrencyToken();
+            e.Ignore(i => i.OutstandingPaise);
+            e.Ignore(i => i.Measurement);
+            e.HasIndex(i => i.InvoiceNo).IsUnique();
+            e.HasIndex(i => i.VoucherId).IsUnique();
+            e.HasIndex(i => new { i.InvoiceDate, i.Status });
+            e.HasIndex(i => new { i.SupplierId, i.InvoiceDate });
+            e.HasIndex(i => new { i.CustomerId, i.InvoiceDate });
+            e.HasIndex(i => new { i.VehicleId, i.InvoiceDate });
+            e.HasOne<Vehicle>().WithMany().HasForeignKey(i => i.VehicleId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne<Supplier>().WithMany().HasForeignKey(i => i.SupplierId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne<Customer>().WithMany().HasForeignKey(i => i.CustomerId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne<Voucher>().WithMany().HasForeignKey(i => i.VoucherId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne<Voucher>().WithMany().HasForeignKey(i => i.ReversalVoucherId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne<User>().WithMany().HasForeignKey(i => i.CreatedByUserId).OnDelete(DeleteBehavior.Restrict);
+        });
 
         model.Entity<User>(e =>
         {
@@ -301,6 +337,8 @@ public class AppDbContext : DbContext
         foreach (var entry in ChangeTracker.Entries<BusinessDay>())
             if (entry.State == EntityState.Modified) entry.Entity.Version++;
         foreach (var entry in ChangeTracker.Entries<Voucher>())
+            if (entry.State == EntityState.Modified) entry.Entity.Version++;
+        foreach (var entry in ChangeTracker.Entries<Invoice>())
             if (entry.State == EntityState.Modified) entry.Entity.Version++;
     }
 

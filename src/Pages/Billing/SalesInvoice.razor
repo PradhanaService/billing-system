@@ -1,0 +1,208 @@
+@page "/invoices/new"
+@attribute [Authorize(Policy = nameof(Permission.InvoiceCreate))]
+@inherits UserContextBase
+@using WaterBilling.Services.Billing
+@using WaterBilling.Services.Masters
+@inject InvoiceService Svc
+@inject VehicleService VehicleSvc
+@inject CustomerService CustomerSvc
+
+<PageTitle>Sales Invoice</PageTitle>
+
+<h1>Sales Invoice</h1>
+
+<PageMessage Text="@MessageText" Ok="@MessageOk" />
+@if (_savedId is not null)
+{
+    <p>
+        <a class="btn" href="/pdf/invoice/@_savedId" target="_blank" rel="noopener">Print @_savedNo</a>
+        <a class="btn" href="/invoices/@_savedId">View @_savedNo</a>
+    </p>
+}
+
+<div class="card">
+    <div class="form-grid">
+        <div class="field">
+            <label>Invoice No.</label>
+            <input value="@_nextNo" readonly title="Assigned when you save" />
+            <small>Expected. Assigned when you save.</small>
+        </div>
+        <div class="field">
+            <label>Invoice Date</label>
+            <input value="@IndianTime.FormatDate(_date)" readonly />
+            <small>Business day (6 PM to 6 PM).</small>
+        </div>
+        <div class="field">
+            <label for="vcode">Vehicle Code*</label>
+            <select id="vcode" @bind="_form.VehicleId" @bind:after="OnVehicleChanged">
+                <option value="0">Choose</option>
+                @foreach (var v in _vehicles) { <option value="@v.Id">@v.Code</option> }
+            </select>
+        </div>
+        <div class="field">
+            <label for="vname">Vehicle Name*</label>
+            <select id="vname" @bind="_form.VehicleId" @bind:after="OnVehicleChanged">
+                <option value="0">Choose</option>
+                @foreach (var v in _vehicles.OrderBy(x => x.Nickname)) { <option value="@v.Id">@v.Nickname</option> }
+            </select>
+        </div>
+        <div class="field">
+            <label>Vehicle Supplier</label>
+            <input value="@(_vehicle?.SupplierName)" readonly />
+        </div>
+        <div class="field">
+            <label for="billto">Bill To</label>
+            <select id="billto" @bind="_form.BillToType">
+                <option value="@PartyType.Supplier">Vehicle supplier</option>
+                <option value="@PartyType.Customer">A customer</option>
+            </select>
+        </div>
+        @if (_form.BillToType == PartyType.Customer)
+        {
+            <div class="field">
+                <label for="customer">Customer*</label>
+                <select id="customer" @bind="_form.CustomerId">
+                    <option value="">Choose</option>
+                    @foreach (var c in _customers) { <option value="@c.Id">@c.Name</option> }
+                </select>
+            </div>
+        }
+        <div class="field">
+            <label for="mode">Payment Mode*</label>
+            <select id="mode" @bind="_form.PaymentMode">
+                <option value="@InvoicePaymentMode.Credit">Credit</option>
+                <option value="@InvoicePaymentMode.Cash">Cash</option>
+            </select>
+        </div>
+        <div class="field">
+            <label for="trips">Trip*</label>
+            <input id="trips" type="number" min="1" max="99" @bind="_form.Trips" @bind:event="oninput" />
+        </div>
+        @if (_vehicle?.BillingBasis == BillingBasis.Volume)
+        {
+            <div class="field">
+                <label for="volume">Volume (kL)*</label>
+                <input id="volume" type="number" min="0" step="0.1" @bind="_form.VolumeKl" @bind:event="oninput" />
+            </div>
+        }
+        <div class="field">
+            <label for="rate">Rate (₹ per @(_vehicle?.BillingBasis == BillingBasis.Volume ? "kL" : "trip"))*</label>
+            <input id="rate" type="number" min="0" step="0.01" @bind="_form.Rate" @bind:event="oninput"
+                   readonly="@(!Can(Permission.InvoiceOverrideRate))" />
+            @if (!Can(Permission.InvoiceOverrideRate)) { <small>From the Vehicle Master.</small> }
+        </div>
+        @if (RateChanged)
+        {
+            <div class="field">
+                <label for="ratereason">Reason for rate change*</label>
+                <input id="ratereason" @bind="_form.RateReason" />
+            </div>
+        }
+    </div>
+    <div class="field">
+        <label for="narration">Narration</label>
+        <input id="narration" @bind="_form.Narration" maxlength="300" />
+    </div>
+</div>
+
+<div class="card">
+    <h2>Item Details</h2>
+    <table class="data">
+        <thead><tr><th>S.No</th><th>Material</th><th class="num">Qty</th><th>Measurement</th><th class="num">Rate (₹)</th><th class="num">Total Amount (₹)</th></tr></thead>
+        <tbody>
+            @if (_vehicle is not null)
+            {
+                <tr>
+                    <td>1</td><td>Water</td>
+                    <td class="num">@PreviewQty</td>
+                    <td>@(_vehicle.BillingBasis == BillingBasis.Trip ? "Trip" : "kL")</td>
+                    <td class="num">@PreviewRate</td>
+                    <td class="num">@PreviewAmount</td>
+                </tr>
+            }
+            else
+            {
+                <tr><td colspan="6" class="muted">Choose a vehicle.</td></tr>
+            }
+        </tbody>
+        <tfoot><tr><td colspan="5" class="num">Total</td><td class="num">@PreviewAmount</td></tr></tfoot>
+    </table>
+    <div class="form-actions">
+        <button class="btn btn-primary" @onclick="SaveAsync" disabled="@(Busy || _vehicle is null)">Save invoice</button>
+        <button class="btn" @onclick="ResetForm">Clear</button>
+    </div>
+</div>
+
+@code {
+    private InvoiceForm _form = new();
+    private IReadOnlyList<VehicleForBilling> _vehicles = [];
+    private IReadOnlyList<(long Id, string Name)> _customers = [];
+    private VehicleForBilling? _vehicle;
+    private string _nextNo = "";
+    private DateOnly _date;
+    private long? _savedId;
+    private string? _savedNo;
+
+    protected override async Task OnUserReadyAsync()
+    {
+        _vehicles = await VehicleSvc.ListBillableAsync();
+        _customers = await CustomerSvc.ListActiveAsync();
+        await RefreshHeaderAsync();
+    }
+
+    private async Task RefreshHeaderAsync()
+    {
+        _nextNo = await Svc.PeekNextNumberAsync();
+        _date = Svc.BusinessDate();
+    }
+
+    // FR-INV-02: choosing code or name fills the other, the supplier and the rate.
+    private void OnVehicleChanged()
+    {
+        _vehicle = _vehicles.FirstOrDefault(v => v.Id == _form.VehicleId);
+        _form.Rate = _vehicle is null ? 0 : Money.ToRupees(_vehicle.RatePaise);
+        _form.RateReason = null;
+    }
+
+    private bool RateChanged => _vehicle is not null && _form.Rate != Money.ToRupees(_vehicle.RatePaise);
+
+    private long? PreviewPaise
+    {
+        get
+        {
+            if (_vehicle is null || _form.Trips < 1 || _form.Rate <= 0) return null;
+            try
+            {
+                return InvoiceMath.Amount(_vehicle.BillingBasis, _form.Trips,
+                    Volume.FromKilolitres(Math.Round(_form.VolumeKl, 1)), Money.RoundHalfUp(_form.Rate));
+            }
+            catch (Exception) { return null; }   // half-typed input: no preview yet
+        }
+    }
+
+    private string PreviewAmount => PreviewPaise is { } p ? Money.Format(p) : "-";
+    private string PreviewRate => _form.Rate > 0 ? Money.Format(Money.RoundHalfUp(_form.Rate)) : "-";
+    private string PreviewQty => _vehicle?.BillingBasis == BillingBasis.Volume ? _form.VolumeKl.ToString("0.0") : _form.Trips.ToString();
+
+    private async Task SaveAsync()
+    {
+        Busy = true;
+        try
+        {
+            var result = await Svc.CreateAsync(_form);
+            if (result.Ok)
+            {
+                var saved = await Svc.GetAsync(result.Value);
+                _savedId = result.Value;
+                _savedNo = saved?.DisplayNo;
+                ShowOk($"Invoice {_savedNo} saved for ₹{Money.Format(saved?.AmountPaise ?? 0)}.");
+                ResetForm();
+                await RefreshHeaderAsync();
+            }
+            else ShowError(result.Error!);
+        }
+        finally { Busy = false; }
+    }
+
+    private void ResetForm() { _form = new InvoiceForm(); _vehicle = null; }
+}

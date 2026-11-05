@@ -81,6 +81,12 @@ builder.Services.AddScoped<WaterBilling.Services.Ledger.LedgerPoster>();
 builder.Services.AddScoped<WaterBilling.Services.Masters.SupplierService>();
 builder.Services.AddScoped<WaterBilling.Services.Masters.CustomerService>();
 builder.Services.AddScoped<WaterBilling.Services.Masters.VehicleService>();
+builder.Services.AddScoped<WaterBilling.Services.Billing.InvoiceService>();
+
+// Company details printed on PDFs. QuestPDF is free under its Community licence for
+// businesses with under USD 1M annual revenue.
+builder.Services.Configure<WaterBilling.Services.Common.CompanyInfo>(builder.Configuration.GetSection("Company"));
+QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
 
 var app = builder.Build();
 
@@ -156,6 +162,18 @@ app.MapPost("/account/logout", async (HttpContext context, AuthService auth, [Fr
     await context.SignOutAsync();
     return Results.Redirect("/account/login");
 });
+
+// PDF downloads are normal HTTP requests, so they carry their own permission check.
+app.MapGet("/pdf/invoice/{id:long}", async (long id, HttpContext context, CurrentUser currentUser,
+    WaterBilling.Services.Billing.InvoiceService invoices,
+    Microsoft.Extensions.Options.IOptions<WaterBilling.Services.Common.CompanyInfo> company, TimeProvider clock) =>
+{
+    currentUser.UseHttpUser(context.User);
+    var invoice = await invoices.GetAsync(id);
+    if (invoice is null) return Results.NotFound();
+    var pdf = WaterBilling.Components.Pdf.InvoicePdf.Generate(invoice, company.Value, clock.GetUtcNow().UtcDateTime);
+    return Results.File(pdf, "application/pdf");   // no file name: the browser shows it inline
+}).RequireAuthorization(nameof(Permission.InvoiceView));
 
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
