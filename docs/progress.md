@@ -36,3 +36,6 @@
 
 ## Module 10: Payments & Ledger Master
 - Done: PaymentService (P4 expense with optional vehicle tag, P5 refund to supplier/customer, Bank/UPI reference rule, cash-above-drawer confirmation, cancel by reversal, history); LedgerMasterService (create/edit/deactivate expense ledgers, system ledgers locked, delete only without entries, Admin sets a series' starting number before first use); Payment and Ledger Master screens. 195 tests passing.
+
+## Module 11: Ledger Statements
+- Done: StatementService (supplier, customer, vehicle, account/cash book; opening b/f, lines, period totals, closing c/f; by Date or by Value Date); generic ReportTable + ReportPdf + ReportView shared by statements and reports; statement PDF endpoint; Ledger Statement screen. Test proves statement balances equal the stored running balances. 203 tests passing.

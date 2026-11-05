@@ -1,0 +1,82 @@
+@page "/statements"
+@attribute [Authorize(Policy = nameof(Permission.StatementsView))]
+@inherits UserContextBase
+@using WaterBilling.Services.Accounts
+@inject StatementService Svc
+@inject TimeProvider Clock
+
+<PageTitle>Ledger Statement</PageTitle>
+
+<h1>Ledger Statement</h1>
+
+<PageMessage Text="@MessageText" Ok="@MessageOk" />
+
+<div class="toolbar">
+    <div class="field">
+        <label for="kind">Statement of</label>
+        <select id="kind" @bind="_kind" @bind:after="KindChangedAsync">
+            <option value="@StatementKind.Supplier">Supplier</option>
+            <option value="@StatementKind.Customer">Customer</option>
+            <option value="@StatementKind.Vehicle">Vehicle</option>
+            <option value="@StatementKind.Account">Ledger (account)</option>
+        </select>
+    </div>
+    <div class="field">
+        <label for="subject">Name</label>
+        <select id="subject" @bind="_id" @bind:after="LoadAsync">
+            <option value="0">Choose</option>
+            @foreach (var s in _subjects) { <option value="@s.Id">@s.Name</option> }
+        </select>
+    </div>
+    <div class="field"><label for="from">From</label><input id="from" type="date" @bind="_from" @bind:after="LoadAsync" /></div>
+    <div class="field"><label for="to">To</label><input id="to" type="date" @bind="_to" @bind:after="LoadAsync" /></div>
+    <div class="field">
+        <label for="sort">Order</label>
+        <select id="sort" @bind="_byValueDate" @bind:after="LoadAsync">
+            <option value="false">By Date</option>
+            <option value="true">By Value Date</option>
+        </select>
+    </div>
+    @if (_statement is not null)
+    {
+        <a class="btn" target="_blank" rel="noopener"
+           href="@($"/pdf/statement?kind={_kind}&id={_id}&from={_from:yyyy-MM-dd}&to={_to:yyyy-MM-dd}&valueDate={_byValueDate}")">Print PDF</a>
+    }
+</div>
+
+@if (_statement is not null)
+{
+    <ReportView Table="StatementService.ToTable(_statement)" />
+}
+
+@code {
+    private StatementKind _kind = StatementKind.Supplier;
+    private long _id;
+    private DateOnly _from, _to;
+    private bool _byValueDate;
+    private IReadOnlyList<StatementSubject> _subjects = [];
+    private Statement? _statement;
+
+    protected override async Task OnUserReadyAsync()
+    {
+        var today = DateOnly.FromDateTime(IndianTime.ToIst(Clock.GetUtcNow().UtcDateTime));
+        _from = new DateOnly(today.Year, today.Month, 1);
+        _to = today.AddDays(1);
+        _subjects = await Svc.SubjectsAsync(_kind);
+    }
+
+    private async Task KindChangedAsync()
+    {
+        _id = 0;
+        _statement = null;
+        _subjects = await Svc.SubjectsAsync(_kind);
+    }
+
+    private async Task LoadAsync()
+    {
+        MessageText = null;
+        if (_id <= 0) { _statement = null; return; }
+        if (_to < _from) { ShowError("The To date is before the From date."); _statement = null; return; }
+        _statement = await Svc.GetAsync(new StatementRequest(_kind, _id, _from, _to, _byValueDate));
+    }
+}

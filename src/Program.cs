@@ -85,6 +85,7 @@ builder.Services.AddScoped<WaterBilling.Services.Billing.InvoiceService>();
 builder.Services.AddScoped<WaterBilling.Services.Accounts.ReceiptService>();
 builder.Services.AddScoped<WaterBilling.Services.Accounts.PaymentService>();
 builder.Services.AddScoped<WaterBilling.Services.Accounts.LedgerMasterService>();
+builder.Services.AddScoped<WaterBilling.Services.Accounts.StatementService>();
 
 // Company details printed on PDFs. QuestPDF is free under its Community licence for
 // businesses with under USD 1M annual revenue.
@@ -177,6 +178,18 @@ app.MapGet("/pdf/invoice/{id:long}", async (long id, HttpContext context, Curren
     var pdf = WaterBilling.Components.Pdf.InvoicePdf.Generate(invoice, company.Value, clock.GetUtcNow().UtcDateTime);
     return Results.File(pdf, "application/pdf");   // no file name: the browser shows it inline
 }).RequireAuthorization(nameof(Permission.InvoiceView));
+
+app.MapGet("/pdf/statement", async (HttpContext context, CurrentUser currentUser,
+    WaterBilling.Services.Accounts.StatementService statements,
+    Microsoft.Extensions.Options.IOptions<WaterBilling.Services.Common.CompanyInfo> company, TimeProvider clock,
+    WaterBilling.Services.Accounts.StatementKind kind, long id, DateOnly from, DateOnly to, bool valueDate = false) =>
+{
+    currentUser.UseHttpUser(context.User);
+    var statement = await statements.GetAsync(new(kind, id, from, to, valueDate));
+    if (statement is null) return Results.NotFound();
+    var table = WaterBilling.Services.Accounts.StatementService.ToTable(statement);
+    return Results.File(WaterBilling.Components.Pdf.ReportPdf.Generate(table, company.Value, clock.GetUtcNow().UtcDateTime), "application/pdf");
+}).RequireAuthorization(nameof(Permission.StatementsView));
 
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
