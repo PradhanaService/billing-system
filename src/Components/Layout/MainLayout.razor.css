@@ -4,16 +4,16 @@
     grid-template-rows: 72px 1fr;
     grid-template-areas: "top top" "side main";
     min-height: 100vh;
-    background: linear-gradient(180deg, #0b3f86 0%, #072a5c 100%);
+    background: #0a3570;
 }
 
 .topbar {
     grid-area: top; display: flex; align-items: center; justify-content: space-between;
     padding: 0 1.5rem 0 1.75rem;
-    background: linear-gradient(90deg, #072a5c 0%, #0b3f86 60%, #0a3670 100%);
+    background: #072a5c;
     border-bottom: 1px solid rgba(255, 255, 255, 0.12);
 }
-.brand { color: #ffffff; font-size: 1.85rem; font-weight: 800; text-decoration: none; letter-spacing: 0.01em; }
+.brand { color: #ffffff; font-size: 1.6rem; font-weight: 700; text-decoration: none; }
 
 .user-menu { position: relative; border-left: 1px solid rgba(255, 255, 255, 0.35); padding-left: 1.25rem; }
 .user-menu summary {
@@ -21,14 +21,14 @@
     color: #ffffff; font-weight: 600; font-size: 1.05rem;
 }
 .user-menu summary::-webkit-details-marker { display: none; }
-.avatar { display: inline-flex; width: 38px; height: 38px; border-radius: 50%; background: #ffffff; color: #0b3f86; align-items: center; justify-content: center; }
+.avatar { display: inline-flex; color: #ffffff; align-items: center; }
 .user-menu-panel {
     position: absolute; right: 0; top: calc(100% + 10px); min-width: 210px; z-index: 50;
-    background: #ffffff; border-radius: 10px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25); padding: 0.5rem;
+    background: #ffffff; border: 1px solid var(--line); border-radius: 4px; padding: 0.5rem;
 }
 .user-menu-role { padding: 0.4rem 0.6rem; color: var(--muted); font-size: 0.85rem; border-bottom: 1px solid var(--line); margin-bottom: 0.25rem; }
 .user-menu-panel a, .user-menu-panel button {
-    display: flex; align-items: center; gap: 0.5rem; width: 100%; padding: 0.5rem 0.6rem; border-radius: 6px;
+    display: flex; align-items: center; gap: 0.5rem; width: 100%; padding: 0.5rem 0.6rem; border-radius: 4px;
     color: var(--ink); text-decoration: none; background: none; border: none; font: inherit; cursor: pointer; text-align: left;
 }
 .user-menu-panel a:hover, .user-menu-panel button:hover { background: var(--blue-50); }
@@ -37,8 +37,7 @@
 
 .content {
     grid-area: main; padding: 1.4rem 1.75rem 2.5rem;
-    background: linear-gradient(180deg, #f3f8ff 0%, #eaf2fd 100%);
-    border-top-left-radius: 22px; min-width: 0;
+    background: #f2f6fc; min-width: 0;
 }
 
 #blazor-error-ui {

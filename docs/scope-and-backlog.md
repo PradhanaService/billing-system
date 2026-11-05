@@ -12,7 +12,7 @@
 ## Not built in Version 1.0
 | Item | Why | Status |
 |---|---|---|
-| Meter dispensing (Meters 1–3, fills, meter chain, overrides) | Not confirmed by the client (question 9) | Build the simple version if the client confirms |
+| Meter dispensing (Meters 1, 2 and 3, fills, meter chain, overrides) | Not confirmed by the client (question 9) | Build the simple version if the client confirms |
 | Two-step login, account lockout | CLAUDE.md §3 | Version 1.1 |
 | Vehicle transfer between suppliers | CLAUDE.md §3 | Version 1.1 |
 | Dated rate history | CLAUDE.md §3 (rate is one value per vehicle) | Version 1.1 |

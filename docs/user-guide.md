@@ -9,11 +9,11 @@ The business day runs **6:00 PM to 6:00 PM**. Anything entered from 6 PM belongs
 ## Who can do what
 | | Admin | Dispatch Operator, Billing Clerk, Accountant |
 |---|---|---|
-| Dashboard, Vehicle Master, Suppliers, Customers | ✓ | ✓ |
-| Sales Invoice, Invoice Display, cancel invoices | ✓ | ✓ |
-| Transactions (Receipt and Payment), Ledger Master | ✓ | ✓ |
-| Day Sales and day closing, Ledger Statement, Reports | ✓ | ✓ |
-| **Users & Roles, Activity Log, Backup** | ✓ | not shown at all |
+| Dashboard, Vehicle Master, Suppliers, Customers | Yes | Yes |
+| Sales Invoice, Invoice Display, cancel invoices | Yes | Yes |
+| Transactions (Receipt and Payment), Ledger Master | Yes | Yes |
+| Day Sales and day closing, Ledger Statement, Reports | Yes | Yes |
+| **Users & Roles, Activity Log, Backup** | Yes | No (not shown anywhere) |
 
 ## Dashboard
 This month's sales, today's sales/receipts/payments, outstanding, cash, a 6-month chart
@@ -26,7 +26,7 @@ This month's sales, today's sales/receipts/payments, outstanding, cash, a 6-mont
   the bin deletes (only a vehicle with no transactions; otherwise set it Inactive).
 - **Add Vehicle**: Vehicle No., Supplier, Trip Cost, Capacity, Status; under *Billing and Driver* the Rate
   (per trip or per kL) that invoices use. The vehicle code (A1, A2 ...) is proposed and never reused.
-- **Add Supplier**: name, contact, phone, address, status switch. An opening balance can only be given when adding.
+- **Add Supplier**: name, contact, phone, address, an Active tick box. An opening balance can only be given when adding.
 - **Customers**: direct billing parties (e.g. Meena Constructions).
 
 ![Vehicle Master](images/vehicle-master.png)
@@ -51,7 +51,7 @@ Payment columns, the totals, and Opening Balance, Total Sales and Closing Balanc
 - **Receipt** tab: choose the party, mode and amount. The screen shows the balance before and after and which
   invoices it pays (oldest first). Bank and UPI need a reference number.
 - **Payment** tab: choose the ledger (e.g. Vehicle Maintenance), who is paid, optional vehicle, mode, amount.
-  For a refund choose *Refund / payout to …*. Paying more cash than is in hand needs a tick to confirm.
+  For a refund choose *Refund / payout to supplier* (or customer). Paying more cash than is in hand needs a tick to confirm.
 - **Previous / Next** show saved vouchers. **Delete** cancels the one on screen (a reason is required and a
   reversal is posted). Saved vouchers are never edited: cancel and enter again.
 
@@ -59,7 +59,7 @@ Payment columns, the totals, and Opening Balance, Total Sales and Closing Balanc
 
 ## Ledger Master
 Type a ledger name and **Save**. The pencil renames or deactivates; the bin deletes a ledger that has no entries.
-System ledgers (Cash in Hand, Water Sales …) are listed separately and cannot be changed.
+System ledgers (Cash in Hand, Water Sales and the others) are listed separately and cannot be changed.
 
 ![Ledger Master](images/ledger-master.png)
 

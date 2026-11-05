@@ -59,6 +59,9 @@
 - Done: Windows service hosting; production settings (localhost:5080 only, data in %ProgramData%\WaterBilling); data-protection keys stored with the data (DPAPI on Windows) so logins survive restarts; self-contained win-x64 publish verified; Inno Setup script (service registration with restart-on-failure, locked-down data folder, shortcuts, upgrade and uninstall keeping data); build script that runs tests first; install guide. 311 tests passing.
 - Not possible here: compiling the .iss needs Inno Setup on Windows (run `installer\build-installer.ps1`).
 
+## Module 20: Plain design pass
+- Done: removed every gradient (incl. the pink/purple tile), pill shapes, shadows and the toggle animation; flat colours and small corners; plain radio buttons and checkbox; concrete page subtitles; no em/en dashes, check-mark glyphs or emoji in UI or docs. 360 tests passing.
+
 ## Module 19: Redesign to client designs + role change
 - Done: all screens rebuilt to Designs.pdf / Transactions.pdf (navy frame, blue cards, icons, Add Vehicle and Add Supplier pages, Sales Invoice with amount box, Invoice Display with summary, Transactions with Receipt/Payment tabs and Next/Previous/New/Save/View/Edit/Delete/Exit, Ledger Master). Role rule: only Admin sees Users, Activity Log and Backup (404 for others); every other role does all business work. 360 tests passing.
 

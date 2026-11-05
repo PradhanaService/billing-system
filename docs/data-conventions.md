@@ -7,7 +7,7 @@ Rules every table and every module follows. The code that applies them is named 
 | Money | `long`, whole **paise** | ₹1,250.50 → `125050` | `Services/Common/Money.cs` |
 | Meter reading / volume | `long`, whole **tenths of a kL** | 28451.2 kL → `284512` | `Services/Common/Volume.cs` |
 | Moment in time | `DateTime` in **UTC** (column ends in `Utc`) | 05/11/2026 06:15 PM IST → `2026-11-05 12:45 UTC` | `Services/Common/IndianTime.cs` |
-| Business date | `DateOnly` (no time) | `2026-11-05` | — |
+| Business date | `DateOnly` (no time) | `2026-11-05` | (none) |
 | Status and type fields | enum stored as its **name** | `"Active"` | `Data/Entities/Enums.cs` |
 
 ## Money
@@ -36,7 +36,7 @@ The spec targets PostgreSQL. SQLite does not have every feature, so:
 |---|---|
 | `numeric(14,2)` money | `long` paise |
 | `numeric(12,1)` readings | `long` tenths |
-| Unique on `lower(name)` | Extra `NormalizedName` column (spaces tidied, upper case) with a unique index. Handles all languages, not just A–Z. |
+| Unique on `lower(name)` | Extra `NormalizedName` column (spaces tidied, upper case) with a unique index. Handles all languages, not just A to Z. |
 | `version` column for edit conflicts | EF Core concurrency token on `Version`. The second editor gets a "changed by someone else" error (NFR-CON-05). |
 | `timestamptz` | UTC `DateTime` plus a converter that marks values as UTC on read |
 | Check constraints | Same: SQLite supports `CHECK` |

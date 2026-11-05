@@ -68,7 +68,7 @@
                         <div class="radio-pills" role="radiogroup" aria-labelledby="status-label">
                             @foreach (var st in Enum.GetValues<VehicleStatus>())
                             {
-                                <label class="radio-pill @(_form.Status == st ? "on" : "")">
+                                <label class="radio-pill">
                                     <input type="radio" name="status" checked="@(_form.Status == st)" @onchange="() => _form.Status = st" /> @st
                                 </label>
                             }
