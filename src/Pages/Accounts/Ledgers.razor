@@ -1,0 +1,142 @@
+@page "/ledgers"
+@attribute [Authorize(Policy = nameof(Permission.LedgerManage))]
+@inherits UserContextBase
+@using WaterBilling.Services.Accounts
+@inject LedgerMasterService Svc
+
+<PageTitle>Ledger Master</PageTitle>
+
+<h1>Ledger Master</h1>
+
+<PageMessage Text="@MessageText" Ok="@MessageOk" />
+
+<div class="card">
+    <h2>@(_editingId is null ? "Add expense ledger" : "Edit ledger")</h2>
+    <EditForm Model="_form" OnValidSubmit="SaveAsync">
+        <DataAnnotationsValidator />
+        <div class="form-grid">
+            <div class="field">
+                <label for="name">Ledger name*</label>
+                <InputText id="name" @bind-Value="_form.Name" placeholder="e.g. Tyre Replacement" />
+                <ValidationMessage For="() => _form.Name" />
+            </div>
+            <div class="field">
+                <label for="status">Status</label>
+                <InputSelect id="status" @bind-Value="_form.Status">
+                    <option value="@RecordStatus.Active">Active</option>
+                    <option value="@RecordStatus.Inactive">Inactive</option>
+                </InputSelect>
+            </div>
+        </div>
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary" disabled="@Busy">Save</button>
+            @if (_editingId is not null) { <button type="button" class="btn" @onclick="StartNew">Cancel</button> }
+        </div>
+    </EditForm>
+</div>
+
+<table class="data">
+    <thead><tr><th>Ledger</th><th>Type</th><th>Kind</th><th class="num">Balance</th><th>Status</th><th></th></tr></thead>
+    <tbody>
+        @foreach (var l in _rows)
+        {
+            <tr class="@(l.Status == RecordStatus.Inactive ? "muted" : "")">
+                <td>@l.Name</td><td>@l.Type</td><td>@(l.IsSystem ? "System" : "User")</td>
+                <td class="num"><BalanceText Paise="l.BalancePaise" /></td>
+                <td>@l.Status</td>
+                <td>
+                    @if (!l.IsSystem)
+                    {
+                        <button class="btn btn-small" @onclick="() => Edit(l)">Edit</button>
+                        @if (!l.HasEntries)
+                        {
+                            <button class="btn btn-small btn-danger" @onclick="() => DeleteAsync(l.Id)">Delete</button>
+                        }
+                    }
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+@if (Can(Permission.UsersManage))
+{
+    <div class="card" style="margin-top: 1.5rem">
+        <h2>Starting numbers</h2>
+        <p class="muted">Set the agreed first number of a series. Allowed only before the series is first used.</p>
+        <table class="data">
+            <thead><tr><th>Series</th><th>Next number</th><th></th></tr></thead>
+            <tbody>
+                @foreach (var s in _series)
+                {
+                    <tr>
+                        <td>@s.Code</td>
+                        <td>@s.Prefix@s.NextNo</td>
+                        <td>
+                            @if (s.CanChange)
+                            {
+                                <input type="number" min="1" style="width: 9rem" @bind="_starts[s.Code]" />
+                                <button class="btn btn-small" @onclick="() => SetStartAsync(s.Code)">Set</button>
+                            }
+                            else { <span class="muted">In use</span> }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@code {
+    private IReadOnlyList<LedgerRow> _rows = [];
+    private IReadOnlyList<SeriesRow> _series = [];
+    private readonly Dictionary<string, long> _starts = new();
+    private LedgerForm _form = new();
+    private long? _editingId;
+
+    protected override Task OnUserReadyAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _rows = await Svc.ListAsync();
+        _series = await Svc.SeriesAsync();
+        foreach (var s in _series) _starts[s.Code] = s.NextNo;
+    }
+
+    private void StartNew() { _form = new(); _editingId = null; }
+
+    private void Edit(LedgerRow l)
+    {
+        _editingId = l.Id;
+        _form = new LedgerForm { Name = l.Name, Status = l.Status, Version = l.Version };
+    }
+
+    private async Task SaveAsync()
+    {
+        Busy = true;
+        try
+        {
+            if (_editingId is { } id) Show(await Svc.UpdateAsync(id, _form), "Ledger saved.");
+            else
+            {
+                var r = await Svc.CreateAsync(_form);
+                if (r.Ok) ShowOk("Ledger added."); else ShowError(r.Error!);
+            }
+            if (MessageOk) StartNew();
+            await LoadAsync();
+        }
+        finally { Busy = false; }
+    }
+
+    private async Task DeleteAsync(long id)
+    {
+        Show(await Svc.DeleteAsync(id), "Ledger deleted.");
+        await LoadAsync();
+    }
+
+    private async Task SetStartAsync(string code)
+    {
+        Show(await Svc.SetSeriesStartAsync(code, _starts[code]), $"{code} will start at {_starts[code]}.");
+        await LoadAsync();
+    }
+}

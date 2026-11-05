@@ -1,0 +1,205 @@
+@page "/payments"
+@attribute [Authorize(Policy = nameof(Permission.PaymentCreate))]
+@inherits UserContextBase
+@using WaterBilling.Services.Accounts
+@using WaterBilling.Services.Masters
+@inject PaymentService Svc
+@inject VehicleService VehicleSvc
+@inject TimeProvider Clock
+
+<PageTitle>Payment</PageTitle>
+
+<h1>Payment Voucher</h1>
+
+<PageMessage Text="@MessageText" Ok="@MessageOk" />
+
+<div class="card">
+    <div class="form-grid">
+        <div class="field">
+            <label>Voucher No.</label>
+            <input value="@_nextNo" readonly />
+            <small>Expected. Assigned when you save.</small>
+        </div>
+        <div class="field">
+            <label for="ledger">Ledger* (Payment Purpose)</label>
+            <select id="ledger" @bind="_form.AccountId" @bind:after="RefreshAsync">
+                <option value="0">Choose</option>
+                @foreach (var l in _ledgers) { <option value="@l.Id">@l.Name</option> }
+            </select>
+        </div>
+        @if (SelectedLedger?.IsPartyRefund == true)
+        {
+            <div class="field">
+                <label for="party">Pay To*</label>
+                <select id="party" @bind="_form.PartyId" @bind:after="RefreshAsync">
+                    <option value="0">Choose</option>
+                    @foreach (var p in _parties) { <option value="@p.Id">@p.Name</option> }
+                </select>
+            </div>
+        }
+        else
+        {
+            <div class="field">
+                <label for="payto">Pay To</label>
+                <input id="payto" @bind="_form.PayTo" maxlength="120" placeholder="e.g. Murugan Garage" />
+            </div>
+        }
+        <div class="field">
+            <label for="vehicle">Vehicle (optional)</label>
+            <select id="vehicle" @bind="_form.VehicleId">
+                <option value="">None</option>
+                @foreach (var v in _vehicles) { <option value="@v.Id">@v.Code - @v.VehicleNo</option> }
+            </select>
+        </div>
+        <div class="field">
+            <label for="mode">Payment Mode*</label>
+            <select id="mode" @bind="_form.Mode">
+                <option value="@PaymentMode.Cash">Cash</option>
+                <option value="@PaymentMode.Bank">Bank</option>
+                <option value="@PaymentMode.Upi">UPI</option>
+            </select>
+        </div>
+        <div class="field">
+            <label for="amount">Amount (₹)*</label>
+            <input id="amount" type="number" min="0" step="0.01" @bind="_form.Amount" @bind:event="oninput" />
+        </div>
+        <div class="field">
+            <label for="ref">Reference Number@(_form.Mode != PaymentMode.Cash ? "*" : "")</label>
+            <input id="ref" @bind="_form.ReferenceNo" maxlength="40" />
+        </div>
+    </div>
+    <div class="field">
+        <label for="narr">Narration</label>
+        <input id="narr" @bind="_form.Narration" maxlength="300" />
+    </div>
+
+    @if (_form.AccountId > 0)
+    {
+        <p>
+            Ledger balance now: <BalanceText Paise="_balance" /> &nbsp;·&nbsp;
+            After this payment: <BalanceText Paise="@(_balance + AmountPaise)" />
+            @if (_form.Mode == PaymentMode.Cash) { <span> &nbsp;·&nbsp; Cash in hand: ₹@Money.Format(_cash)</span> }
+        </p>
+    }
+    @if (_form.Mode == PaymentMode.Cash && AmountPaise > _cash)
+    {
+        <div class="alert alert-warn">
+            This is more than the cash in hand (₹@Money.Format(_cash)).
+            <label><input type="checkbox" @bind="_form.ConfirmAboveCash" /> I confirm this payment</label>
+        </div>
+    }
+
+    <div class="form-actions">
+        <button class="btn btn-primary" @onclick="SaveAsync" disabled="@Busy">Save payment</button>
+    </div>
+</div>
+
+<h2>Payment History</h2>
+<div class="toolbar">
+    <div class="field"><label for="from">From</label><input id="from" type="date" @bind="_from" @bind:after="LoadHistoryAsync" /></div>
+    <div class="field"><label for="to">To</label><input id="to" type="date" @bind="_to" @bind:after="LoadHistoryAsync" /></div>
+</div>
+<table class="data">
+    <thead><tr><th>Voucher</th><th>Date</th><th>Ledger</th><th>Pay To</th><th>Vehicle</th><th>Mode</th><th>Reference</th><th class="num">Amount</th><th>Status</th><th></th></tr></thead>
+    <tbody>
+        @foreach (var r in _history)
+        {
+            <tr class="@(r.Status == VoucherStatus.Cancelled ? "muted" : "")">
+                <td>@r.DisplayNo</td><td>@IndianTime.FormatDate(r.Date)</td><td>@r.Ledger</td><td>@r.PayTo</td><td>@r.VehicleNo</td>
+                <td>@r.Mode</td><td>@r.ReferenceNo</td><td class="num">@Money.Format(r.AmountPaise)</td>
+                <td>@r.Status @if (r.CancelReason is not null) { <small>(@r.CancelReason)</small> }</td>
+                <td>
+                    @if (r.Status == VoucherStatus.Posted && Can(Permission.PaymentCancel))
+                    {
+                        @if (_cancelId == r.VoucherId)
+                        {
+                            <input placeholder="Reason" @bind="_cancelReason" />
+                            <button class="btn btn-small btn-danger" @onclick="() => CancelAsync(r)">Confirm cancel</button>
+                        }
+                        else
+                        {
+                            <button class="btn btn-small btn-danger" @onclick="() => { _cancelId = r.VoucherId; _cancelReason = string.Empty; }">Cancel</button>
+                        }
+                    }
+                </td>
+            </tr>
+        }
+        @if (_history.Count == 0) { <tr><td colspan="10" class="muted">No payments in this period.</td></tr> }
+    </tbody>
+</table>
+
+@code {
+    private PaymentForm _form = new();
+    private IReadOnlyList<PaymentLedger> _ledgers = [];
+    private IReadOnlyList<VehicleRow> _vehicles = [];
+    private List<(long Id, string Name)> _parties = [];
+    private IReadOnlyList<PaymentRow> _history = [];
+    private string _nextNo = "";
+    private long _balance, _cash;
+    private DateOnly _from, _to;
+    private long? _cancelId;
+    private string _cancelReason = "";
+
+    [Inject] private SupplierService SupplierSvc { get; set; } = default!;
+    [Inject] private CustomerService CustomerSvc { get; set; } = default!;
+
+    private PaymentLedger? SelectedLedger => _ledgers.FirstOrDefault(l => l.Id == _form.AccountId);
+    private long AmountPaise => _form.Amount > 0 ? Money.RoundHalfUp(_form.Amount) : 0;
+
+    protected override async Task OnUserReadyAsync()
+    {
+        var today = DateOnly.FromDateTime(IndianTime.ToIst(Clock.GetUtcNow().UtcDateTime));
+        _from = today.AddDays(-30);
+        _to = today.AddDays(1);
+        _ledgers = await Svc.LedgersAsync();
+        _vehicles = await VehicleSvc.SearchAsync(null, StatusFilter.All);
+        _nextNo = await Svc.PeekNextNumberAsync();
+        _cash = await Svc.CashInHandAsync();
+        await LoadHistoryAsync();
+    }
+
+    private async Task RefreshAsync()
+    {
+        if (SelectedLedger?.RefundTo is { } refundTo)
+        {
+            var isSupplier = refundTo == PartyType.Supplier;
+            _form.PartyType = refundTo;
+            _parties = isSupplier
+                ? (await SupplierSvc.SearchAsync(null, StatusFilter.All)).Select(s => (s.Id, s.Name)).ToList()
+                : (await CustomerSvc.SearchAsync(null, StatusFilter.All)).Select(c => (c.Id, c.Name)).ToList();
+        }
+        _balance = _form.AccountId > 0 ? await Svc.LedgerBalanceAsync(_form.AccountId, _form.PartyType, _form.PartyId) : 0;
+        _cash = await Svc.CashInHandAsync();
+    }
+
+    private async Task LoadHistoryAsync() => _history = await Svc.HistoryAsync(_from, _to);
+
+    private async Task SaveAsync()
+    {
+        Busy = true;
+        try
+        {
+            var result = await Svc.CreateAsync(_form);
+            if (result.Ok)
+            {
+                ShowOk($"Payment {_nextNo} saved.");
+                _form = new PaymentForm();
+                _nextNo = await Svc.PeekNextNumberAsync();
+                _balance = 0;
+                _cash = await Svc.CashInHandAsync();
+                await LoadHistoryAsync();
+            }
+            else ShowError(result.Error!);
+        }
+        finally { Busy = false; }
+    }
+
+    private async Task CancelAsync(PaymentRow r)
+    {
+        var result = await Svc.CancelAsync(r.VoucherId, _cancelReason, r.Version);
+        Show(result, $"Payment {r.DisplayNo} cancelled.");
+        _cancelId = null;
+        _cash = await Svc.CashInHandAsync();
+        await LoadHistoryAsync();
+    }
+}

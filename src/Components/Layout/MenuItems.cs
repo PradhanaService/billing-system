@@ -20,12 +20,12 @@ public static class MenuItems
         new("Masters",      "Supplier Master",   "/suppliers",     Permission.MastersView,     IsReady: true),
         new("Masters",      "Customer Master",   "/customers",     Permission.MastersView,     IsReady: true),
         new("Masters",      "Vehicle Master",    "/vehicles",      Permission.MastersView,     IsReady: true),
-        new("Masters",      "Ledger Master",     "/ledgers",       Permission.LedgerManage,    IsReady: false),
+        new("Masters",      "Ledger Master",     "/ledgers",       Permission.LedgerManage,    IsReady: true),
 
         new("Transactions", "Sales Invoice",     "/invoices/new",  Permission.InvoiceCreate,   IsReady: true),
         new("Transactions", "Invoice Display",   "/invoices",      Permission.DaySalesView,    IsReady: false),
         new("Transactions", "Receipt",           "/receipts",      Permission.ReceiptCreate,   IsReady: true),
-        new("Transactions", "Payment",           "/payments",      Permission.PaymentCreate,   IsReady: false),
+        new("Transactions", "Payment",           "/payments",      Permission.PaymentCreate,   IsReady: true),
 
         new("Accounts",     "Ledger Statement",  "/statements",    Permission.StatementsView,  IsReady: false),
         new("Accounts",     "Day Sales",         "/day-sales",     Permission.DaySalesView,    IsReady: false),
