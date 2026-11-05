@@ -675,6 +675,41 @@ namespace WaterBilling.Data.Migrations
                         });
                 });
 
+            modelBuilder.Entity("WaterBilling.Data.Entities.ReceiptAllocation", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("AmountPaise")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("InvoiceId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("VehicleId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("VoucherId")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("VehicleId");
+
+                    b.HasIndex("VoucherId");
+
+                    b.HasIndex("InvoiceId", "IsActive");
+
+                    b.ToTable("ReceiptAllocations", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_Allocations_Amount", "AmountPaise > 0");
+                        });
+                });
+
             modelBuilder.Entity("WaterBilling.Data.Entities.Supplier", b =>
                 {
                     b.Property<long>("Id")
@@ -1108,6 +1143,27 @@ namespace WaterBilling.Data.Migrations
 
                     b.HasOne("WaterBilling.Data.Entities.Voucher", null)
                         .WithMany("Lines")
+                        .HasForeignKey("VoucherId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("WaterBilling.Data.Entities.ReceiptAllocation", b =>
+                {
+                    b.HasOne("WaterBilling.Data.Entities.Invoice", null)
+                        .WithMany()
+                        .HasForeignKey("InvoiceId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("WaterBilling.Data.Entities.Vehicle", null)
+                        .WithMany()
+                        .HasForeignKey("VehicleId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("WaterBilling.Data.Entities.Voucher", null)
+                        .WithMany()
                         .HasForeignKey("VoucherId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();

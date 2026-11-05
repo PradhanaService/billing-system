@@ -278,8 +278,14 @@ public class InvoiceService(IDbContextFactory<AppDbContext> dbFactory, ICurrentU
         return take is { } n ? await query.Take(n).ToListAsync() : await query.ToListAsync();
     }
 
-    // Filled in by Module 9 (receipt allocations).
-    protected virtual Task<string> ReceiptsAllocatedToAsync(AppDbContext db, long invoiceId) => Task.FromResult("see Receipt History");
+    private static async Task<string> ReceiptsAllocatedToAsync(AppDbContext db, long invoiceId)
+    {
+        var numbers = await (from a in db.ReceiptAllocations
+                             join v in db.Vouchers on a.VoucherId equals v.Id
+                             where a.InvoiceId == invoiceId && a.IsActive
+                             select v.DisplayNo).Distinct().ToListAsync();
+        return string.Join(", ", numbers);
+    }
 
     private DateTime Now => clock.GetUtcNow().UtcDateTime;
 }

@@ -1,0 +1,58 @@
+@* Choose a party: Supplier or Customer, then which one. Used on Receipt, Payment and Statement screens. *@
+@using WaterBilling.Services.Masters
+@inject SupplierService SupplierSvc
+@inject CustomerService CustomerSvc
+
+<div class="field">
+    <label for="ptype-@Id">Party type</label>
+    <select id="ptype-@Id" value="@Type" @onchange="TypeChangedAsync">
+        <option value="@PartyType.Supplier">Supplier</option>
+        <option value="@PartyType.Customer">Customer</option>
+    </select>
+</div>
+<div class="field">
+    <label for="party-@Id">@Label*</label>
+    <select id="party-@Id" value="@PartyId" @onchange="PartyChangedAsync">
+        <option value="0">Choose</option>
+        @foreach (var p in _parties) { <option value="@p.Id">@p.Name</option> }
+    </select>
+</div>
+
+@code {
+    [Parameter] public string Id { get; set; } = "p";
+    [Parameter] public string Label { get; set; } = "Party / Supplier";
+    [Parameter] public PartyType Type { get; set; }
+    [Parameter] public EventCallback<PartyType> TypeChanged { get; set; }
+    [Parameter] public long PartyId { get; set; }
+    [Parameter] public EventCallback<long> PartyIdChanged { get; set; }
+    [Parameter] public EventCallback OnPicked { get; set; }
+
+    private List<(long Id, string Name)> _parties = [];
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        // All parties, including inactive ones: an inactive supplier may still pay what it owes.
+        _parties = Type == PartyType.Supplier
+            ? (await SupplierSvc.SearchAsync(null, StatusFilter.All)).Select(s => (s.Id, s.Name)).ToList()
+            : (await CustomerSvc.SearchAsync(null, StatusFilter.All)).Select(c => (c.Id, c.Name)).ToList();
+    }
+
+    private async Task TypeChangedAsync(ChangeEventArgs e)
+    {
+        Type = Enum.Parse<PartyType>(e.Value!.ToString()!);
+        await TypeChanged.InvokeAsync(Type);
+        PartyId = 0;
+        await PartyIdChanged.InvokeAsync(0);
+        await LoadAsync();
+        await OnPicked.InvokeAsync();
+    }
+
+    private async Task PartyChangedAsync(ChangeEventArgs e)
+    {
+        PartyId = long.TryParse(e.Value?.ToString(), out var id) ? id : 0;
+        await PartyIdChanged.InvokeAsync(PartyId);
+        await OnPicked.InvokeAsync();
+    }
+}

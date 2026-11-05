@@ -1,0 +1,6 @@
+@* A balance with Dr/Cr: positive = Dr (they owe us), negative = Cr. *@
+<span class="num">@Money.Format(Math.Abs(Paise)) @(Paise > 0 ? "Dr" : Paise < 0 ? "Cr" : "")</span>
+
+@code {
+    [Parameter] public long Paise { get; set; }
+}
