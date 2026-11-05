@@ -128,6 +128,7 @@
 
     private async Task SaveAsync()
     {
+        if (_busy) return;   // a click that arrives while saving does nothing (NFR-CON-06)
         _busy = true;
         try
         {
@@ -150,6 +151,7 @@
     private async Task ResetAsync()
     {
         if (_resetFor is null) return;
+        if (_busy) return;   // a click that arrives while saving does nothing (NFR-CON-06)
         _busy = true;
         try
         {

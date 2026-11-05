@@ -51,3 +51,6 @@
 
 ## Module 15: Backup & Activity Log
 - Done: BackupService (SQLite online backup, single self-contained file, integrity check, keeps newest 60, automatic daily backup at startup, logged); Backup screen with restore steps; ActivityLogService (Admin only, filters by date/category/user/text, viewing is logged); Activity Log screen with before/after details. Found and fixed: backups left WAL side files; "Automatic": false could not switch auto-backup off. 235 tests passing.
+
+## Module 16: Testing (three rounds) & bug fixing
+- Done: round 1 security review + role-by-page HTTP tests (65); round 2 full business day with four users in the browser; round 3 edge-case tests; re-entry guard on all save buttons; generated requirement-to-test table; `docs/test-report.md`. 311 tests passing.
