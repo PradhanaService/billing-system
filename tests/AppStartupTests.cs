@@ -20,7 +20,7 @@ public class AppStartupTests : IClassFixture<WebApplicationFactory<Program>>
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var html = await response.Content.ReadAsStringAsync();
-        Assert.Contains("Shree Karunambika Traders", html);
+        Assert.Contains("Shree Karunambika Traders", html); // from the layout top bar
     }
 
     [Fact]
@@ -33,6 +33,10 @@ public class AppStartupTests : IClassFixture<WebApplicationFactory<Program>>
         Assert.Equal("nosniff", response.Headers.GetValues("X-Content-Type-Options").Single());
         Assert.Equal("DENY", response.Headers.GetValues("X-Frame-Options").Single());
         Assert.Equal("no-referrer", response.Headers.GetValues("Referrer-Policy").Single());
+
+        var csp = response.Headers.GetValues("Content-Security-Policy").Single();
+        Assert.Contains("script-src 'self'", csp);
+        Assert.Contains("frame-ancestors 'none'", csp);
     }
 
     [Fact]
@@ -45,5 +49,16 @@ public class AppStartupTests : IClassFixture<WebApplicationFactory<Program>>
         var response = await client.SendAsync(request);
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Unknown_Page_Returns_404_With_Friendly_Message()
+    {
+        var client = _factory.CreateClient();
+
+        var response = await client.GetAsync("/does-not-exist");
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        Assert.Contains("Page not found", await response.Content.ReadAsStringAsync());
     }
 }
