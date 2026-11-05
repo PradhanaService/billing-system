@@ -17,6 +17,217 @@ namespace WaterBilling.Data.Migrations
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "8.0.33");
 
+            modelBuilder.Entity("WaterBilling.Data.Entities.Account", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsSystem")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("NormalizedName")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("SystemCode")
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("NormalizedName")
+                        .IsUnique();
+
+                    b.HasIndex("SystemCode")
+                        .IsUnique();
+
+                    b.ToTable("Accounts", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_Accounts_Status", "Status IN ('Active', 'Inactive')");
+                        });
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1L,
+                            CreatedAtUtc = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsSystem = true,
+                            Name = "Cash in Hand",
+                            NormalizedName = "CASH IN HAND",
+                            Status = "Active",
+                            SystemCode = "CASH",
+                            Type = "Asset",
+                            UpdatedAtUtc = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = 2L,
+                            CreatedAtUtc = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsSystem = true,
+                            Name = "Bank",
+                            NormalizedName = "BANK",
+                            Status = "Active",
+                            SystemCode = "BANK",
+                            Type = "Asset",
+                            UpdatedAtUtc = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = 3L,
+                            CreatedAtUtc = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsSystem = true,
+                            Name = "UPI Clearing",
+                            NormalizedName = "UPI CLEARING",
+                            Status = "Active",
+                            SystemCode = "UPI",
+                            Type = "Asset",
+                            UpdatedAtUtc = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = 4L,
+                            CreatedAtUtc = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsSystem = true,
+                            Name = "Trade Receivables - Suppliers",
+                            NormalizedName = "TRADE RECEIVABLES - SUPPLIERS",
+                            Status = "Active",
+                            SystemCode = "AR_SUPPLIERS",
+                            Type = "Asset",
+                            UpdatedAtUtc = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = 5L,
+                            CreatedAtUtc = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsSystem = true,
+                            Name = "Trade Receivables - Customers",
+                            NormalizedName = "TRADE RECEIVABLES - CUSTOMERS",
+                            Status = "Active",
+                            SystemCode = "AR_CUSTOMERS",
+                            Type = "Asset",
+                            UpdatedAtUtc = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = 6L,
+                            CreatedAtUtc = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsSystem = true,
+                            Name = "Water Sales",
+                            NormalizedName = "WATER SALES",
+                            Status = "Active",
+                            SystemCode = "SALES",
+                            Type = "Income",
+                            UpdatedAtUtc = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = 7L,
+                            CreatedAtUtc = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsSystem = true,
+                            Name = "Cash Over/Short",
+                            NormalizedName = "CASH OVER/SHORT",
+                            Status = "Active",
+                            SystemCode = "CASH_OVER_SHORT",
+                            Type = "Expense",
+                            UpdatedAtUtc = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = 8L,
+                            CreatedAtUtc = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsSystem = true,
+                            Name = "Opening Balance Equity",
+                            NormalizedName = "OPENING BALANCE EQUITY",
+                            Status = "Active",
+                            SystemCode = "OPENING_EQUITY",
+                            Type = "Equity",
+                            UpdatedAtUtc = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = 9L,
+                            CreatedAtUtc = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsSystem = false,
+                            Name = "Vehicle Maintenance",
+                            NormalizedName = "VEHICLE MAINTENANCE",
+                            Status = "Active",
+                            Type = "Expense",
+                            UpdatedAtUtc = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = 10L,
+                            CreatedAtUtc = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsSystem = false,
+                            Name = "Fuel Expense",
+                            NormalizedName = "FUEL EXPENSE",
+                            Status = "Active",
+                            Type = "Expense",
+                            UpdatedAtUtc = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = 11L,
+                            CreatedAtUtc = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsSystem = false,
+                            Name = "Oil Change",
+                            NormalizedName = "OIL CHANGE",
+                            Status = "Active",
+                            Type = "Expense",
+                            UpdatedAtUtc = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = 12L,
+                            CreatedAtUtc = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsSystem = false,
+                            Name = "Others",
+                            NormalizedName = "OTHERS",
+                            Status = "Active",
+                            Type = "Expense",
+                            UpdatedAtUtc = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Version = 1
+                        });
+                });
+
             modelBuilder.Entity("WaterBilling.Data.Entities.ActivityLog", b =>
                 {
                     b.Property<long>("Id")
@@ -71,6 +282,50 @@ namespace WaterBilling.Data.Migrations
                     b.HasIndex("EntityType", "EntityId");
 
                     b.ToTable("ActivityLogs");
+                });
+
+            modelBuilder.Entity("WaterBilling.Data.Entities.BusinessDay", b =>
+                {
+                    b.Property<DateOnly>("Date")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long?>("ActualCashPaise")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long?>("CashDifferencePaise")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime?>("ClosedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long?>("ClosedByUserId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("DifferenceReason")
+                        .HasMaxLength(300)
+                        .HasColumnType("TEXT");
+
+                    b.Property<long?>("ExpectedClosingCashPaise")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("OpeningCashPaise")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Date");
+
+                    b.ToTable("BusinessDays", t =>
+                        {
+                            t.HasCheckConstraint("CK_BusinessDays_Status", "Status IN ('Open', 'Closed')");
+                        });
                 });
 
             modelBuilder.Entity("WaterBilling.Data.Entities.Customer", b =>
@@ -133,6 +388,157 @@ namespace WaterBilling.Data.Migrations
                             t.HasCheckConstraint("CK_Customers_OpeningBalanceSide", "OpeningBalanceSide IN ('Dr', 'Cr')");
 
                             t.HasCheckConstraint("CK_Customers_Status", "Status IN ('Active', 'Inactive')");
+                        });
+                });
+
+            modelBuilder.Entity("WaterBilling.Data.Entities.LedgerEntry", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("AccountId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("CreatedByUserId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("CreditPaise")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long?>("CustomerId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("DebitPaise")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateOnly>("EntryDate")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("LineNo")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Particulars")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("PostingSeq")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("ReferenceNo")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("TEXT");
+
+                    b.Property<long?>("ReversesEntryId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("RunningBalancePaise")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long?>("SupplierId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateOnly>("ValueDate")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long?>("VehicleId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long?>("VehicleRunningBalancePaise")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("VoucherId")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedByUserId");
+
+                    b.HasIndex("CustomerId");
+
+                    b.HasIndex("PostingSeq")
+                        .IsUnique();
+
+                    b.HasIndex("ReversesEntryId")
+                        .IsUnique();
+
+                    b.HasIndex("SupplierId");
+
+                    b.HasIndex("ValueDate", "AccountId");
+
+                    b.HasIndex("VehicleId", "PostingSeq");
+
+                    b.HasIndex("VoucherId", "LineNo")
+                        .IsUnique();
+
+                    b.HasIndex("AccountId", "EntryDate", "PostingSeq");
+
+                    b.HasIndex("AccountId", "SupplierId", "CustomerId", "PostingSeq");
+
+                    b.ToTable("LedgerEntries", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_Ledger_OneParty", "SupplierId IS NULL OR CustomerId IS NULL");
+
+                            t.HasCheckConstraint("CK_Ledger_OneSide", "(DebitPaise > 0 AND CreditPaise = 0) OR (CreditPaise > 0 AND DebitPaise = 0)");
+                        });
+                });
+
+            modelBuilder.Entity("WaterBilling.Data.Entities.NumberSeries", b =>
+                {
+                    b.Property<string>("Code")
+                        .HasMaxLength(10)
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("NextNo")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Prefix")
+                        .IsRequired()
+                        .HasMaxLength(6)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Code");
+
+                    b.ToTable("NumberSeries", t =>
+                        {
+                            t.HasCheckConstraint("CK_NumberSeries_NextNo", "NextNo >= 1");
+                        });
+
+                    b.HasData(
+                        new
+                        {
+                            Code = "INVOICE",
+                            NextNo = 1L,
+                            Prefix = "INV-"
+                        },
+                        new
+                        {
+                            Code = "RECEIPT",
+                            NextNo = 1L,
+                            Prefix = "RV-"
+                        },
+                        new
+                        {
+                            Code = "PAYMENT",
+                            NextNo = 1L,
+                            Prefix = "PV-"
+                        },
+                        new
+                        {
+                            Code = "JOURNAL",
+                            NextNo = 1L,
+                            Prefix = "JV-"
+                        },
+                        new
+                        {
+                            Code = "REVERSAL",
+                            NextNo = 1L,
+                            Prefix = "REV-"
                         });
                 });
 
@@ -383,6 +789,160 @@ namespace WaterBilling.Data.Migrations
                         });
                 });
 
+            modelBuilder.Entity("WaterBilling.Data.Entities.Voucher", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("AmountPaise")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("CancelReason")
+                        .HasMaxLength(300)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("CreatedByUserId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long?>("CustomerId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("DisplayNo")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Mode")
+                        .HasMaxLength(6)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Narration")
+                        .HasMaxLength(300)
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("Number")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("PartyType")
+                        .HasMaxLength(10)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("PayTo")
+                        .HasMaxLength(120)
+                        .HasColumnType("TEXT");
+
+                    b.Property<long?>("PurposeAccountId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("ReferenceNo")
+                        .HasMaxLength(40)
+                        .HasColumnType("TEXT");
+
+                    b.Property<long?>("ReversesVoucherId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("TEXT");
+
+                    b.Property<long?>("SupplierId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateOnly>("ValueDate")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long?>("VehicleId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateOnly>("VoucherDate")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedByUserId");
+
+                    b.HasIndex("DisplayNo")
+                        .IsUnique();
+
+                    b.HasIndex("PurposeAccountId");
+
+                    b.HasIndex("ReversesVoucherId")
+                        .IsUnique();
+
+                    b.HasIndex("VehicleId");
+
+                    b.HasIndex("CustomerId", "VoucherDate");
+
+                    b.HasIndex("SupplierId", "VoucherDate");
+
+                    b.HasIndex("Type", "Number")
+                        .IsUnique();
+
+                    b.HasIndex("ValueDate", "Type");
+
+                    b.ToTable("Vouchers", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_Vouchers_Amount", "AmountPaise > 0");
+
+                            t.HasCheckConstraint("CK_Vouchers_OneParty", "SupplierId IS NULL OR CustomerId IS NULL");
+                        });
+                });
+
+            modelBuilder.Entity("WaterBilling.Data.Entities.LedgerEntry", b =>
+                {
+                    b.HasOne("WaterBilling.Data.Entities.Account", null)
+                        .WithMany()
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("WaterBilling.Data.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("CreatedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("WaterBilling.Data.Entities.Customer", null)
+                        .WithMany()
+                        .HasForeignKey("CustomerId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("WaterBilling.Data.Entities.LedgerEntry", null)
+                        .WithMany()
+                        .HasForeignKey("ReversesEntryId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("WaterBilling.Data.Entities.Supplier", null)
+                        .WithMany()
+                        .HasForeignKey("SupplierId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("WaterBilling.Data.Entities.Vehicle", null)
+                        .WithMany()
+                        .HasForeignKey("VehicleId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("WaterBilling.Data.Entities.Voucher", null)
+                        .WithMany("Lines")
+                        .HasForeignKey("VoucherId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("WaterBilling.Data.Entities.Vehicle", b =>
                 {
                     b.HasOne("WaterBilling.Data.Entities.Supplier", "Supplier")
@@ -392,6 +952,45 @@ namespace WaterBilling.Data.Migrations
                         .IsRequired();
 
                     b.Navigation("Supplier");
+                });
+
+            modelBuilder.Entity("WaterBilling.Data.Entities.Voucher", b =>
+                {
+                    b.HasOne("WaterBilling.Data.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("CreatedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("WaterBilling.Data.Entities.Customer", null)
+                        .WithMany()
+                        .HasForeignKey("CustomerId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("WaterBilling.Data.Entities.Account", null)
+                        .WithMany()
+                        .HasForeignKey("PurposeAccountId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("WaterBilling.Data.Entities.Voucher", null)
+                        .WithMany()
+                        .HasForeignKey("ReversesVoucherId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("WaterBilling.Data.Entities.Supplier", null)
+                        .WithMany()
+                        .HasForeignKey("SupplierId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("WaterBilling.Data.Entities.Vehicle", null)
+                        .WithMany()
+                        .HasForeignKey("VehicleId")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("WaterBilling.Data.Entities.Voucher", b =>
+                {
+                    b.Navigation("Lines");
                 });
 #pragma warning restore 612, 618
         }

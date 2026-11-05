@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using WaterBilling.Data;
 using WaterBilling.Data.Entities;
 using WaterBilling.Services.Common;
+using WaterBilling.Services.Ledger;
 using WaterBilling.Services.Security;
 
 namespace WaterBilling.Services.Masters;
@@ -34,7 +35,7 @@ public sealed class SupplierForm
     public int Version { get; set; }
 }
 
-public class SupplierService(IDbContextFactory<AppDbContext> dbFactory, ICurrentUser currentUser, TimeProvider clock)
+public class SupplierService(IDbContextFactory<AppDbContext> dbFactory, ICurrentUser currentUser, TimeProvider clock, LedgerPoster poster)
 {
     public async Task<IReadOnlyList<SupplierRow>> SearchAsync(string? text, StatusFilter filter)
     {
@@ -97,8 +98,17 @@ public class SupplierService(IDbContextFactory<AppDbContext> dbFactory, ICurrent
         await db.SaveChangesAsync();
         ActivityLogger.Add(db, Now, me, ActivityCategory.Master, "SUPPLIER_CREATED", nameof(Supplier), supplier.Id,
             after: Snapshot(supplier));
-        await OnPartyCreatedAsync(db, supplier, me);
         await db.SaveChangesAsync();
+        try
+        {
+            // P10: the opening balance goes to the ledger in the same transaction (FR-VM-12).
+            await OpeningBalances.PostAsync(db, poster, PartyType.Supplier, supplier.Id, supplier.Name,
+                supplier.OpeningBalancePaise, supplier.OpeningBalanceSide, me);
+        }
+        catch (BusinessRuleException ex)
+        {
+            return Result<long>.Fail(ex.Message);   // leaving without commit rolls everything back
+        }
         await tx.CommitAsync();
         return Result<long>.Success(supplier.Id);
     }
@@ -135,8 +145,6 @@ public class SupplierService(IDbContextFactory<AppDbContext> dbFactory, ICurrent
         return await SaveAsync(db);
     }
 
-    // Hook for Module 7: posts the opening balance to the ledger inside the same transaction.
-    protected virtual Task OnPartyCreatedAsync(AppDbContext db, Supplier supplier, UserInfo me) => Task.CompletedTask;
 
     private DateTime Now => clock.GetUtcNow().UtcDateTime;
 

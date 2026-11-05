@@ -76,6 +76,8 @@ builder.Services.AddScoped<CurrentUser>();
 builder.Services.AddScoped<ICurrentUser>(sp => sp.GetRequiredService<CurrentUser>());
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<UserService>();
+builder.Services.AddSingleton<WaterBilling.Services.Ledger.BusinessCalendar>();
+builder.Services.AddScoped<WaterBilling.Services.Ledger.LedgerPoster>();
 builder.Services.AddScoped<WaterBilling.Services.Masters.SupplierService>();
 builder.Services.AddScoped<WaterBilling.Services.Masters.CustomerService>();
 builder.Services.AddScoped<WaterBilling.Services.Masters.VehicleService>();

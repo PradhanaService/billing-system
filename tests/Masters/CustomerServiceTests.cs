@@ -14,7 +14,7 @@ public class CustomerServiceTests : IDisposable
     public CustomerServiceTests()
     {
         _me = new FakeCurrentUser(_db.AddUser(UserRole.Admin));
-        _svc = new CustomerService(_db, _me, _db.Clock);
+        _svc = new TestServices(_db, _me).Customers;
     }
 
     public void Dispose() => _db.Dispose();

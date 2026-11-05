@@ -23,3 +23,6 @@
 ## Module 6: Vehicle Master
 - Done: Vehicles table and VehicleService. System code proposed (A1, A2 ...) and never reused; Admin may choose a code. Vehicle No. upper case, unique ignoring spaces; nickname default; capacity and rate checks; billable = vehicle Active + supplier Active; rate changes logged separately; supplier cannot be deleted while it has vehicles. 116 tests passing.
 - Assumption: Trip Cost stored with no ledger effect; invoices use Rate (client question 1).
+
+## Module 7: Ledger core
+- Done: Accounts (seeded), NumberSeries, BusinessDays, Vouchers, append-only LedgerEntries; LedgerPoster (balanced check, open-day check, gapless numbers, running balances, vehicle balances, reversals with original value date); 6 PM business-day calendar; opening balances (P10) posted on party creation; history checks now include ledger lines. Proven that saves cannot interleave. 139 tests passing. See `docs/ledger-design.md`.

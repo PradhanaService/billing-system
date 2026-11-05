@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using WaterBilling.Data;
 using WaterBilling.Data.Entities;
 using WaterBilling.Services.Common;
+using WaterBilling.Services.Ledger;
 using WaterBilling.Services.Security;
 
 namespace WaterBilling.Services.Masters;
@@ -26,7 +27,7 @@ public sealed class CustomerForm
 }
 
 // Customer Master (FR-VM-11). Same rules as suppliers, fewer fields.
-public class CustomerService(IDbContextFactory<AppDbContext> dbFactory, ICurrentUser currentUser, TimeProvider clock)
+public class CustomerService(IDbContextFactory<AppDbContext> dbFactory, ICurrentUser currentUser, TimeProvider clock, LedgerPoster poster)
 {
     public async Task<IReadOnlyList<CustomerRow>> SearchAsync(string? text, StatusFilter filter)
     {
@@ -82,8 +83,17 @@ public class CustomerService(IDbContextFactory<AppDbContext> dbFactory, ICurrent
         db.Customers.Add(customer);
         await db.SaveChangesAsync();
         ActivityLogger.Add(db, Now, me, ActivityCategory.Master, "CUSTOMER_CREATED", nameof(Customer), customer.Id, after: Snapshot(customer));
-        await OnPartyCreatedAsync(db, customer, me);
         await db.SaveChangesAsync();
+        try
+        {
+            // P10: the opening balance goes to the ledger in the same transaction (FR-VM-12).
+            await OpeningBalances.PostAsync(db, poster, PartyType.Customer, customer.Id, customer.Name,
+                customer.OpeningBalancePaise, customer.OpeningBalanceSide, me);
+        }
+        catch (BusinessRuleException ex)
+        {
+            return Result<long>.Fail(ex.Message);   // leaving without commit rolls everything back
+        }
         await tx.CommitAsync();
         return Result<long>.Success(customer.Id);
     }
@@ -121,7 +131,6 @@ public class CustomerService(IDbContextFactory<AppDbContext> dbFactory, ICurrent
         return Result.Success();
     }
 
-    protected virtual Task OnPartyCreatedAsync(AppDbContext db, Customer customer, UserInfo me) => Task.CompletedTask;
 
     private DateTime Now => clock.GetUtcNow().UtcDateTime;
 

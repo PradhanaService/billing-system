@@ -18,6 +18,11 @@ public class AppDbContext : DbContext
     public DbSet<Supplier> Suppliers => Set<Supplier>();
     public DbSet<Customer> Customers => Set<Customer>();
     public DbSet<Vehicle> Vehicles => Set<Vehicle>();
+    public DbSet<Account> Accounts => Set<Account>();
+    public DbSet<NumberSeries> NumberSeries => Set<NumberSeries>();
+    public DbSet<BusinessDay> BusinessDays => Set<BusinessDay>();
+    public DbSet<Voucher> Vouchers => Set<Voucher>();
+    public DbSet<LedgerEntry> LedgerEntries => Set<LedgerEntry>();
     public DbSet<User> Users => Set<User>();
     public DbSet<ActivityLog> ActivityLogs => Set<ActivityLog>();
 
@@ -33,6 +38,12 @@ public class AppDbContext : DbContext
         builder.Properties<BalanceSide>().HaveConversion<string>().HaveMaxLength(2);
         builder.Properties<VehicleStatus>().HaveConversion<string>().HaveMaxLength(12);
         builder.Properties<BillingBasis>().HaveConversion<string>().HaveMaxLength(10);
+        builder.Properties<AccountType>().HaveConversion<string>().HaveMaxLength(10);
+        builder.Properties<VoucherType>().HaveConversion<string>().HaveMaxLength(10);
+        builder.Properties<VoucherStatus>().HaveConversion<string>().HaveMaxLength(10);
+        builder.Properties<PaymentMode>().HaveConversion<string>().HaveMaxLength(6);
+        builder.Properties<PartyType>().HaveConversion<string>().HaveMaxLength(10);
+        builder.Properties<BusinessDayStatus>().HaveConversion<string>().HaveMaxLength(10);
         builder.Properties<UserRole>().HaveConversion<string>().HaveMaxLength(20);
         builder.Properties<ActivityCategory>().HaveConversion<string>().HaveMaxLength(10);
     }
@@ -107,6 +118,8 @@ public class AppDbContext : DbContext
             e.HasIndex(v => new { v.SupplierId, v.Status });
         });
 
+        ConfigureLedger(model);
+
         model.Entity<User>(e =>
         {
             e.Property(u => u.UserName).HasMaxLength(50).IsRequired();
@@ -126,6 +139,118 @@ public class AppDbContext : DbContext
             e.Property(a => a.EntityType).HasMaxLength(30);
             e.HasIndex(a => a.EventAtUtc);
             e.HasIndex(a => new { a.EntityType, a.EntityId });
+        });
+    }
+
+    private static void ConfigureLedger(ModelBuilder model)
+    {
+        var seedTime = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        Account Seed(long id, string name, AccountType type, string? code) => new()
+        {
+            Id = id, Name = name, NormalizedName = Supplier.NormalizeName(name), Type = type, SystemCode = code,
+            IsSystem = code is not null, CreatedAtUtc = seedTime, UpdatedAtUtc = seedTime, Version = 1,
+        };
+
+        model.Entity<Account>(e =>
+        {
+            e.ToTable("Accounts", t => t.HasCheckConstraint("CK_Accounts_Status", "Status IN ('Active', 'Inactive')"));
+            e.Property(a => a.Name).HasMaxLength(80).IsRequired();
+            e.Property(a => a.NormalizedName).HasMaxLength(80).IsRequired();
+            e.Property(a => a.SystemCode).HasMaxLength(20);
+            e.Property(a => a.Version).IsConcurrencyToken();
+            e.HasIndex(a => a.NormalizedName).IsUnique();
+            e.HasIndex(a => a.SystemCode).IsUnique();
+            // Starting data (Database Schema section 5).
+            e.HasData(
+                Seed(SystemAccounts.Cash, "Cash in Hand", AccountType.Asset, "CASH"),
+                Seed(SystemAccounts.Bank, "Bank", AccountType.Asset, "BANK"),
+                Seed(SystemAccounts.Upi, "UPI Clearing", AccountType.Asset, "UPI"),
+                Seed(SystemAccounts.SupplierReceivables, "Trade Receivables - Suppliers", AccountType.Asset, "AR_SUPPLIERS"),
+                Seed(SystemAccounts.CustomerReceivables, "Trade Receivables - Customers", AccountType.Asset, "AR_CUSTOMERS"),
+                Seed(SystemAccounts.WaterSales, "Water Sales", AccountType.Income, "SALES"),
+                Seed(SystemAccounts.CashOverShort, "Cash Over/Short", AccountType.Expense, "CASH_OVER_SHORT"),
+                Seed(SystemAccounts.OpeningBalanceEquity, "Opening Balance Equity", AccountType.Equity, "OPENING_EQUITY"),
+                Seed(9, "Vehicle Maintenance", AccountType.Expense, null),
+                Seed(10, "Fuel Expense", AccountType.Expense, null),
+                Seed(11, "Oil Change", AccountType.Expense, null),
+                Seed(12, "Others", AccountType.Expense, null));
+        });
+
+        model.Entity<NumberSeries>(e =>
+        {
+            e.HasKey(n => n.Code);
+            e.Property(n => n.Code).HasMaxLength(10);
+            e.Property(n => n.Prefix).HasMaxLength(6).IsRequired();
+            e.ToTable(t => t.HasCheckConstraint("CK_NumberSeries_NextNo", "NextNo >= 1"));
+            e.HasData(
+                new NumberSeries { Code = "INVOICE", Prefix = "INV-", NextNo = 1 },
+                new NumberSeries { Code = "RECEIPT", Prefix = "RV-", NextNo = 1 },
+                new NumberSeries { Code = "PAYMENT", Prefix = "PV-", NextNo = 1 },
+                new NumberSeries { Code = "JOURNAL", Prefix = "JV-", NextNo = 1 },
+                new NumberSeries { Code = "REVERSAL", Prefix = "REV-", NextNo = 1 });
+        });
+
+        model.Entity<BusinessDay>(e =>
+        {
+            e.HasKey(d => d.Date);
+            e.Property(d => d.DifferenceReason).HasMaxLength(300);
+            e.Property(d => d.Version).IsConcurrencyToken();
+            e.ToTable(t => t.HasCheckConstraint("CK_BusinessDays_Status", "Status IN ('Open', 'Closed')"));
+        });
+
+        model.Entity<Voucher>(e =>
+        {
+            e.ToTable("Vouchers", t =>
+            {
+                t.HasCheckConstraint("CK_Vouchers_Amount", "AmountPaise > 0");
+                t.HasCheckConstraint("CK_Vouchers_OneParty", "SupplierId IS NULL OR CustomerId IS NULL");
+            });
+            e.Property(v => v.DisplayNo).HasMaxLength(20).IsRequired();
+            e.Property(v => v.ReferenceNo).HasMaxLength(40);
+            e.Property(v => v.PayTo).HasMaxLength(120);
+            e.Property(v => v.Narration).HasMaxLength(300);
+            e.Property(v => v.CancelReason).HasMaxLength(300);
+            e.Property(v => v.Version).IsConcurrencyToken();
+            e.HasIndex(v => new { v.Type, v.Number }).IsUnique();
+            e.HasIndex(v => v.DisplayNo).IsUnique();
+            e.HasIndex(v => v.ReversesVoucherId).IsUnique();   // a voucher can be reversed only once
+            e.HasIndex(v => new { v.ValueDate, v.Type });
+            e.HasIndex(v => new { v.SupplierId, v.VoucherDate });
+            e.HasIndex(v => new { v.CustomerId, v.VoucherDate });
+            e.HasOne<Supplier>().WithMany().HasForeignKey(v => v.SupplierId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne<Customer>().WithMany().HasForeignKey(v => v.CustomerId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne<Vehicle>().WithMany().HasForeignKey(v => v.VehicleId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne<Account>().WithMany().HasForeignKey(v => v.PurposeAccountId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne<User>().WithMany().HasForeignKey(v => v.CreatedByUserId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne<Voucher>().WithMany().HasForeignKey(v => v.ReversesVoucherId).OnDelete(DeleteBehavior.Restrict);
+            e.HasMany(v => v.Lines).WithOne().HasForeignKey(l => l.VoucherId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        model.Entity<LedgerEntry>(e =>
+        {
+            e.ToTable("LedgerEntries", t =>
+            {
+                // Exactly one side above zero; never negative.
+                t.HasCheckConstraint("CK_Ledger_OneSide",
+                    "(DebitPaise > 0 AND CreditPaise = 0) OR (CreditPaise > 0 AND DebitPaise = 0)");
+                t.HasCheckConstraint("CK_Ledger_OneParty", "SupplierId IS NULL OR CustomerId IS NULL");
+            });
+            e.Property(l => l.Particulars).HasMaxLength(200).IsRequired();
+            e.Property(l => l.ReferenceNo).HasMaxLength(40).IsRequired();
+            e.HasIndex(l => l.PostingSeq).IsUnique();
+            e.HasIndex(l => new { l.VoucherId, l.LineNo }).IsUnique();
+            e.HasIndex(l => l.ReversesEntryId).IsUnique();
+            // Statement indexes (Database Schema page 11).
+            e.HasIndex(l => new { l.AccountId, l.SupplierId, l.CustomerId, l.PostingSeq });
+            e.HasIndex(l => new { l.VehicleId, l.PostingSeq });
+            e.HasIndex(l => new { l.AccountId, l.EntryDate, l.PostingSeq });
+            e.HasIndex(l => new { l.ValueDate, l.AccountId });
+            e.HasOne<Account>().WithMany().HasForeignKey(l => l.AccountId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne<Supplier>().WithMany().HasForeignKey(l => l.SupplierId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne<Customer>().WithMany().HasForeignKey(l => l.CustomerId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne<Vehicle>().WithMany().HasForeignKey(l => l.VehicleId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne<User>().WithMany().HasForeignKey(l => l.CreatedByUserId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne<LedgerEntry>().WithMany().HasForeignKey(l => l.ReversesEntryId).OnDelete(DeleteBehavior.Restrict);
         });
     }
 
@@ -171,6 +296,12 @@ public class AppDbContext : DbContext
                 entry.Entity.Version++;   // the old value is still used in the WHERE, so a stale edit fails
             }
         }
+
+        // Business days and vouchers have a Version but no created/updated columns.
+        foreach (var entry in ChangeTracker.Entries<BusinessDay>())
+            if (entry.State == EntityState.Modified) entry.Entity.Version++;
+        foreach (var entry in ChangeTracker.Entries<Voucher>())
+            if (entry.State == EntityState.Modified) entry.Entity.Version++;
     }
 
     private sealed class UtcDateTimeConverter : ValueConverter<DateTime, DateTime>
