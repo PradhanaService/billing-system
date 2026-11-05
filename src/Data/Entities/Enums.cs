@@ -60,3 +60,10 @@ public enum PaymentMode { Cash, Bank, Upi }
 public enum PartyType { Supplier, Customer }
 
 public enum BusinessDayStatus { Open, Closed }
+
+// Invoice payment mode (FR-INV-05).
+public enum InvoicePaymentMode { Cash, Credit }
+
+public enum InvoiceStatus { Posted, PartPaid, Paid, Cancelled }
+
+public enum RateSource { Master, Overridden }

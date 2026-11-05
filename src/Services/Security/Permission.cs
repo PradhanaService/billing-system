@@ -10,6 +10,7 @@ public enum Permission
     MastersView,
     MastersEdit,
     VehicleCodeOverride, // type a vehicle code instead of the proposed one (Admin)
+    InvoiceView,
     InvoiceCreate,
     InvoiceCancel,
     InvoiceOverrideRate,
@@ -38,13 +39,13 @@ public static class RolePermissions
         [UserRole.DispatchOperator] =
         [
             Permission.DashboardView, Permission.MastersView,
-            Permission.InvoiceCreate, Permission.ReceiptCreate,
+            Permission.InvoiceView, Permission.InvoiceCreate, Permission.ReceiptCreate,
         ],
 
         [UserRole.BillingClerk] =
         [
             Permission.DashboardView, Permission.MastersView, Permission.MastersEdit,
-            Permission.InvoiceCreate, Permission.InvoiceCancel,
+            Permission.InvoiceView, Permission.InvoiceCreate, Permission.InvoiceCancel,
             Permission.ReceiptCreate, Permission.ReceiptBankUpi,
             Permission.StatementsView, Permission.DaySalesView,
         ],
@@ -52,7 +53,7 @@ public static class RolePermissions
         [UserRole.Accountant] =
         [
             Permission.DashboardView, Permission.MastersView,
-            Permission.InvoiceCancel,
+            Permission.InvoiceView, Permission.InvoiceCancel,
             Permission.ReceiptCreate, Permission.ReceiptBankUpi, Permission.ReceiptCancel,
             Permission.PaymentCreate, Permission.PaymentCancel,
             Permission.LedgerManage, Permission.StatementsView,

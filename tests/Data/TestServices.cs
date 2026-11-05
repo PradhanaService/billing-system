@@ -1,3 +1,4 @@
+using WaterBilling.Services.Billing;
 using WaterBilling.Services.Ledger;
 using WaterBilling.Services.Masters;
 
@@ -11,4 +12,5 @@ public sealed class TestServices(TestDatabase db, FakeCurrentUser me)
     public SupplierService Suppliers => new(db, me, db.Clock, Poster);
     public CustomerService Customers => new(db, me, db.Clock, Poster);
     public VehicleService Vehicles => new(db, me, db.Clock);
+    public InvoiceService Invoices => new(db, me, db.Clock, Poster, Calendar);
 }

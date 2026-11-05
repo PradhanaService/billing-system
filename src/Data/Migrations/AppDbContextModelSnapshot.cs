@@ -391,6 +391,139 @@ namespace WaterBilling.Data.Migrations
                         });
                 });
 
+            modelBuilder.Entity("WaterBilling.Data.Entities.Invoice", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("AllocatedPaise")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("AmountPaise")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("BillToType")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("BillingBasis")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("CancelReason")
+                        .HasMaxLength(300)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("CancelledAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long?>("CancelledByUserId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("CreatedByUserId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long?>("CustomerId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("DisplayNo")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateOnly>("InvoiceDate")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("InvoiceNo")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Material")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Narration")
+                        .HasMaxLength(300)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("PaymentMode")
+                        .IsRequired()
+                        .HasMaxLength(6)
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("RatePaise")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("RateSource")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("TEXT");
+
+                    b.Property<long?>("ReversalVoucherId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("SupplierId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("Trips")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("VehicleId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("VolumeTenths")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("VoucherId")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedByUserId");
+
+                    b.HasIndex("InvoiceNo")
+                        .IsUnique();
+
+                    b.HasIndex("ReversalVoucherId");
+
+                    b.HasIndex("VoucherId")
+                        .IsUnique();
+
+                    b.HasIndex("CustomerId", "InvoiceDate");
+
+                    b.HasIndex("InvoiceDate", "Status");
+
+                    b.HasIndex("SupplierId", "InvoiceDate");
+
+                    b.HasIndex("VehicleId", "InvoiceDate");
+
+                    b.ToTable("Invoices", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_Invoices_Allocated", "AllocatedPaise >= 0 AND AllocatedPaise <= AmountPaise");
+
+                            t.HasCheckConstraint("CK_Invoices_Amount", "AmountPaise > 0 AND RatePaise > 0");
+
+                            t.HasCheckConstraint("CK_Invoices_BillTo", "(BillToType = 'Supplier' AND CustomerId IS NULL) OR (BillToType = 'Customer' AND CustomerId IS NOT NULL)");
+
+                            t.HasCheckConstraint("CK_Invoices_Trips", "Trips >= 1 AND VolumeTenths >= 0");
+                        });
+                });
+
             modelBuilder.Entity("WaterBilling.Data.Entities.LedgerEntry", b =>
                 {
                     b.Property<long>("Id")
@@ -900,6 +1033,43 @@ namespace WaterBilling.Data.Migrations
 
                             t.HasCheckConstraint("CK_Vouchers_OneParty", "SupplierId IS NULL OR CustomerId IS NULL");
                         });
+                });
+
+            modelBuilder.Entity("WaterBilling.Data.Entities.Invoice", b =>
+                {
+                    b.HasOne("WaterBilling.Data.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("CreatedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("WaterBilling.Data.Entities.Customer", null)
+                        .WithMany()
+                        .HasForeignKey("CustomerId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("WaterBilling.Data.Entities.Voucher", null)
+                        .WithMany()
+                        .HasForeignKey("ReversalVoucherId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("WaterBilling.Data.Entities.Supplier", null)
+                        .WithMany()
+                        .HasForeignKey("SupplierId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("WaterBilling.Data.Entities.Vehicle", null)
+                        .WithMany()
+                        .HasForeignKey("VehicleId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("WaterBilling.Data.Entities.Voucher", null)
+                        .WithMany()
+                        .HasForeignKey("VoucherId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("WaterBilling.Data.Entities.LedgerEntry", b =>

@@ -22,7 +22,7 @@ public static class MenuItems
         new("Masters",      "Vehicle Master",    "/vehicles",      Permission.MastersView,     IsReady: true),
         new("Masters",      "Ledger Master",     "/ledgers",       Permission.LedgerManage,    IsReady: false),
 
-        new("Transactions", "Sales Invoice",     "/invoices/new",  Permission.InvoiceCreate,   IsReady: false),
+        new("Transactions", "Sales Invoice",     "/invoices/new",  Permission.InvoiceCreate,   IsReady: true),
         new("Transactions", "Invoice Display",   "/invoices",      Permission.DaySalesView,    IsReady: false),
         new("Transactions", "Receipt",           "/receipts",      Permission.ReceiptCreate,   IsReady: false),
         new("Transactions", "Payment",           "/payments",      Permission.PaymentCreate,   IsReady: false),
