@@ -24,6 +24,7 @@ public class AppDbContext : DbContext
     public DbSet<Voucher> Vouchers => Set<Voucher>();
     public DbSet<LedgerEntry> LedgerEntries => Set<LedgerEntry>();
     public DbSet<Invoice> Invoices => Set<Invoice>();
+    public DbSet<ReceiptAllocation> ReceiptAllocations => Set<ReceiptAllocation>();
     public DbSet<User> Users => Set<User>();
     public DbSet<ActivityLog> ActivityLogs => Set<ActivityLog>();
 
@@ -154,6 +155,16 @@ public class AppDbContext : DbContext
             e.HasOne<Voucher>().WithMany().HasForeignKey(i => i.VoucherId).OnDelete(DeleteBehavior.Restrict);
             e.HasOne<Voucher>().WithMany().HasForeignKey(i => i.ReversalVoucherId).OnDelete(DeleteBehavior.Restrict);
             e.HasOne<User>().WithMany().HasForeignKey(i => i.CreatedByUserId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        model.Entity<ReceiptAllocation>(e =>
+        {
+            e.ToTable("ReceiptAllocations", t => t.HasCheckConstraint("CK_Allocations_Amount", "AmountPaise > 0"));
+            e.HasIndex(a => a.VoucherId);
+            e.HasIndex(a => new { a.InvoiceId, a.IsActive });
+            e.HasOne<Voucher>().WithMany().HasForeignKey(a => a.VoucherId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne<Invoice>().WithMany().HasForeignKey(a => a.InvoiceId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne<Vehicle>().WithMany().HasForeignKey(a => a.VehicleId).OnDelete(DeleteBehavior.Restrict);
         });
 
         model.Entity<User>(e =>

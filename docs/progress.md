@@ -29,3 +29,7 @@
 
 ## Module 8: Sales Invoice
 - Done: Invoices table; InvoiceService (amount by trip or volume with half-up rounding, gapless number shown before save, P1 credit / P2 cash posting through the party, Bill To supplier or customer tagged with vehicle, rate override needs permission + reason and is logged, cancel by reversal keeping the number, previous/next); Sales Invoice and Invoice View screens; invoice PDF (QuestPDF) behind a permission-checked endpoint; amount in words (Indian system). 166 tests passing.
+
+## Module 9: Receipts
+- Done: ReceiptAllocations table; ReceiptService (P3 posting, reference required for Bank/UPI, Dispatch cash-only, oldest-first allocation with vehicle-level credit lines and unallocated remainder, balance now/after, allocation preview, cancel with reversal that frees the invoices, history with filters); invoice cancel blocked while receipts pay it; Receipt screen with history. 180 tests passing.
+- Note: opening balances are not invoices, so receipts do not allocate against them; any surplus stays "on account" (manual allocation is Version 1.1).
