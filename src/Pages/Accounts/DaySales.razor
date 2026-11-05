@@ -1,0 +1,145 @@
+@page "/day-sales"
+@attribute [Authorize(Policy = nameof(Permission.DaySalesView))]
+@inherits UserContextBase
+@using WaterBilling.Services.Accounts
+@inject DaySalesService Svc
+
+<PageTitle>Day Sales</PageTitle>
+
+<h1>View Day Sales</h1>
+
+<PageMessage Text="@MessageText" Ok="@MessageOk" />
+
+<div class="toolbar">
+    <div class="field">
+        <label for="date">Business day</label>
+        <input id="date" type="date" @bind="_date" @bind:after="LoadAsync" />
+    </div>
+    <span class="muted">Today's business day is @IndianTime.FormatDate(Svc.Today()) (6 PM to 6 PM).</span>
+</div>
+
+@if (_day is not null)
+{
+    <div class="card">
+        <h2>Day Opening
+            @if (_day.Status == BusinessDayStatus.Closed) { <span class="badge">Closed</span> } else { <span class="badge badge-off">Open</span> }
+        </h2>
+        <p>Opening cash (carried from last close): <strong>₹@Money.Format(_day.OpeningCashPaise)</strong></p>
+    </div>
+
+    <div class="card">
+        <h2>Daily Transactions</h2>
+        <table class="data">
+            <thead><tr><th>Type</th><th>No.</th><th>Party / Ledger</th><th>Mode</th><th class="num">Amount</th><th></th></tr></thead>
+            <tbody>
+                @foreach (var t in _day.Transactions)
+                {
+                    <tr class="@(t.Cancelled ? "muted" : "")">
+                        <td>@t.Kind</td>
+                        <td>@if (t.InvoiceId is { } id) { <a href="/invoices/@id">@t.DisplayNo</a> } else { @t.DisplayNo }</td>
+                        <td>@t.Party</td><td>@t.Mode</td><td class="num">@Money.Format(t.AmountPaise)</td>
+                        <td>@if (t.Cancelled) { <span class="badge badge-bad">Cancelled</span> }</td>
+                    </tr>
+                }
+                @if (_day.Transactions.Count == 0) { <tr><td colspan="6" class="muted">No transactions on this day.</td></tr> }
+            </tbody>
+        </table>
+        <p>
+            Sales ₹@Money.Format(_day.Totals.TotalSalesPaise) (cash ₹@Money.Format(_day.Totals.CashSalesPaise), credit ₹@Money.Format(_day.Totals.CreditSalesPaise))
+            · @_day.Totals.Trips trips · Receipts ₹@Money.Format(_day.Totals.ReceiptsPaise) · Payments ₹@Money.Format(_day.Totals.PaymentsPaise)
+        </p>
+    </div>
+
+    <div class="card">
+        <h2>Day Closing</h2>
+        <table class="data" style="max-width: 520px">
+            <tbody>
+                <tr><td>Opening Balance</td><td class="num">@Money.Format(_day.Cash.OpeningPaise)</td></tr>
+                <tr><td>+ Cash Sales</td><td class="num">@Money.Format(_day.Cash.CashSalesPaise)</td></tr>
+                <tr><td>+ Cash Receipts</td><td class="num">@Money.Format(_day.Cash.CashReceiptsPaise)</td></tr>
+                <tr><td>− Cash Payments</td><td class="num">@Money.Format(_day.Cash.CashPaymentsPaise)</td></tr>
+                @if (_day.Cash.AdjustmentsPaise != 0) { <tr><td>Cash over / short posted</td><td class="num">@Money.Format(_day.Cash.AdjustmentsPaise)</td></tr> }
+                <tr><td><strong>Closing Balance</strong></td><td class="num"><strong>@Money.Format(ExpectedPaise)</strong></td></tr>
+                @if (_day.Status == BusinessDayStatus.Closed)
+                {
+                    <tr><td>Actual Cash Balance</td><td class="num">@Money.Format(_day.ActualCashPaise ?? 0)</td></tr>
+                    <tr><td>Cash Difference</td><td class="num">@Money.Format(_day.CashDifferencePaise ?? 0)</td></tr>
+                }
+            </tbody>
+        </table>
+
+        @if (_day.Status == BusinessDayStatus.Closed)
+        {
+            <p class="muted">Closed by @_day.ClosedBy on @IndianTime.FormatDateTime(_day.ClosedAtUtc!.Value)@(_day.DifferenceReason is null ? "" : $". Reason: {_day.DifferenceReason}").</p>
+        }
+        else if (_day.Blockers.Count > 0)
+        {
+            <div class="alert alert-warn">
+                Day closing is blocked:
+                <ul>@foreach (var b in _day.Blockers) { <li>@b.Message <a href="@b.Link">Open it</a></li> }</ul>
+            </div>
+        }
+        else if (Can(Permission.DayClose))
+        {
+            <div class="form-grid" style="max-width: 760px">
+                <div class="field">
+                    <label for="actual">Actual Cash Balance (₹)*</label>
+                    <input id="actual" type="number" min="0" step="0.01" @bind="_actual" @bind:event="oninput" />
+                </div>
+                <div class="field">
+                    <label>Cash Difference</label>
+                    <input value="@(_actual is null ? "" : Money.Format(DifferencePaise))" readonly />
+                    <small>Actual − Closing Balance</small>
+                </div>
+                @if (_actual is not null && DifferencePaise != 0)
+                {
+                    <div class="field">
+                        <label for="reason">Reason for difference*</label>
+                        <input id="reason" @bind="_reason" maxlength="300" />
+                    </div>
+                }
+            </div>
+            <button class="btn btn-primary" @onclick="CloseAsync" disabled="@(Busy || _actual is null)">Close day @IndianTime.FormatDate(_date)</button>
+            <p class="muted">Closing locks this business day. Later corrections post to the open day.</p>
+        }
+    </div>
+}
+
+@code {
+    [SupplyParameterFromQuery(Name = "date")] public string? DateParam { get; set; }
+
+    private DateOnly _date;
+    private DayView? _day;
+    private decimal? _actual;
+    private string? _reason;
+
+    private long ExpectedPaise => _day?.Cash.ClosingPaise ?? 0;
+    private long DifferencePaise => _actual is { } a && a >= 0 ? Money.RoundHalfUp(a) - ExpectedPaise : 0;
+
+    protected override async Task OnUserReadyAsync()
+    {
+        _date = DateOnly.TryParse(DateParam, out var d) ? d : Svc.Today();
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _day = await Svc.GetDayAsync(_date);
+        _actual = null;
+        _reason = null;
+    }
+
+    private async Task CloseAsync()
+    {
+        if (_day is null || _actual is null) return;
+        Busy = true;
+        try
+        {
+            var result = await Svc.CloseDayAsync(_date, _actual.Value, _reason, _day.Version);
+            Show(result, $"Business day {IndianTime.FormatDate(_date)} closed.");
+            // Reload only on success: on failure keep what the user typed so they can fix it.
+            if (result.Ok) await LoadAsync();
+        }
+        finally { Busy = false; }
+    }
+}
