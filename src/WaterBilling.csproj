@@ -9,7 +9,13 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
+    <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" Version="8.0.1" />
     <PackageReference Include="Microsoft.Extensions.Identity.Core" Version="8.0.33" />
     <PackageReference Include="QuestPDF" Version="2026.8.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Development settings never ship to the shop PC. -->
+    <Content Update="appsettings.Development.json" CopyToPublishDirectory="Never" />
   </ItemGroup>
 </Project>

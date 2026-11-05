@@ -4,6 +4,7 @@
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Components.Authorization;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
@@ -12,7 +13,17 @@ using WaterBilling.Data;
 using WaterBilling.Services;
 using WaterBilling.Services.Security;
 
-var builder = WebApplication.CreateBuilder(args);
+var builder = WebApplication.CreateBuilder(new WebApplicationOptions
+{
+    Args = args,
+    // When installed as a Windows service, files are found next to the .exe, not in C:\Windows\System32.
+    ContentRootPath = Microsoft.Extensions.Hosting.WindowsServices.WindowsServiceHelpers.IsWindowsService()
+        ? AppContext.BaseDirectory : null,
+});
+
+// Installed on the shop PC it runs as a Windows service, so it starts with the computer.
+// (Does nothing when started with "dotnet run".)
+builder.Host.UseWindowsService(options => options.ServiceName = "WaterBilling");
 
 // ---- 1. Services ----
 // Blazor Server: pages render on the server and update the browser over a live connection.
@@ -24,8 +35,9 @@ builder.Services.AddSingleton(TimeProvider.System);
 
 // Database: one SQLite file. Path comes from appsettings.json ("Database:Path"),
 // relative to the app folder unless it is a full path.
+// %ProgramData% and similar are expanded, so the installed app keeps data outside Program Files.
 var dbPath = Path.Combine(builder.Environment.ContentRootPath,
-    builder.Configuration["Database:Path"] ?? "App_Data/waterbilling.db");
+    Environment.ExpandEnvironmentVariables(builder.Configuration["Database:Path"] ?? "App_Data/waterbilling.db"));
 Directory.CreateDirectory(Path.GetDirectoryName(dbPath)!);
 var connectionString = new SqliteConnectionStringBuilder
 {
@@ -33,6 +45,12 @@ var connectionString = new SqliteConnectionStringBuilder
     ForeignKeys = true,          // the database enforces links between tables
 }.ToString();
 builder.Services.AddDbContextFactory<AppDbContext>(options => options.UseSqlite(connectionString));
+
+// Keys that protect the login cookie and form tokens. Kept next to the database so logins survive
+// a restart of the service; on Windows they are encrypted with the machine's DPAPI key.
+var keysFolder = new DirectoryInfo(Path.Combine(Path.GetDirectoryName(dbPath)!, "keys"));
+var dataProtection = builder.Services.AddDataProtection().SetApplicationName("WaterBilling").PersistKeysToFileSystem(keysFolder);
+if (OperatingSystem.IsWindows()) dataProtection.ProtectKeysWithDpapi(protectToLocalMachine: true);
 
 // Login: a cookie that expires after 30 minutes without activity (NFR-SEC-04).
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
@@ -93,7 +111,8 @@ builder.Services.AddScoped<WaterBilling.Services.Admin.ActivityLogService>();
 builder.Services.AddScoped<WaterBilling.Services.Admin.BackupService>();
 builder.Services.AddSingleton(new WaterBilling.Services.Admin.StoragePaths(
     dbPath,
-    Path.Combine(builder.Environment.ContentRootPath, builder.Configuration["Backup:Folder"] ?? "App_Data/Backups"),
+    Path.Combine(builder.Environment.ContentRootPath,
+        Environment.ExpandEnvironmentVariables(builder.Configuration["Backup:Folder"] ?? "App_Data/Backups")),
     int.TryParse(builder.Configuration["Backup:Keep"], out var keep) && keep > 0 ? keep : 60));
 
 // Company details printed on PDFs. QuestPDF is free under its Community licence for
