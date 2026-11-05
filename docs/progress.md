@@ -33,3 +33,6 @@
 ## Module 9: Receipts
 - Done: ReceiptAllocations table; ReceiptService (P3 posting, reference required for Bank/UPI, Dispatch cash-only, oldest-first allocation with vehicle-level credit lines and unallocated remainder, balance now/after, allocation preview, cancel with reversal that frees the invoices, history with filters); invoice cancel blocked while receipts pay it; Receipt screen with history. 180 tests passing.
 - Note: opening balances are not invoices, so receipts do not allocate against them; any surplus stays "on account" (manual allocation is Version 1.1).
+
+## Module 10: Payments & Ledger Master
+- Done: PaymentService (P4 expense with optional vehicle tag, P5 refund to supplier/customer, Bank/UPI reference rule, cash-above-drawer confirmation, cancel by reversal, history); LedgerMasterService (create/edit/deactivate expense ledgers, system ledgers locked, delete only without entries, Admin sets a series' starting number before first use); Payment and Ledger Master screens. 195 tests passing.
