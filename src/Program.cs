@@ -87,6 +87,7 @@ builder.Services.AddScoped<WaterBilling.Services.Accounts.PaymentService>();
 builder.Services.AddScoped<WaterBilling.Services.Accounts.LedgerMasterService>();
 builder.Services.AddScoped<WaterBilling.Services.Accounts.StatementService>();
 builder.Services.AddScoped<WaterBilling.Services.Accounts.DaySalesService>();
+builder.Services.AddScoped<WaterBilling.Services.Accounts.DashboardService>();
 
 // Company details printed on PDFs. QuestPDF is free under its Community licence for
 // businesses with under USD 1M annual revenue.
