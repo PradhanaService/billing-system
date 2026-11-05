@@ -1,0 +1,10 @@
+@* Shows the result of the last action: green for success, red for an error. *@
+@if (Text is not null)
+{
+    <div class="alert @(Ok ? "alert-ok" : "alert-error")" role="status">@Text</div>
+}
+
+@code {
+    [Parameter] public string? Text { get; set; }
+    [Parameter] public bool Ok { get; set; }
+}

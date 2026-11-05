@@ -76,6 +76,8 @@ builder.Services.AddScoped<CurrentUser>();
 builder.Services.AddScoped<ICurrentUser>(sp => sp.GetRequiredService<CurrentUser>());
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<UserService>();
+builder.Services.AddScoped<WaterBilling.Services.Masters.SupplierService>();
+builder.Services.AddScoped<WaterBilling.Services.Masters.CustomerService>();
 
 var app = builder.Build();
 

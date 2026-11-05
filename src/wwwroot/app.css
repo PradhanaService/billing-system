@@ -75,3 +75,4 @@ table.data tr.muted td { color: var(--muted); }
 .badge-off { border-color: var(--muted); color: var(--muted); }
 .badge-bad { border-color: var(--danger); color: var(--danger); }
 .muted { color: var(--muted); }
+.btn + .btn { margin-left: 0.35rem; }
