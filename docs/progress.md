@@ -7,3 +7,8 @@
 - Done: main layout (top bar + side menu), menu as a tested list, friendly 404 page, Content Security Policy, app made interactive, `docs/architecture.md`. 7 tests passing.
 - Next: Session 3, database design & EF Core setup.
 - Blocked: client answers to Q1 (Trip Cost) and Q2 (meter readings) before Session 3.
+
+## Session 3: Database design & EF Core setup
+- Done: EF Core + SQLite, `AppDbContext`, Suppliers table with checks and unique name index, first migration, money/volume/IST helpers, audit columns and edit-conflict check, `docs/data-conventions.md`. 36 tests passing.
+- Next: Session 4, Supplier Master (service + screen).
+- Blocked: Q1 (Trip Cost) before Session 5 Vehicle Master; Q2 (meter readings) before meter tables.

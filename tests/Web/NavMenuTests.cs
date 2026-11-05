@@ -1,15 +1,14 @@
 using System.Net;
-using Microsoft.AspNetCore.Mvc.Testing;
 using WaterBilling.Components.Layout;
 
-namespace WaterBilling.Tests;
+namespace WaterBilling.Tests.Web;
 
 // Session 2: the menu is correct and every ready link opens a real page.
-public class NavMenuTests : IClassFixture<WebApplicationFactory<Program>>
+public class NavMenuTests : IClassFixture<TestAppFactory>
 {
-    private readonly WebApplicationFactory<Program> _factory;
+    private readonly TestAppFactory _factory;
 
-    public NavMenuTests(WebApplicationFactory<Program> factory) => _factory = factory;
+    public NavMenuTests(TestAppFactory factory) => _factory = factory;
 
     [Fact]
     public async Task Every_Ready_Menu_Link_Opens_A_Page()

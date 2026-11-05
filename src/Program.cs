@@ -1,7 +1,10 @@
 // Program.cs is the entry point. It does two jobs:
 //   1. Register services (things other code can ask for, e.g. a database later).
 //   2. Build the request pipeline (what happens to every browser request, in order).
+using Microsoft.Data.Sqlite;
+using Microsoft.EntityFrameworkCore;
 using WaterBilling;
+using WaterBilling.Data;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -10,7 +13,31 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
+// The clock. Code asks for TimeProvider instead of calling DateTime.Now, so tests can fix the time.
+builder.Services.AddSingleton(TimeProvider.System);
+
+// Database: one SQLite file. Path comes from appsettings.json ("Database:Path"),
+// relative to the app folder unless it is a full path.
+var dbPath = Path.Combine(builder.Environment.ContentRootPath,
+    builder.Configuration["Database:Path"] ?? "App_Data/waterbilling.db");
+Directory.CreateDirectory(Path.GetDirectoryName(dbPath)!);
+var connectionString = new SqliteConnectionStringBuilder
+{
+    DataSource = dbPath,
+    ForeignKeys = true,          // the database enforces links between tables
+}.ToString();
+builder.Services.AddDbContextFactory<AppDbContext>(options => options.UseSqlite(connectionString));
+
 var app = builder.Build();
+
+// Create the database file, or bring it up to date, before the first request.
+using (var scope = app.Services.CreateScope())
+{
+    using var db = scope.ServiceProvider.GetRequiredService<IDbContextFactory<AppDbContext>>().CreateDbContext();
+    db.Database.Migrate();
+    // WAL mode: readers do not wait for the writer, and a crash mid-save cannot corrupt the file.
+    db.Database.ExecuteSqlRaw("PRAGMA journal_mode=WAL;");
+}
 
 // ---- 2. Request pipeline (order matters) ----
 if (!app.Environment.IsDevelopment())

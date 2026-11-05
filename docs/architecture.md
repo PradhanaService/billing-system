@@ -49,3 +49,6 @@ file small enough to explain.
 | Unknown URLs → `/not-found` with status 404 | .NET 8 does not use the router's NotFound block for server-rendered pages. |
 | Security headers incl. Content Security Policy | Browser loads scripts only from this app; page cannot be framed. |
 | `AllowedHosts` = localhost only | Single-PC assumption (client question 8). Change if several PCs. |
+| SQLite file via EF Core, created at startup by migrations | One-PC app, no database server to install. See `data-conventions.md`. |
+| `IDbContextFactory<AppDbContext>` instead of one shared context | Blazor Server keeps a connection open for a long time; a fresh short-lived context per operation avoids stale data and threading errors. |
+| WAL journal mode | Readers do not block the writer; safer after a crash. |
