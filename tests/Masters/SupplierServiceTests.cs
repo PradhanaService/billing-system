@@ -14,7 +14,7 @@ public class SupplierServiceTests : IDisposable
     public SupplierServiceTests()
     {
         _me = new FakeCurrentUser(_db.AddUser(UserRole.BillingClerk));
-        _svc = new SupplierService(_db, _me, _db.Clock);
+        _svc = new TestServices(_db, _me).Suppliers;
     }
 
     public void Dispose() => _db.Dispose();

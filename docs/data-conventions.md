@@ -40,7 +40,8 @@ The spec targets PostgreSQL. SQLite does not have every feature, so:
 | `version` column for edit conflicts | EF Core concurrency token on `Version`. The second editor gets a "changed by someone else" error (NFR-CON-05). |
 | `timestamptz` | UTC `DateTime` plus a converter that marks values as UTC on read |
 | Check constraints | Same: SQLite supports `CHECK` |
-| Row locks, exclusion constraints | Not needed yet. Later sessions use one transaction per save and partial unique indexes. |
+| Row locks for numbering and balances | One transaction per save; SQLite `BEGIN IMMEDIATE` serialises writers (see `ledger-design.md`). |
+| "No update/delete" database rights on ledger and audit | `BEFORE UPDATE` / `BEFORE DELETE` triggers that abort. **If a migration ever rebuilds these tables, re-create the triggers** (tests check them). |
 
 ## The database file
 - Path set in `appsettings.json` → `Database:Path` (default `App_Data/waterbilling.db`, git-ignored).

@@ -47,3 +47,16 @@ public enum BillingBasis
     Trip,
     Volume,
 }
+
+public enum AccountType { Asset, Liability, Equity, Income, Expense }
+
+public enum VoucherType { Sales, Receipt, Payment, Journal, Reversal }
+
+public enum VoucherStatus { Posted, Cancelled }
+
+// Mode of a receipt or payment (FR-TXN-03).
+public enum PaymentMode { Cash, Bank, Upi }
+
+public enum PartyType { Supplier, Customer }
+
+public enum BusinessDayStatus { Open, Closed }

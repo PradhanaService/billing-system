@@ -17,7 +17,7 @@ public class VehicleServiceTests : IDisposable
     {
         _me = new FakeCurrentUser(_db.AddUser(UserRole.BillingClerk));
         _svc = new VehicleService(_db, _me, _db.Clock);
-        _suppliers = new SupplierService(_db, _me, _db.Clock);
+        _suppliers = new TestServices(_db, _me).Suppliers;
         _sangeetha = _suppliers.CreateAsync(SupplierServiceTests.Form()).Result.Value;
     }
 
