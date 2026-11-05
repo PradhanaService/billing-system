@@ -12,6 +12,9 @@ dotnet run --project src --launch-profile http
 ```
 Open http://localhost:5223
 
+**First login:** user `admin`, password `Admin@123` (set `Seed:AdminPassword` in `appsettings.json` to change it
+before first start). You must choose a new password straight away.
+
 ## Test
 ```
 dotnet test

@@ -1,6 +1,7 @@
 @* The outer HTML page. Everything else renders inside <Routes />.
-   @rendermode="InteractiveServer" makes every page interactive (buttons, forms, live updates)
-   over one live connection to the server. *@
+   Most pages are interactive (InteractiveServer): buttons and forms work over one live connection.
+   Pages under /account (login, change password) are plain server pages, because setting the
+   login cookie needs a normal HTTP request. *@
 <!DOCTYPE html>
 <html lang="en">
 
@@ -10,12 +11,20 @@
     <base href="/" />
     <link rel="stylesheet" href="app.css" />
     <link rel="stylesheet" href="WaterBilling.styles.css" />
-    <HeadOutlet @rendermode="InteractiveServer" />
+    <HeadOutlet @rendermode="PageRenderMode" />
 </head>
 
 <body>
-    <Routes @rendermode="InteractiveServer" />
+    <Routes @rendermode="PageRenderMode" />
     <script src="_framework/blazor.web.js"></script>
 </body>
 
 </html>
+
+@code {
+    [CascadingParameter]
+    private HttpContext HttpContext { get; set; } = default!;
+
+    private IComponentRenderMode? PageRenderMode =>
+        HttpContext.Request.Path.StartsWithSegments("/account") ? null : InteractiveServer;
+}

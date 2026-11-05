@@ -1,6 +1,7 @@
-@* Side menu. It loops over MenuItems.All, grouped by heading. *@
+@* Side menu. Shows only the items the logged-in user's role may use. *@
+
 <nav class="nav" aria-label="Main menu">
-    @foreach (var group in MenuItems.All.GroupBy(item => item.Group))
+    @foreach (var group in MenuItems.For(_user).GroupBy(item => item.Group))
     {
         <div class="nav-group">
             <div class="nav-heading">@group.Key</div>
@@ -13,9 +14,20 @@
                 }
                 else
                 {
-                    <span class="nav-link disabled" title="Coming in a later session">@item.Title</span>
+                    <span class="nav-link disabled" title="Coming in a later module">@item.Title</span>
                 }
             }
         </div>
     }
 </nav>
+
+@code {
+    [CascadingParameter] private Task<AuthenticationState>? AuthState { get; set; }
+
+    private UserInfo? _user;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _user = AuthState is null ? null : UserInfo.FromPrincipal((await AuthState).User);
+    }
+}

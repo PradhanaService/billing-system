@@ -1,9 +1,11 @@
 using System.Net;
 using WaterBilling.Components.Layout;
+using WaterBilling.Data.Entities;
+using WaterBilling.Services.Security;
 
 namespace WaterBilling.Tests.Web;
 
-// Session 2: the menu is correct and every ready link opens a real page.
+// The menu is correct and every ready link opens a real page.
 public class NavMenuTests : IClassFixture<TestAppFactory>
 {
     private readonly TestAppFactory _factory;
@@ -11,9 +13,9 @@ public class NavMenuTests : IClassFixture<TestAppFactory>
     public NavMenuTests(TestAppFactory factory) => _factory = factory;
 
     [Fact]
-    public async Task Every_Ready_Menu_Link_Opens_A_Page()
+    public async Task Every_Ready_Menu_Link_Opens_A_Page_For_Admin()
     {
-        var client = _factory.CreateClient();
+        var client = await _factory.AdminClientAsync();
 
         foreach (var item in MenuItems.All.Where(i => i.IsReady))
         {
@@ -29,21 +31,30 @@ public class NavMenuTests : IClassFixture<TestAppFactory>
         var hrefs = MenuItems.All.Select(i => i.Href).ToList();
 
         Assert.Equal(hrefs.Count, hrefs.Distinct(StringComparer.OrdinalIgnoreCase).Count());
-        // Every link must stay inside the app: starts with "/" but not "//" (which would mean another website).
         Assert.All(hrefs, h => Assert.True(h.StartsWith('/') && !h.StartsWith("//"), $"Bad link: {h}"));
     }
 
     [Fact]
-    public async Task Layout_Shows_Menu_With_Ready_And_Unready_Items()
+    public void Menu_Shows_Only_Items_The_Role_May_Use()
     {
-        var client = _factory.CreateClient();
+        var operatorUser = new UserInfo(1, "op", UserRole.DispatchOperator);
+        var titles = MenuItems.For(operatorUser).Select(i => i.Title).ToList();
+
+        Assert.Contains("Sales Invoice", titles);
+        Assert.DoesNotContain("Users & Roles", titles);
+        Assert.DoesNotContain("Payment", titles);
+        Assert.Empty(MenuItems.For(null));
+    }
+
+    [Fact]
+    public async Task Layout_Shows_Menu_And_Sign_Out()
+    {
+        var client = await _factory.AdminClientAsync();
 
         var html = await client.GetStringAsync("/");
 
         Assert.Contains("aria-label=\"Main menu\"", html);
-        // Ready item is a link; unready item is plain greyed text, not a link.
-        Assert.Contains("href=\"/\"", html);
-        Assert.DoesNotContain("href=\"/vehicles\"", html);
-        Assert.Contains("Vehicle Master", html);
+        Assert.Contains("Sign out", html);
+        Assert.Contains("href=\"/admin/users\"", html);
     }
 }

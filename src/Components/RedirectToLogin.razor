@@ -1,0 +1,10 @@
+@* Sends a logged-out visitor to the login page, remembering where they wanted to go. *@
+@inject NavigationManager Nav
+
+@code {
+    protected override void OnInitialized()
+    {
+        var returnUrl = Uri.EscapeDataString("/" + Nav.ToBaseRelativePath(Nav.Uri));
+        Nav.NavigateTo($"account/login?returnUrl={returnUrl}", forceLoad: true);
+    }
+}
