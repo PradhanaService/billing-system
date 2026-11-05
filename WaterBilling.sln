@@ -1,0 +1,28 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WaterBilling", "src\WaterBilling.csproj", "{A89D9C7B-6F3D-42E0-8B49-5DE644E649A7}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WaterBilling.Tests", "tests\WaterBilling.Tests.csproj", "{3C734E12-E59C-447E-BFD8-A57055D81343}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{A89D9C7B-6F3D-42E0-8B49-5DE644E649A7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A89D9C7B-6F3D-42E0-8B49-5DE644E649A7}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A89D9C7B-6F3D-42E0-8B49-5DE644E649A7}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A89D9C7B-6F3D-42E0-8B49-5DE644E649A7}.Release|Any CPU.Build.0 = Release|Any CPU
+		{3C734E12-E59C-447E-BFD8-A57055D81343}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3C734E12-E59C-447E-BFD8-A57055D81343}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3C734E12-E59C-447E-BFD8-A57055D81343}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3C734E12-E59C-447E-BFD8-A57055D81343}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal
