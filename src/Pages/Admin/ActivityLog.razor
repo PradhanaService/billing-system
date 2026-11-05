@@ -1,0 +1,71 @@
+@page "/admin/activity-log"
+@attribute [Authorize(Policy = nameof(Permission.ActivityLogView))]
+@inherits UserContextBase
+@using WaterBilling.Services.Admin
+@inject ActivityLogService Svc
+@inject TimeProvider Clock
+
+<PageTitle>Activity Log</PageTitle>
+
+<h1>Activity Log</h1>
+<p class="muted">Read-only. Entries can never be changed or deleted. Viewing this log is itself recorded.</p>
+
+<div class="toolbar">
+    <div class="field"><label for="from">From</label><input id="from" type="date" @bind="_from" /></div>
+    <div class="field"><label for="to">To</label><input id="to" type="date" @bind="_to" /></div>
+    <div class="field">
+        <label for="cat">Category</label>
+        <select id="cat" @bind="_category">
+            <option value="">All</option>
+            @foreach (var c in Enum.GetValues<ActivityCategory>()) { <option value="@c">@c</option> }
+        </select>
+    </div>
+    <div class="field"><label for="user">User</label><input id="user" @bind="_user" /></div>
+    <div class="field"><label for="text">Contains</label><input id="text" @bind="_text" placeholder="e.g. INV-12 or CANCELLED" /></div>
+    <button class="btn btn-primary" @onclick="SearchAsync">Search</button>
+</div>
+
+@if (_rows.Count >= ActivityLogService.MaxRows) { <div class="alert alert-warn">Showing the newest @ActivityLogService.MaxRows entries. Narrow the search to see older ones.</div> }
+
+<table class="data">
+    <thead><tr><th>Time</th><th>User</th><th>Role</th><th>Category</th><th>Action</th><th>Record</th><th>Details</th></tr></thead>
+    <tbody>
+        @foreach (var r in _rows)
+        {
+            <tr>
+                <td class="nowrap">@IndianTime.FormatDateTime(r.EventAtUtc)</td>
+                <td>@r.UserName</td><td>@r.Role</td><td>@r.Category</td><td>@r.Action</td>
+                <td>@r.EntityType @r.EntityId</td>
+                <td>
+                    @if (r.Reason is not null) { <div><strong>Reason:</strong> @r.Reason</div> }
+                    @if (r.BeforeJson is not null || r.AfterJson is not null)
+                    {
+                        <details>
+                            <summary>Before / after</summary>
+                            @if (r.BeforeJson is not null) { <div><strong>Before:</strong> <code>@r.BeforeJson</code></div> }
+                            @if (r.AfterJson is not null) { <div><strong>After:</strong> <code>@r.AfterJson</code></div> }
+                        </details>
+                    }
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+@code {
+    private DateOnly _from, _to;
+    private string _category = "", _user = "", _text = "";
+    private IReadOnlyList<ActivityRow> _rows = [];
+
+    protected override async Task OnUserReadyAsync()
+    {
+        var today = DateOnly.FromDateTime(IndianTime.ToIst(Clock.GetUtcNow().UtcDateTime));
+        _from = today.AddDays(-7);
+        _to = today;
+        await SearchAsync();
+    }
+
+    private async Task SearchAsync() =>
+        _rows = await Svc.SearchAsync(new ActivityFilter(_from, _to,
+            _category == "" ? null : Enum.Parse<ActivityCategory>(_category), _user, _text));
+}

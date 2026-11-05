@@ -32,8 +32,8 @@ public static class MenuItems
         new("Accounts",     "Reports",           "/reports",       Permission.ReportsView,     IsReady: true),
 
         new("Admin",        "Users & Roles",     "/admin/users",   Permission.UsersManage,     IsReady: true),
-        new("Admin",        "Activity Log",      "/admin/activity-log", Permission.ActivityLogView, IsReady: false),
-        new("Admin",        "Backup",            "/admin/backup",  Permission.BackupRun,       IsReady: false),
+        new("Admin",        "Activity Log",      "/admin/activity-log", Permission.ActivityLogView, IsReady: true),
+        new("Admin",        "Backup",            "/admin/backup",  Permission.BackupRun,       IsReady: true),
     ];
 
     public static IEnumerable<MenuItem> For(UserInfo? user) =>

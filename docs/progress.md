@@ -48,3 +48,6 @@
 
 ## Module 14: Reports
 - Done: ReportService with Daily Sales, Date-wise Sales, Supplier-wise Sales, Vehicle Operational (supplier subtotals, grand total), Supplier-wise Outstanding, Customer Outstanding, Trial Balance, Cash Book; filters by date range, supplier, vehicle; PDF for every report; Reports screen. Tests prove report totals equal ledger totals. Excel export is Version 1.1. Staff Outstanding and Ageing reports are Version 1.1. 227 tests passing.
+
+## Module 15: Backup & Activity Log
+- Done: BackupService (SQLite online backup, single self-contained file, integrity check, keeps newest 60, automatic daily backup at startup, logged); Backup screen with restore steps; ActivityLogService (Admin only, filters by date/category/user/text, viewing is logged); Activity Log screen with before/after details. Found and fixed: backups left WAL side files; "Automatic": false could not switch auto-backup off. 235 tests passing.
