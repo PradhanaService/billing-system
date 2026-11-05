@@ -27,7 +27,7 @@ public static class MenuItems
         new("Transactions", "Receipt",           "/receipts",      Permission.ReceiptCreate,   IsReady: true),
         new("Transactions", "Payment",           "/payments",      Permission.PaymentCreate,   IsReady: true),
 
-        new("Accounts",     "Ledger Statement",  "/statements",    Permission.StatementsView,  IsReady: false),
+        new("Accounts",     "Ledger Statement",  "/statements",    Permission.StatementsView,  IsReady: true),
         new("Accounts",     "Day Sales",         "/day-sales",     Permission.DaySalesView,    IsReady: false),
         new("Accounts",     "Reports",           "/reports",       Permission.ReportsView,     IsReady: false),
 
