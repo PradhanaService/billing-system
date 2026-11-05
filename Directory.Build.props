@@ -1,0 +1,13 @@
+<Project>
+  <!-- Settings shared by every project in the solution. -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <!-- A possible null bug stops the build instead of being a warning. -->
+    <WarningsAsErrors>nullable</WarningsAsErrors>
+    <!-- NuGet audit: warn about packages with known vulnerabilities, including indirect ones. -->
+    <NuGetAudit>true</NuGetAudit>
+    <NuGetAuditMode>all</NuGetAuditMode>
+  </PropertyGroup>
+</Project>
