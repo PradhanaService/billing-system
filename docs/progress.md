@@ -42,3 +42,6 @@
 
 ## Module 12: Day Sales, Day Closing & Invoice Display
 - Done: DaySalesService (cash summary from the Cash ledger: opening + cash sales + cash receipts − cash payments; cancelled items net out; day totals and transaction list; blockers = earlier open days; close day with P8/P9 for differences, reason required, locks the day, carries counted cash to the next day even if it already started); Day Sales screen; Invoice Display for any period with the FR-INV-16 closing balance. Bug found in browser test and fixed: a failed close wiped the counted cash. 214 tests passing.
+
+## Module 13: Dashboard
+- Done: DashboardService (month cards, today cards, outstanding from both receivable ledgers, today's opening/closing cash, 6-month sales, last 3 invoices); dashboard screen with month selector, CSS bar chart (no JavaScript; bars link to Invoice Display for the month; hover/focus tooltip; table view), quick access. Live meter tiles (FR-DASH-03/07) are not built: meter dispensing awaits client confirmation. 218 tests passing.

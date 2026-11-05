@@ -1,7 +1,84 @@
 @page "/"
 @attribute [Authorize(Policy = nameof(Permission.DashboardView))]
+@inherits UserContextBase
+@using WaterBilling.Services.Accounts
+@inject DashboardService Svc
 
 <PageTitle>Dashboard · Water Supply Billing</PageTitle>
 
-<h1>Dashboard</h1>
-<p>The dashboard cards (sales, receipts, payments, cash) arrive in a later module.</p>
+<div class="toolbar" style="justify-content: space-between">
+    <h1 style="margin: 0">Dashboard</h1>
+    <div class="field">
+        <label for="month">Month</label>
+        <input id="month" type="month" @bind="_month" @bind:after="LoadAsync" />
+    </div>
+</div>
+
+@if (_d is not null)
+{
+    <div class="cards">
+        <div class="stat"><div class="stat-label">Total sales (@MonthName)</div><div class="stat-value">₹@Money.Format(_d.MonthSalesPaise)</div></div>
+        <div class="stat"><div class="stat-label">Today's sales</div><div class="stat-value">₹@Money.Format(_d.TodaySalesPaise)</div></div>
+        <div class="stat"><div class="stat-label">Today's receipt</div><div class="stat-value">₹@Money.Format(_d.TodayReceiptsPaise)</div></div>
+        <div class="stat"><div class="stat-label">Today's payment</div><div class="stat-value">₹@Money.Format(_d.TodayPaymentsPaise)</div></div>
+    </div>
+    <div class="cards">
+        <div class="stat"><div class="stat-label">Cash sales (@MonthName)</div><div class="stat-value">₹@Money.Format(_d.MonthCashSalesPaise)</div></div>
+        <div class="stat"><div class="stat-label">Credit sales (@MonthName)</div><div class="stat-value">₹@Money.Format(_d.MonthCreditSalesPaise)</div></div>
+        <div class="stat"><div class="stat-label">Water trips (@MonthName)</div><div class="stat-value">@_d.MonthTrips</div></div>
+        <div class="stat"><div class="stat-label">Outstanding amount</div><div class="stat-value">₹@Money.Format(_d.OutstandingPaise)</div></div>
+        <div class="stat"><div class="stat-label">Opening cash (today)</div><div class="stat-value">₹@Money.Format(_d.OpeningCashPaise)</div></div>
+        <div class="stat"><div class="stat-label">Closing cash (today)</div><div class="stat-value">₹@Money.Format(_d.ClosingCashPaise)</div></div>
+    </div>
+
+    <div class="dash-grid">
+        <div class="card">
+            <SalesBarChart Months="_d.LastSixMonths" SelectedKey="@($"{_d.Year:0000}-{_d.Month:00}")" />
+        </div>
+        <div>
+            <div class="card">
+                <h2>Quick access</h2>
+                <div class="quick">
+                    @if (Can(Permission.InvoiceCreate)) { <a class="btn" href="/invoices/new">Sales Invoice</a> }
+                    @if (Can(Permission.DaySalesView)) { <a class="btn" href="/invoices">Invoice Display</a> }
+                    <a class="btn" href="/vehicles">Vehicle Master</a>
+                    @if (Can(Permission.ReportsView)) { <a class="btn" href="/reports">Reports</a> }
+                </div>
+            </div>
+            <div class="card">
+                <h2>Recent invoices</h2>
+                <table class="data">
+                    <tbody>
+                        @foreach (var i in _d.RecentInvoices)
+                        {
+                            <tr class="@(i.Status == InvoiceStatus.Cancelled ? "muted" : "")">
+                                <td class="nowrap"><a href="/invoices/@i.Id">@i.DisplayNo</a></td><td class="nowrap">@i.VehicleNo</td><td>@i.BillToName</td>
+                                <td class="num">@Money.Format(i.AmountPaise)</td>
+                            </tr>
+                        }
+                        @if (_d.RecentInvoices.Count == 0) { <tr><td class="muted">No invoices yet.</td></tr> }
+                    </tbody>
+                </table>
+                @if (Can(Permission.DaySalesView)) { <p><a href="/invoices">View all</a></p> }
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private DashboardData? _d;
+    private DateTime _month;
+
+    private string MonthName => _d is null ? "" : new DateTime(_d.Year, _d.Month, 1).ToString("MMM yyyy", System.Globalization.CultureInfo.InvariantCulture);
+
+    protected override async Task OnUserReadyAsync()
+    {
+        _d = await Svc.GetAsync();
+        _month = new DateTime(_d.Year, _d.Month, 1);
+    }
+
+    private async Task LoadAsync()
+    {
+        if (_month.Year > 2000) _d = await Svc.GetAsync(_month.Year, _month.Month);
+    }
+}
