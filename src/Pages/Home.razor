@@ -6,7 +6,7 @@
 
 <PageTitle>Dashboard · Water Supply Billing</PageTitle>
 
-<PageHeader Title="Dashboard" IconName="home" Subtitle="Sales, receipts and cash at a glance.">
+<PageHeader Title="Dashboard" IconName="home" Subtitle="Month figures follow the month picker. Today figures are for the current 6 PM to 6 PM business day.">
     <Actions>
         <label class="input-icon" title="Month for the month figures">
             <Icon Name="calendar" Size="18" />
@@ -21,11 +21,11 @@
     <div class="cards">
         <div class="stat"><div class="stat-icon"><Icon Name="invoice" Size="30" /></div>
             <div><div class="stat-label">Total Sales (@MonthName)</div><div class="stat-value">₹ @Money.Format(_d.MonthSalesPaise)</div></div></div>
-        <div class="stat green"><div class="stat-icon"><Icon Name="calendar" Size="30" /></div>
+        <div class="stat"><div class="stat-icon"><Icon Name="calendar" Size="30" /></div>
             <div><div class="stat-label">Today's Sales</div><div class="stat-value">₹ @Money.Format(_d.TodaySalesPaise)</div></div></div>
         <div class="stat"><div class="stat-icon"><Icon Name="download" Size="30" /></div>
             <div><div class="stat-label">Today's Receipt</div><div class="stat-value">₹ @Money.Format(_d.TodayReceiptsPaise)</div></div></div>
-        <div class="stat pink"><div class="stat-icon"><Icon Name="upload" Size="30" /></div>
+        <div class="stat"><div class="stat-icon"><Icon Name="upload" Size="30" /></div>
             <div><div class="stat-label">Today's Payment</div><div class="stat-value">₹ @Money.Format(_d.TodayPaymentsPaise)</div></div></div>
     </div>
 

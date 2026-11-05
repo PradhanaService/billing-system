@@ -23,7 +23,7 @@ automatically in round 2 (`test-report.md`).
 
 ## 3. Billing Clerk (3 min)
 1. Sign in as `clerk1`. **Sales Invoice**: vehicle *A1*, Bill To *A customer* → *Meena Constructions*, Trip 2 → **INV-7234 ₹300.00**.
-2. **Transactions → Receipt**: party type *Customer*, *Meena Constructions*, UPI, ₹300 — save without reference → refused; add reference *UTR778899* → RV-2.
+2. **Transactions → Receipt**: party type *Customer*, *Meena Constructions*, UPI, ₹300. Saving without a reference is refused; add reference *UTR778899* → RV-2.
 
 ## 4. Corrections (2 min, as Admin, before the day is closed)
 1. Open **Invoice Display**, click INV-7234. Try to cancel → refused: *receipts are allocated (RV-2)*.

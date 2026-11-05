@@ -8,7 +8,7 @@
 
 <PageTitle>Transactions</PageTitle>
 
-<PageHeader Title="Transactions" IconName="swap" Subtitle="Manage receipts and payments with complete details." />
+<PageHeader Title="Transactions" IconName="swap" Subtitle="Receipt: money received from a supplier or customer. Payment: money paid for an expense or refunded." />
 
 <div class="tabs" role="tablist">
     <button role="tab" class="tab @(_tab == "receipt" ? "active" : "")" aria-selected="@(_tab == "receipt")" @onclick="@(() => _tab = "receipt")">

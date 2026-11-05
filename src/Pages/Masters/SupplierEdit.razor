@@ -69,7 +69,7 @@
                 </div>
                 <label class="switch">
                     <span style="color: var(--navy)">Status</span>
-                    <input type="checkbox" role="switch" checked="@(_form.Status == RecordStatus.Active)"
+                    <input type="checkbox" checked="@(_form.Status == RecordStatus.Active)"
                            @onchange="e => _form.Status = (bool)e.Value! ? RecordStatus.Active : RecordStatus.Inactive" />
                     @(_form.Status == RecordStatus.Active ? "Active" : "Inactive")
                 </label>
