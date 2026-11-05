@@ -19,3 +19,7 @@
 
 ## Module 5: Supplier & Customer Masters
 - Done: SupplierService and CustomerService (search, active/inactive filter, create, edit, delete-if-no-history), opening balance fixed after creation, edit-conflict check, activity log of every change with before/after. Screens for both. 97 tests passing.
+
+## Module 6: Vehicle Master
+- Done: Vehicles table and VehicleService. System code proposed (A1, A2 ...) and never reused; Admin may choose a code. Vehicle No. upper case, unique ignoring spaces; nickname default; capacity and rate checks; billable = vehicle Active + supplier Active; rate changes logged separately; supplier cannot be deleted while it has vehicles. 116 tests passing.
+- Assumption: Trip Cost stored with no ledger effect; invoices use Rate (client question 1).

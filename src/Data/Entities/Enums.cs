@@ -33,3 +33,17 @@ public enum ActivityCategory
     Day,
     Admin,
 }
+
+public enum VehicleStatus
+{
+    Active,
+    Inactive,
+    Maintenance,
+}
+
+// How a vehicle is charged (FR-INV-03): per trip, or per kilolitre of water.
+public enum BillingBasis
+{
+    Trip,
+    Volume,
+}

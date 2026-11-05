@@ -9,6 +9,7 @@ public enum Permission
     DashboardView,
     MastersView,
     MastersEdit,
+    VehicleCodeOverride, // type a vehicle code instead of the proposed one (Admin)
     InvoiceCreate,
     InvoiceCancel,
     InvoiceOverrideRate,
