@@ -7,75 +7,61 @@ You are signed out after 30 minutes without activity. The menu only shows what y
 The business day runs **6:00 PM to 6:00 PM**. Anything entered from 6 PM belongs to the next date.
 
 ## Who can do what
+Only Admin sees **Users & Roles**, **Activity Log** and **Backup**. For everyone else those items are not in the
+menu and their addresses show "Page not found". Dispatch Operators, Billing Clerks and Accountants can do all
+the business work below, exactly like Admin.
+
 | | Admin | Dispatch Operator, Billing Clerk, Accountant |
 |---|---|---|
-| Dashboard, Vehicle Master, Suppliers, Customers | Yes | Yes |
-| Sales Invoice, Invoice Display, cancel invoices | Yes | Yes |
-| Transactions (Receipt and Payment), Ledger Master | Yes | Yes |
-| Day Sales and day closing, Ledger Statement, Reports | Yes | Yes |
-| **Users & Roles, Activity Log, Backup** | Yes | No (not shown anywhere) |
+| Dashboard, Supplier, Customer, Vehicle and Ledger Masters | Yes | Yes |
+| Sales Invoice, Invoice Display, cancel invoices, change a rate (with reason) | Yes | Yes |
+| Receipt and Payment (Cash, Bank, UPI), cancel them | Yes | Yes |
+| Ledger Statement, Day Sales and day closing, Reports | Yes | Yes |
+| Users & Roles, Activity Log, Backup | Yes | No (not shown anywhere) |
 
-## Dashboard
-This month's sales, today's sales/receipts/payments, outstanding, cash, a 6-month chart
-(click a bar to see that month's invoices), Quick Access and the last 3 invoices. Change the month at the top right.
+## Dashboard and masters
+- **Dashboard**: this month's sales, today's sales/receipts/payments, outstanding, cash, a 6-month chart
+  (click a bar to see that month's invoices) and the last 3 invoices. Change the month at the top right.
+- **Supplier / Customer / Vehicle Master**: search, add, edit, set Inactive, delete a record with no history.
+  A vehicle code (A1, A2 ...) is proposed and never reused; you may type another unused code.
+- **Change password**: link at the top right.
 
 ![Dashboard](images/dashboard.png)
 
-## Vehicle Master, suppliers and customers
-- **Vehicle Master** lists vehicles. **Add Supplier** and **Add Vehicle** are at the top right; the pencil edits,
-  the bin deletes (only a vehicle with no transactions; otherwise set it Inactive).
-- **Add Vehicle**: Vehicle No., Supplier, Trip Cost, Capacity, Status; under *Billing and Driver* the Rate
-  (per trip or per kL) that invoices use. The vehicle code (A1, A2 ...) is proposed and never reused.
-- **Add Supplier**: name, contact, phone, address, an Active tick box. An opening balance can only be given when adding.
-- **Customers**: direct billing parties (e.g. Meena Constructions).
-
-![Vehicle Master](images/vehicle-master.png)
-
 ## Sales Invoice
-1. Optionally pick the *Vehicle Supplier* to shorten the vehicle lists.
-2. Choose the vehicle by *Vehicle No.* (code) or *Vehicle Name*; the supplier and rate fill in.
-3. Trip is 1 unless more; for vehicles billed per kL, type the volume (one decimal).
-4. *Payment Mode*: Cash if paid now, Credit otherwise. The yellow **Amount** box shows the total.
-5. **Save**. Then **Print** for the PDF or **View** to open it. The number is given at save and never skipped.
-6. To correct an invoice: **View** it and *Cancel* it with a reason, then make a new one. Changing the rate needs a reason and is logged.
+1. Choose the vehicle by code (A1) or by name; the supplier and rate fill in.
+2. Trip is 1 unless more; for vehicles billed per kL, type the volume (one decimal).
+3. Payment Mode: *Cash* if paid now, *Credit* otherwise. To bill a customer, set *Bill To* to *A customer*.
+4. Changing the rate needs a reason and is logged. Check the total in Item Details, then **Save invoice**.
+5. Use **Print** for the PDF. The number is given at save and never skipped.
+6. **Cancel an invoice**: open it (Invoice Display, then the number), *Cancel invoice* with a reason. Invoices are
+   never edited: cancel and make a new one. If a receipt already paid it, cancel the receipt first.
 
 ![Sales invoice](images/sales-invoice.png)
 
-## Invoice Display
-Choose From and To dates and press **Display**: every invoice, receipt and payment with Cash, Credit, Receipt and
-Payment columns, the totals, and Opening Balance, Total Sales and Closing Balance.
-
-![Invoice Display](images/invoice-display.png)
-
-## Transactions (receipts and payments)
-- **Receipt** tab: choose the party, mode and amount. The screen shows the balance before and after and which
-  invoices it pays (oldest first). Bank and UPI need a reference number.
-- **Payment** tab: choose the ledger (e.g. Vehicle Maintenance), who is paid, optional vehicle, mode, amount.
+## Receipt and Payment
+- **Receipt**: choose the supplier or customer, mode and amount, **Save receipt**. The screen shows which
+  invoices it pays (oldest first) and the balance before and after. Bank and UPI need a reference number.
+- **Payment**: choose the ledger (e.g. Fuel Expense), who is paid, optional vehicle, mode, amount.
   For a refund choose *Refund / payout to supplier* (or customer). Paying more cash than is in hand needs a tick to confirm.
-- **Previous / Next** show saved vouchers. **Delete** cancels the one on screen (a reason is required and a
-  reversal is posted). Saved vouchers are never edited: cancel and enter again.
+- **Cancel a receipt or payment**: in its history list, *Cancel* with a reason. A reversal is posted.
 
-![Transactions](images/transactions.png)
-
-## Ledger Master
-Type a ledger name and **Save**. The pencil renames or deactivates; the bin deletes a ledger that has no entries.
-System ledgers (Cash in Hand, Water Sales and the others) are listed separately and cannot be changed.
-
-![Ledger Master](images/ledger-master.png)
-
-## Day Sales and statements
-- **Day Sales → close the day**: count the cash, type it in *Actual Cash Balance*. If it differs from the
+## Ledgers, day close and reports
+- **Ledger Master**: add expense ledgers; system ledgers cannot be changed. Admin can also set the first
+  invoice number here before the first invoice.
+- **Day Sales, close the day**: count the cash, type it in *Actual Cash Balance*. If it differs from the
   Closing Balance, give a reason (the difference is posted to Cash Over/Short). Days close in order.
   After closing, nothing more can be entered for that date; corrections go to the next day.
 - **Ledger Statement**: supplier, customer, vehicle or ledger, any period, with PDF.
 - **Reports**: 8 reports, filter by dates, supplier, vehicle; *Print PDF*.
 
+![Day sales](images/day-sales.png)
+
 ## Admin only
 - **Users & Roles**: add users (temporary password), change role, reset password, deactivate (never delete).
   You cannot deactivate yourself or remove the last Admin.
 - **Activity Log**: who did what and when, with before/after values. Nobody can change it.
-- **Backup → Backup now** before any big change. One backup is also taken automatically each day.
-- **Starting numbers** (Ledger Master): set the first invoice number before the first invoice.
+- **Backup, Backup now** before any big change. One backup is also taken automatically each day.
 
 ## Good habits
 - Close every day. Copy `C:\ProgramData\WaterBilling\Backups` to a USB drive weekly.

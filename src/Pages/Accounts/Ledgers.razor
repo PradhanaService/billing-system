@@ -6,86 +6,65 @@
 
 <PageTitle>Ledger Master</PageTitle>
 
-<PageHeader Title="Ledger Master" IconName="layers" Subtitle="Create and manage ledgers (e.g., Vehicle Maintenance, Fuel Expense, Oil Change, Others)." />
+<h1>Ledger Master</h1>
 
 <PageMessage Text="@MessageText" Ok="@MessageOk" />
 
-<section class="section">
-    <h2 class="section-title">@(_editingId is null ? "Add Ledger" : "Edit Ledger")</h2>
-    <div class="section-body">
-        <EditForm Model="_form" OnValidSubmit="SaveAsync" class="ledger-form">
-            <DataAnnotationsValidator />
-            <label for="name">Ledger Name <span class="req">*</span></label>
-            <div class="grow">
-                <InputText id="name" @bind-Value="_form.Name" placeholder="Enter Ledger Name" style="width: 100%; box-sizing: border-box" />
+<div class="card">
+    <h2>@(_editingId is null ? "Add expense ledger" : "Edit ledger")</h2>
+    <EditForm Model="_form" OnValidSubmit="SaveAsync">
+        <DataAnnotationsValidator />
+        <div class="form-grid">
+            <div class="field">
+                <label for="name">Ledger name*</label>
+                <InputText id="name" @bind-Value="_form.Name" placeholder="e.g. Tyre Replacement" />
                 <ValidationMessage For="() => _form.Name" />
             </div>
-            @if (_editingId is not null)
-            {
-                <InputSelect @bind-Value="_form.Status" aria-label="Status">
+            <div class="field">
+                <label for="status">Status</label>
+                <InputSelect id="status" @bind-Value="_form.Status">
                     <option value="@RecordStatus.Active">Active</option>
                     <option value="@RecordStatus.Inactive">Inactive</option>
                 </InputSelect>
-            }
-            <button type="submit" class="btn btn-primary btn-lg" disabled="@Busy"><Icon Name="save" /> Save</button>
-            <button type="button" class="btn btn-lg" @onclick="StartNew">Clear</button>
-        </EditForm>
-    </div>
-</section>
-
-<div class="table-wrap">
-    <table class="data">
-        <thead><tr><th class="center" style="width: 90px">S.No.</th><th>Ledger Name</th><th class="num">Balance</th><th class="center">Status</th><th class="center" style="width: 160px">Action</th></tr></thead>
-        <tbody>
-            @{ var userLedgers = _rows.Where(l => !l.IsSystem).ToList(); }
-            @for (var i = 0; i < userLedgers.Count; i++)
-            {
-                var l = userLedgers[i];
-                <tr class="@(l.Status == RecordStatus.Inactive ? "muted" : "")">
-                    <td class="center">@(i + 1)</td>
-                    <td><strong>@l.Name</strong></td>
-                    <td class="num"><BalanceText Paise="l.BalancePaise" /></td>
-                    <td class="center"><span class="badge @(l.Status == RecordStatus.Inactive ? "badge-off" : "")">@l.Status</span></td>
-                    <td class="center nowrap">
-                        <button class="icon-btn" @onclick="() => Edit(l)" title="Edit @l.Name" aria-label="Edit @l.Name"><Icon Name="edit" Size="22" /></button>
-                        @if (l.HasEntries)
-                        {
-                            <button class="icon-btn danger" disabled title="Has entries: cannot be deleted. Set it to Inactive instead." aria-label="Delete not possible" style="opacity: 0.35"><Icon Name="trash" Size="22" /></button>
-                        }
-                        else if (_confirmDeleteId == l.Id)
-                        {
-                            <button class="btn btn-small btn-danger" @onclick="() => DeleteAsync(l.Id)">Confirm delete</button>
-                        }
-                        else
-                        {
-                            <button class="icon-btn danger" @onclick="() => _confirmDeleteId = l.Id" title="Delete @l.Name" aria-label="Delete @l.Name"><Icon Name="trash" Size="22" /></button>
-                        }
-                    </td>
-                </tr>
-            }
-            @if (userLedgers.Count == 0) { <tr><td colspan="5" class="muted center">No ledgers yet.</td></tr> }
-        </tbody>
-    </table>
+            </div>
+        </div>
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary" disabled="@Busy">Save</button>
+            @if (_editingId is not null) { <button type="button" class="btn" @onclick="StartNew">Cancel</button> }
+        </div>
+    </EditForm>
 </div>
 
-<details class="card">
-    <summary><strong>System ledgers</strong> <span class="muted">(created by the app, cannot be changed)</span></summary>
-    <table class="data plain" style="margin-top: 0.75rem">
-        <thead><tr><th>Ledger</th><th>Type</th><th class="num">Balance</th></tr></thead>
-        <tbody>
-            @foreach (var l in _rows.Where(x => x.IsSystem))
-            {
-                <tr><td>@l.Name</td><td>@l.Type</td><td class="num"><BalanceText Paise="l.BalancePaise" /></td></tr>
-            }
-        </tbody>
-    </table>
-</details>
+<table class="data">
+    <thead><tr><th>Ledger</th><th>Type</th><th>Kind</th><th class="num">Balance</th><th>Status</th><th></th></tr></thead>
+    <tbody>
+        @foreach (var l in _rows)
+        {
+            <tr class="@(l.Status == RecordStatus.Inactive ? "muted" : "")">
+                <td>@l.Name</td><td>@l.Type</td><td>@(l.IsSystem ? "System" : "User")</td>
+                <td class="num"><BalanceText Paise="l.BalancePaise" /></td>
+                <td>@l.Status</td>
+                <td>
+                    @if (!l.IsSystem)
+                    {
+                        <button class="btn btn-small" @onclick="() => Edit(l)">Edit</button>
+                        @if (!l.HasEntries)
+                        {
+                            <button class="btn btn-small btn-danger" @onclick="() => DeleteAsync(l.Id)">Delete</button>
+                        }
+                    }
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>
 
 @if (Can(Permission.UsersManage))
 {
-    <details class="card">
-        <summary><strong>Starting numbers</strong> <span class="muted">(Admin: set the agreed first number before a series is used)</span></summary>
-        <table class="data plain" style="margin-top: 0.75rem">
+    <div class="card" style="margin-top: 1.5rem">
+        <h2>Starting numbers</h2>
+        <p class="muted">Set the agreed first number of a series. Allowed only before the series is first used.</p>
+        <table class="data">
             <thead><tr><th>Series</th><th>Next number</th><th></th></tr></thead>
             <tbody>
                 @foreach (var s in _series)
@@ -96,7 +75,7 @@
                         <td>
                             @if (s.CanChange)
                             {
-                                <input type="number" min="1" style="width: 9rem" aria-label="Starting number for @s.Code" @bind="_starts[s.Code]" />
+                                <input type="number" min="1" style="width: 9rem" @bind="_starts[s.Code]" />
                                 <button class="btn btn-small" @onclick="() => SetStartAsync(s.Code)">Set</button>
                             }
                             else { <span class="muted">In use</span> }
@@ -105,7 +84,7 @@
                 }
             </tbody>
         </table>
-    </details>
+    </div>
 }
 
 @code {
@@ -114,7 +93,6 @@
     private readonly Dictionary<string, long> _starts = new();
     private LedgerForm _form = new();
     private long? _editingId;
-    private long? _confirmDeleteId;
 
     protected override Task OnUserReadyAsync() => LoadAsync();
 
@@ -153,7 +131,6 @@
 
     private async Task DeleteAsync(long id)
     {
-        _confirmDeleteId = null;
         Show(await Svc.DeleteAsync(id), "Ledger deleted.");
         await LoadAsync();
     }

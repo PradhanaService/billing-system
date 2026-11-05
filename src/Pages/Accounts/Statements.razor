@@ -7,7 +7,7 @@
 
 <PageTitle>Ledger Statement</PageTitle>
 
-<PageHeader Title="Ledger Statement" IconName="book" Subtitle="Supplier, customer, vehicle or ledger statement for any period." />
+<h1>Ledger Statement</h1>
 
 <PageMessage Text="@MessageText" Ok="@MessageOk" />
 
@@ -40,13 +40,13 @@
     @if (_statement is not null)
     {
         <a class="btn" target="_blank" rel="noopener"
-           href="@($"/pdf/statement?kind={_kind}&id={_id}&from={_from:yyyy-MM-dd}&to={_to:yyyy-MM-dd}&valueDate={_byValueDate}")"><Icon Name="printer" /> Print PDF</a>
+           href="@($"/pdf/statement?kind={_kind}&id={_id}&from={_from:yyyy-MM-dd}&to={_to:yyyy-MM-dd}&valueDate={_byValueDate}")">Print PDF</a>
     }
 </div>
 
 @if (_statement is not null)
 {
-    <div class="card"><ReportView Table="StatementService.ToTable(_statement)" /></div>
+    <ReportView Table="StatementService.ToTable(_statement)" />
 }
 
 @code {

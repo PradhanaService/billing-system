@@ -70,7 +70,7 @@ public class RoleAccessTests : IClassFixture<TestAppFactory>
     {
         var client = await LoginAsAsync(role);
 
-        foreach (var page in new[] { "/", "/vehicles", "/invoices/new", "/transactions", "/reports" })
+        foreach (var page in new[] { "/", "/vehicles", "/invoices/new", "/receipts", "/payments", "/reports" })
         {
             var html = await client.GetStringAsync(page);
             Assert.DoesNotContain("/admin/", html);

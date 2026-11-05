@@ -41,7 +41,8 @@ public class NavMenuTests : IClassFixture<TestAppFactory>
         var titles = MenuItems.For(operatorUser).Select(i => i.Title).ToList();
 
         Assert.Contains("Sales Invoice", titles);
-        Assert.Contains("Transactions", titles);
+        Assert.Contains("Receipt", titles);
+        Assert.Contains("Payment", titles);
         Assert.Contains("Ledger Master", titles);
         Assert.DoesNotContain("Users & Roles", titles);
         Assert.DoesNotContain("Activity Log", titles);

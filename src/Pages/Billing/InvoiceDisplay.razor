@@ -6,69 +6,43 @@
 
 <PageTitle>Invoice Display</PageTitle>
 
-<PageHeader Title="Invoice Display" IconName="invoice" Subtitle="View all vehicle invoices, receipts and payments for the selected period." />
+<h1>Invoice Display</h1>
 
-<div class="card filter-bar">
-    <div class="field date"><label for="from">From Date</label><input id="from" type="date" @bind="_from" /></div>
-    <div class="field date"><label for="to">To Date</label><input id="to" type="date" @bind="_to" /></div>
-    <div class="field time"><label>In Time</label><div class="input-icon"><Icon Name="clock" Size="18" /><input readonly value="@IndianTime.FormatDate(_from.AddDays(-1)) 06:00 PM" title="Each business day starts at 6:00 PM the evening before." /></div></div>
-    <div class="field time"><label>Out Time</label><div class="input-icon"><Icon Name="clock" Size="18" /><input readonly value="@IndianTime.FormatDate(_to) 06:00 PM" /></div></div>
-    <button class="btn btn-primary" @onclick="LoadAsync"><Icon Name="search" /> Display</button>
-    <a class="btn" href="/"><Icon Name="exit" /> Exit</a>
-</div>
-
-<PageMessage Text="@MessageText" Ok="@MessageOk" />
-
-<div class="table-wrap">
-    <table class="data">
-        <thead>
-            <tr><th>Invoice No.</th><th>Date</th><th><Icon Name="users" Size="16" /> Vehicle Supplier / Party</th><th><Icon Name="truck" Size="16" /> Vehicle Name</th>
-                <th class="center"><Icon Name="swap" Size="16" /> Trip</th><th class="num">Cash (₹)</th><th class="num">Credit (₹)</th><th class="num">Receipt (₹)</th><th class="num">Payment (₹)</th><th></th></tr>
-        </thead>
-        <tbody>
-            @foreach (var t in _rows)
-            {
-                <tr class="@(t.Cancelled ? "muted" : "")">
-                    <td class="nowrap">@if (t.InvoiceId is { } id) { <a href="/invoices/@id">@t.DisplayNo</a> } else { @t.DisplayNo }</td>
-                    <td class="nowrap">@IndianTime.FormatDate(t.Date)</td>
-                    <td>@t.Party</td>
-                    <td>@(t.Vehicle ?? "-")</td>
-                    <td class="center nowrap">@(t.Kind == "Invoice" ? $"{t.Trips} TRIP" : "-")</td>
-                    <td class="num">@Cell(t, "Invoice", "Cash")</td>
-                    <td class="num">@Cell(t, "Invoice", "Credit")</td>
-                    <td class="num">@Cell(t, "Receipt", null)</td>
-                    <td class="num">@Cell(t, "Payment", null)</td>
-                    <td class="nowrap">
-                        @if (t.Cancelled) { <span class="badge badge-bad">Cancelled</span> }
-                        @if (t.InvoiceId is { } pid) { <a class="icon-btn" href="/pdf/invoice/@pid" target="_blank" rel="noopener" title="Print @t.DisplayNo" aria-label="Print @t.DisplayNo"><Icon Name="printer" Size="18" /></a> }
-                    </td>
-                </tr>
-            }
-            @if (_rows.Count == 0) { <tr><td colspan="10" class="muted center">Nothing in this period.</td></tr> }
-        </tbody>
-    </table>
+<div class="toolbar">
+    <div class="field"><label for="from">From</label><input id="from" type="date" @bind="_from" @bind:after="LoadAsync" /></div>
+    <div class="field"><label for="to">To</label><input id="to" type="date" @bind="_to" @bind:after="LoadAsync" /></div>
 </div>
 
 @if (_cash is not null && _totals is not null)
 {
-    <div class="summary-grid">
-        <section class="section">
-            <h2 class="section-title"><Icon Name="chart" Size="22" /> Summary</h2>
-            <table class="data plain">
-                <thead><tr><th></th><th class="num">Cash (₹)</th><th class="num">Credit (₹)</th><th class="num">Receipt (₹)</th><th class="num">Payment (₹)</th></tr></thead>
-                <tbody>
-                    <tr><td><strong>Total</strong></td><td class="num"><strong>@Money.Format(_totals.CashSalesPaise)</strong></td><td class="num"><strong>@Money.Format(_totals.CreditSalesPaise)</strong></td>
-                        <td class="num"><strong>@Money.Format(_totals.ReceiptsPaise)</strong></td><td class="num"><strong>@Money.Format(_totals.PaymentsPaise)</strong></td></tr>
-                </tbody>
-            </table>
-        </section>
-        <div class="balance-list">
-            <div class="balance-row"><Icon Name="invoice" Size="20" /> <span>Opening Balance</span><strong>@Money.Format(_cash.OpeningPaise)</strong></div>
-            <div class="balance-row"><Icon Name="truck" Size="20" /> <span>Total Sales</span><strong>@Money.Format(_totals.TotalSalesPaise)</strong></div>
-            <div class="balance-row closing"><Icon Name="database" Size="20" /> <span>Closing Balance</span><strong>@Money.Format(_cash.ClosingPaise)</strong></div>
-            <small class="muted">Closing = Opening + Cash Sales + cash Receipts − cash Payments@(_cash.AdjustmentsPaise != 0 ? " + cash over/short" : "") (FR-INV-16).</small>
-        </div>
+    <div class="cards">
+        <div class="stat"><div class="stat-label">Cash sales</div><div class="stat-value">₹@Money.Format(_totals.CashSalesPaise)</div></div>
+        <div class="stat"><div class="stat-label">Credit sales</div><div class="stat-value">₹@Money.Format(_totals.CreditSalesPaise)</div></div>
+        <div class="stat"><div class="stat-label">Receipts</div><div class="stat-value">₹@Money.Format(_totals.ReceiptsPaise)</div></div>
+        <div class="stat"><div class="stat-label">Payments</div><div class="stat-value">₹@Money.Format(_totals.PaymentsPaise)</div></div>
+        <div class="stat"><div class="stat-label">Opening balance</div><div class="stat-value">₹@Money.Format(_cash.OpeningPaise)</div></div>
+        <div class="stat"><div class="stat-label">Closing balance</div><div class="stat-value">₹@Money.Format(_cash.ClosingPaise)</div></div>
     </div>
+    <p class="muted">Closing = Opening + Cash Sales (₹@Money.Format(_cash.CashSalesPaise)) + cash Receipts (₹@Money.Format(_cash.CashReceiptsPaise)) − cash Payments (₹@Money.Format(_cash.CashPaymentsPaise))@(_cash.AdjustmentsPaise != 0 ? $" + cash over/short (₹{Money.Format(_cash.AdjustmentsPaise)})" : "").</p>
+
+    <table class="data">
+        <thead><tr><th>Type</th><th>No.</th><th>Party / Ledger</th><th>Mode</th><th class="num">Amount</th><th></th></tr></thead>
+        <tbody>
+            @foreach (var t in _rows)
+            {
+                <tr class="@(t.Cancelled ? "muted" : "")">
+                    <td>@t.Kind</td>
+                    <td>@if (t.InvoiceId is { } id) { <a href="/invoices/@id">@t.DisplayNo</a> } else { @t.DisplayNo }</td>
+                    <td>@t.Party</td><td>@t.Mode</td><td class="num">@Money.Format(t.AmountPaise)</td>
+                    <td>
+                        @if (t.Cancelled) { <span class="badge badge-bad">Cancelled</span> }
+                        @if (t.InvoiceId is { } pid) { <a class="btn btn-small" href="/pdf/invoice/@pid" target="_blank" rel="noopener">Print</a> }
+                    </td>
+                </tr>
+            }
+            @if (_rows.Count == 0) { <tr><td colspan="6" class="muted">Nothing in this period.</td></tr> }
+        </tbody>
+    </table>
 }
 
 @code {
@@ -82,19 +56,22 @@
     protected override async Task OnUserReadyAsync()
     {
         var today = Svc.Today();
-        if (DateOnly.TryParse(MonthParam + "-01", out var month)) { _from = month; _to = month.AddMonths(1).AddDays(-1); }
-        else { _from = today; _to = today; }
+        if (DateOnly.TryParse(MonthParam + "-01", out var month))
+        {
+            _from = month;
+            _to = month.AddMonths(1).AddDays(-1);
+        }
+        else
+        {
+            _from = today;
+            _to = today;
+        }
         await LoadAsync();
     }
 
     private async Task LoadAsync()
     {
-        MessageText = null;
-        if (_to < _from) { ShowError("The To Date is before the From Date."); return; }
-        if (_to.DayNumber - _from.DayNumber > 366) { ShowError("Choose a period of one year or less."); return; }
+        if (_to < _from || _to.DayNumber - _from.DayNumber > 366) { _rows = []; _cash = null; return; }
         (_cash, _totals, _rows) = await Svc.PeriodAsync(_from, _to);
     }
-
-    private static string Cell(DayTransaction t, string kind, string? mode) =>
-        t.Kind == kind && (mode is null || t.Mode == mode) ? Money.Format(t.AmountPaise) : "-";
 }

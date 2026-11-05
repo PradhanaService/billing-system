@@ -1,21 +1,22 @@
 .barchart { margin: 0; }
-.chart-area { display: grid; grid-template-columns: auto 1fr; gap: 0.5rem; height: 230px; }
-.y-axis { display: flex; flex-direction: column; justify-content: space-between; font-size: 0.78rem; color: var(--muted); text-align: right; transform: translateY(-0.45em); padding-bottom: 0; }
-.y-axis span { line-height: 1; height: 0; }
-.plot { position: relative; display: grid; grid-template-columns: repeat(6, 1fr); gap: 2px; align-items: end; border-bottom: 1.5px solid #9fb8dc; border-left: 1px solid #dbe6f5; }
-.gridline { position: absolute; left: 0; right: 0; height: 0; border-top: 1px solid #e3ecf8; pointer-events: none; }
-.bar-slot { position: relative; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; height: 100%; text-decoration: none; color: var(--ink); z-index: 1; }
-/* Bar with a 4px rounded top, anchored on the baseline. */
-.bar { display: block; width: 58%; min-height: 1px; background: #8fbaf3; border-radius: 4px 4px 0 0; }
-.bar-slot.selected .bar { background: var(--blue); }
-.bar-slot:hover .bar { background: #5b9aee; }
-.bar-slot.selected:hover .bar { background: var(--blue-600); }
-.bar-value { font-size: 0.78rem; color: var(--navy); font-weight: 700; margin-bottom: 2px; font-variant-numeric: tabular-nums; }
+.chart-title { font-weight: 700; margin-bottom: 0.5rem; }
+/* Recessive baseline; no heavy grid. */
+.plot {
+    display: grid; grid-template-columns: repeat(6, 1fr); gap: 2px;
+    height: 180px; align-items: end; border-bottom: 1px solid var(--line);
+}
+.bar-slot { position: relative; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; height: 100%; text-decoration: none; color: var(--ink); }
+/* Thin bar, 4px rounded data end at the top, anchored to the baseline. */
+.bar { display: block; width: 40%; min-height: 1px; background: var(--accent); border-radius: 4px 4px 0 0; }
+.bar-slot:not(.selected) .bar { opacity: 0.55; }
+.bar-value { font-size: 0.8rem; color: var(--ink); margin-bottom: 2px; font-variant-numeric: tabular-nums; }
+/* Tooltip on hover and keyboard focus; the whole column is the hit target. */
 .tip {
     display: none; position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%);
-    background: var(--navy); color: #ffffff; padding: 0.3rem 0.55rem; font-size: 0.8rem; white-space: nowrap; z-index: 3; border-radius: 3px;
+    background: var(--ink); color: var(--paper); padding: 0.3rem 0.5rem; font-size: 0.8rem; white-space: nowrap; z-index: 2;
 }
 .bar-slot:hover .tip, .bar-slot:focus-visible .tip { display: block; }
+.bar-slot:hover .bar { opacity: 1; }
+.axis { display: grid; grid-template-columns: repeat(6, 1fr); font-size: 0.8rem; color: var(--muted); text-align: center; margin-top: 0.25rem; }
+.chart-table { margin-top: 0.5rem; font-size: 0.9rem; }
 .bar-slot:hover .bar-value, .bar-slot:focus-visible .bar-value { visibility: hidden; }
-.axis { display: grid; grid-template-columns: repeat(6, 1fr); margin-left: 3.6rem; font-size: 0.88rem; font-weight: 600; color: var(--navy); text-align: center; margin-top: 0.35rem; }
-.chart-table { margin-top: 0.6rem; font-size: 0.9rem; }

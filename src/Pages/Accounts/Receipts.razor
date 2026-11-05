@@ -1,0 +1,187 @@
+@page "/receipts"
+@attribute [Authorize(Policy = nameof(Permission.ReceiptCreate))]
+@inherits UserContextBase
+@using WaterBilling.Services.Accounts
+@inject ReceiptService Svc
+@inject TimeProvider Clock
+
+<PageTitle>Receipt</PageTitle>
+
+<h1>Receipt Voucher</h1>
+
+<PageMessage Text="@MessageText" Ok="@MessageOk" />
+
+<div class="card">
+    <div class="form-grid">
+        <div class="field">
+            <label>Receipt No.</label>
+            <input value="@_nextNo" readonly />
+            <small>Expected. Assigned when you save.</small>
+        </div>
+        <PartyPicker Id="rcp" @bind-Type="_form.PartyType" @bind-PartyId="_form.PartyId" OnPicked="RefreshAsync" />
+        <div class="field">
+            <label for="mode">Mode of Receipt*</label>
+            <select id="mode" @bind="_form.Mode">
+                <option value="@PaymentMode.Cash">Cash</option>
+                @if (Can(Permission.ReceiptBankUpi))
+                {
+                    <option value="@PaymentMode.Bank">Bank</option>
+                    <option value="@PaymentMode.Upi">UPI</option>
+                }
+            </select>
+        </div>
+        <div class="field">
+            <label for="amount">Amount (₹)*</label>
+            <input id="amount" type="number" min="0" step="0.01" @bind="_form.Amount" @bind:event="oninput" @bind:after="RefreshAsync" />
+        </div>
+        <div class="field">
+            <label for="ref">Reference No@(_form.Mode != PaymentMode.Cash ? "*" : "")</label>
+            <input id="ref" @bind="_form.ReferenceNo" maxlength="40" />
+        </div>
+    </div>
+    <div class="field">
+        <label for="narr">Narration</label>
+        <input id="narr" @bind="_form.Narration" maxlength="300" />
+    </div>
+
+    @if (_form.PartyId > 0)
+    {
+        <p>
+            Balance now: <BalanceText Paise="_balance" /> &nbsp;·&nbsp;
+            After this receipt: <BalanceText Paise="@(_balance - AmountPaise)" />
+        </p>
+        @if (_preview.Count > 0)
+        {
+            <table class="data">
+                <thead><tr><th>Pays invoice</th><th>Date</th><th>Vehicle</th><th class="num">Outstanding</th><th class="num">This receipt</th></tr></thead>
+                <tbody>
+                    @foreach (var a in _preview)
+                    {
+                        <tr><td>@a.InvoiceNo</td><td>@IndianTime.FormatDate(a.InvoiceDate)</td><td>@a.VehicleNo</td>
+                            <td class="num">@Money.Format(a.OutstandingBeforePaise)</td><td class="num">@Money.Format(a.AllocatedPaise)</td></tr>
+                    }
+                </tbody>
+            </table>
+        }
+        @if (AmountPaise - _preview.Sum(a => a.AllocatedPaise) is var rest && rest > 0)
+        {
+            <p class="muted">₹@Money.Format(rest) will stay unallocated (on account).</p>
+        }
+    }
+
+    <div class="form-actions">
+        <button class="btn btn-primary" @onclick="SaveAsync" disabled="@Busy">Save receipt</button>
+    </div>
+</div>
+
+<h2>Receipt History</h2>
+<div class="toolbar">
+    <div class="field"><label for="from">From</label><input id="from" type="date" @bind="_from" @bind:after="LoadHistoryAsync" /></div>
+    <div class="field"><label for="to">To</label><input id="to" type="date" @bind="_to" @bind:after="LoadHistoryAsync" /></div>
+    <div class="field">
+        <label for="fmode">Mode</label>
+        <select id="fmode" @bind="_filterMode" @bind:after="LoadHistoryAsync">
+            <option value="">All</option>
+            <option value="Cash">Cash</option><option value="Bank">Bank</option><option value="Upi">UPI</option>
+        </select>
+    </div>
+    <div class="field">
+        <label for="fstatus">Status</label>
+        <select id="fstatus" @bind="_filterStatus" @bind:after="LoadHistoryAsync">
+            <option value="">All</option><option value="Posted">Posted</option><option value="Cancelled">Cancelled</option>
+        </select>
+    </div>
+</div>
+
+<table class="data">
+    <thead><tr><th>Receipt</th><th>Date</th><th>Party</th><th>Mode</th><th>Reference</th><th class="num">Amount</th><th class="num">Allocated</th><th>Status</th><th></th></tr></thead>
+    <tbody>
+        @foreach (var r in _history)
+        {
+            <tr class="@(r.Status == VoucherStatus.Cancelled ? "muted" : "")">
+                <td>@r.DisplayNo</td><td>@IndianTime.FormatDate(r.Date)</td><td>@r.PartyName</td><td>@r.Mode</td><td>@r.ReferenceNo</td>
+                <td class="num">@Money.Format(r.AmountPaise)</td><td class="num">@Money.Format(r.AllocatedPaise)</td>
+                <td>@r.Status @if (r.CancelReason is not null) { <small>(@r.CancelReason)</small> }</td>
+                <td>
+                    @if (r.Status == VoucherStatus.Posted && Can(Permission.ReceiptCancel))
+                    {
+                        @if (_cancelId == r.VoucherId)
+                        {
+                            <input placeholder="Reason" @bind="_cancelReason" />
+                            <button class="btn btn-small btn-danger" @onclick="() => CancelAsync(r)">Confirm cancel</button>
+                        }
+                        else
+                        {
+                            <button class="btn btn-small btn-danger" @onclick="() => { _cancelId = r.VoucherId; _cancelReason = string.Empty; }">Cancel</button>
+                        }
+                    }
+                </td>
+            </tr>
+        }
+        @if (_history.Count == 0) { <tr><td colspan="9" class="muted">No receipts in this period.</td></tr> }
+    </tbody>
+</table>
+
+@code {
+    private ReceiptForm _form = new();
+    private string _nextNo = "";
+    private long _balance;
+    private IReadOnlyList<AllocationLine> _preview = [];
+    private IReadOnlyList<ReceiptRow> _history = [];
+    private DateOnly _from, _to;
+    private string _filterMode = "", _filterStatus = "";
+    private long? _cancelId;
+    private string _cancelReason = "";
+
+    private long AmountPaise => _form.Amount > 0 ? Money.RoundHalfUp(_form.Amount) : 0;
+
+    protected override async Task OnUserReadyAsync()
+    {
+        var today = DateOnly.FromDateTime(IndianTime.ToIst(Clock.GetUtcNow().UtcDateTime));
+        _from = today.AddDays(-30);
+        _to = today.AddDays(1);
+        _nextNo = await Svc.PeekNextNumberAsync();
+        await LoadHistoryAsync();
+    }
+
+    private async Task RefreshAsync()
+    {
+        if (_form.PartyId <= 0) { _balance = 0; _preview = []; return; }
+        _balance = await Svc.PartyBalanceAsync(_form.PartyType, _form.PartyId);
+        _preview = AmountPaise > 0 ? await Svc.PreviewAllocationAsync(_form.PartyType, _form.PartyId, AmountPaise) : [];
+    }
+
+    private async Task LoadHistoryAsync() =>
+        _history = await Svc.HistoryAsync(new ReceiptFilter(_from, _to,
+            Mode: _filterMode == "" ? null : Enum.Parse<PaymentMode>(_filterMode),
+            Status: _filterStatus == "" ? null : Enum.Parse<VoucherStatus>(_filterStatus)));
+
+    private async Task SaveAsync()
+    {
+        if (Busy) return;   // a click that arrives while saving does nothing (NFR-CON-06)
+        Busy = true;
+        try
+        {
+            var result = await Svc.CreateAsync(_form);
+            if (result.Ok)
+            {
+                ShowOk($"Receipt {_nextNo} saved.");
+                _form = new ReceiptForm { PartyType = _form.PartyType, PartyId = _form.PartyId };
+                _nextNo = await Svc.PeekNextNumberAsync();
+                await RefreshAsync();
+                await LoadHistoryAsync();
+            }
+            else ShowError(result.Error!);
+        }
+        finally { Busy = false; }
+    }
+
+    private async Task CancelAsync(ReceiptRow r)
+    {
+        var result = await Svc.CancelAsync(r.VoucherId, _cancelReason, r.Version);
+        Show(result, $"Receipt {r.DisplayNo} cancelled.");
+        _cancelId = null;
+        await LoadHistoryAsync();
+        await RefreshAsync();
+    }
+}

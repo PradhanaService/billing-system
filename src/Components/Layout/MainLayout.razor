@@ -1,28 +1,22 @@
-@* The frame around every page: navy top bar with the user menu, navy side menu, and the page in @Body. *@
+@* The frame around every page: top bar, side menu, and the page itself in @Body. *@
 @inherits LayoutComponentBase
 
 <div class="shell">
     <header class="topbar">
-        <a class="brand" href="/">Shree Karunambika Traders</a>
+        <span class="brand">Shree Karunambika Traders</span>
+        <span class="subtitle">Water Supply &amp; Fleet Billing</span>
         <AuthorizeView>
             <Authorized>
-                @* <details> opens and closes without any JavaScript. *@
-                <details class="user-menu">
-                    <summary>
-                        <span class="avatar"><Icon Name="user" Size="22" /></span>
-                        <span>@context.User.Identity?.Name</span>
-                        <Icon Name="chevron-down" Size="16" />
-                    </summary>
-                    <div class="user-menu-panel">
-                        <div class="user-menu-role">@RoleName(context.User)</div>
-                        <a href="/account/change-password"><Icon Name="key" Size="16" /> Change password</a>
-                        <form action="/account/logout" method="post">
-                            <AntiforgeryToken />
-                            <input type="hidden" name="returnUrl" value="/" />
-                            <button type="submit"><Icon Name="exit" Size="16" /> Sign out</button>
-                        </form>
-                    </div>
-                </details>
+                <span class="user">
+                    @context.User.Identity?.Name
+                    (@RoleName(context.User))
+                    <a href="/account/change-password">Change password</a>
+                    <form action="/account/logout" method="post" class="inline">
+                        <AntiforgeryToken />
+                        <input type="hidden" name="returnUrl" value="/" />
+                        <button type="submit" class="link-button">Sign out</button>
+                    </form>
+                </span>
             </Authorized>
         </AuthorizeView>
     </header>

@@ -1,13 +1,28 @@
-.nav { padding: 0.5rem 0.6rem 1.5rem; }
-.nav-group { margin-bottom: 1rem; }
+.nav-group { margin-bottom: 0.75rem; }
+
 .nav-heading {
-    padding: 0.4rem 0.75rem 0.5rem; font-size: 0.82rem; font-weight: 800;
-    text-transform: uppercase; letter-spacing: 0.04em; color: #ffffff;
+    padding: 0.25rem 1.25rem;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--muted);
 }
+
+/* ::deep reaches into the <a> that NavLink renders. */
 ::deep .nav-link {
-    display: flex; align-items: center; gap: 0.85rem;
-    padding: 0.6rem 0.8rem; margin-bottom: 0.1rem; border-radius: 4px;
-    color: #e8f0ff; text-decoration: none; font-weight: 500; font-size: 0.97rem;
+    display: block;
+    padding: 0.4rem 1.25rem;
+    color: var(--ink);
+    text-decoration: none;
 }
-::deep a.nav-link:hover { background: rgba(255, 255, 255, 0.10); color: #ffffff; }
-::deep a.nav-link.active { background: #1d5fcc; color: #ffffff; font-weight: 600; }
+
+::deep a.nav-link:hover { background: var(--line); }
+
+::deep a.nav-link.active {
+    background: var(--accent);
+    color: var(--paper);
+    font-weight: 600;
+}
+
+.nav-link.disabled { color: var(--muted); cursor: default; }

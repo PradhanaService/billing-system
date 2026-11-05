@@ -7,7 +7,7 @@
 
 <PageTitle>Backup</PageTitle>
 
-<PageHeader Title="Backup" IconName="database" Subtitle="Admin only. Complete, checked copies of the database." />
+<h1>Backup</h1>
 
 <PageMessage Text="@MessageText" Ok="@MessageOk" />
 
@@ -15,10 +15,10 @@
     <p>A backup is a complete copy of the database. One is taken automatically each day when the app starts.
        Take one now before any big change, and copy the backup folder to a USB drive or another computer regularly.</p>
     <p class="muted">Backup folder: <code>@Paths.BackupFolder</code> · keeps the newest @Paths.KeepBackups copies.</p>
-    <button class="btn btn-primary btn-lg" @onclick="RunAsync" disabled="@Busy"><Icon Name="save" /> Backup now</button>
+    <button class="btn btn-primary" @onclick="RunAsync" disabled="@Busy">Backup now</button>
 </div>
 
-<div class="table-wrap"><table class="data">
+<table class="data">
     <thead><tr><th>File</th><th>Taken</th><th class="num">Size</th></tr></thead>
     <tbody>
         @foreach (var f in _files)
@@ -27,7 +27,7 @@
         }
         @if (_files.Count == 0) { <tr><td colspan="3" class="muted">No backups yet.</td></tr> }
     </tbody>
-</table></div>
+</table>
 
 <div class="card" style="margin-top: 1.25rem">
     <h2>Restoring a backup</h2>

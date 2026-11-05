@@ -18,7 +18,7 @@ The database is created at `src/App_Data/waterbilling.db` on first start.
 ```
 dotnet test
 ```
-360 tests (unit, service, HTTP). See `docs/test-report.md` and `docs/requirement-test-matrix.md`.
+364 tests (unit, service, HTTP). See `docs/test-report.md` and `docs/requirement-test-matrix.md`.
 
 ## Install on the shop PC
 See `docs/install-guide.md`: run `installer\build-installer.ps1` on Windows, then `WaterBillingSetup.exe`.
