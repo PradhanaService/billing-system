@@ -1,0 +1,79 @@
+@page "/reports"
+@attribute [Authorize(Policy = nameof(Permission.ReportsView))]
+@inherits UserContextBase
+@using WaterBilling.Services.Masters
+@using WaterBilling.Services.Reports
+@inject ReportService Svc
+@inject SupplierService SupplierSvc
+@inject VehicleService VehicleSvc
+@inject TimeProvider Clock
+
+<PageTitle>Reports</PageTitle>
+
+<h1>Reports</h1>
+
+<PageMessage Text="@MessageText" Ok="@MessageOk" />
+
+<div class="toolbar">
+    <div class="field">
+        <label for="kind">Report</label>
+        <select id="kind" @bind="_kind" @bind:after="LoadAsync">
+            @foreach (var k in Enum.GetValues<ReportKind>()) { <option value="@k">@ReportService.Title(k)</option> }
+        </select>
+    </div>
+    <div class="field"><label for="from">From</label><input id="from" type="date" @bind="_from" @bind:after="LoadAsync" /></div>
+    <div class="field"><label for="to">To</label><input id="to" type="date" @bind="_to" @bind:after="LoadAsync" /></div>
+    <div class="field">
+        <label for="supplier">Supplier</label>
+        <select id="supplier" @bind="_supplierId" @bind:after="LoadAsync">
+            <option value="">All</option>
+            @foreach (var s in _suppliers) { <option value="@s.Id">@s.Name</option> }
+        </select>
+    </div>
+    <div class="field">
+        <label for="vehicle">Vehicle</label>
+        <select id="vehicle" @bind="_vehicleId" @bind:after="LoadAsync">
+            <option value="">All</option>
+            @foreach (var v in _vehicles) { <option value="@v.Id">@v.Code - @v.VehicleNo</option> }
+        </select>
+    </div>
+    @if (_table is not null)
+    {
+        <a class="btn" href="@PdfLink" target="_blank" rel="noopener">Print PDF</a>
+    }
+</div>
+
+@if (_table is not null)
+{
+    <ReportView Table="_table" />
+}
+
+@code {
+    private ReportKind _kind = ReportKind.DailySales;
+    private DateOnly _from, _to;
+    private long? _supplierId, _vehicleId;
+    private IReadOnlyList<SupplierRow> _suppliers = [];
+    private IReadOnlyList<VehicleRow> _vehicles = [];
+    private ReportTable? _table;
+
+    private string PdfLink =>
+        $"/pdf/report?kind={_kind}&from={_from:yyyy-MM-dd}&to={_to:yyyy-MM-dd}"
+        + (_supplierId is { } s ? $"&supplierId={s}" : "") + (_vehicleId is { } v ? $"&vehicleId={v}" : "");
+
+    protected override async Task OnUserReadyAsync()
+    {
+        var today = DateOnly.FromDateTime(IndianTime.ToIst(Clock.GetUtcNow().UtcDateTime));
+        _from = new DateOnly(today.Year, today.Month, 1);
+        _to = today.AddDays(1);
+        _suppliers = await SupplierSvc.SearchAsync(null, StatusFilter.All);
+        _vehicles = await VehicleSvc.SearchAsync(null, StatusFilter.All);
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        MessageText = null;
+        if (_to < _from) { ShowError("The To date is before the From date."); _table = null; return; }
+        _table = await Svc.BuildAsync(_kind, new ReportFilter(_from, _to, _supplierId, _vehicleId));
+    }
+}

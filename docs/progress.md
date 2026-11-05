@@ -45,3 +45,6 @@
 
 ## Module 13: Dashboard
 - Done: DashboardService (month cards, today cards, outstanding from both receivable ledgers, today's opening/closing cash, 6-month sales, last 3 invoices); dashboard screen with month selector, CSS bar chart (no JavaScript; bars link to Invoice Display for the month; hover/focus tooltip; table view), quick access. Live meter tiles (FR-DASH-03/07) are not built: meter dispensing awaits client confirmation. 218 tests passing.
+
+## Module 14: Reports
+- Done: ReportService with Daily Sales, Date-wise Sales, Supplier-wise Sales, Vehicle Operational (supplier subtotals, grand total), Supplier-wise Outstanding, Customer Outstanding, Trial Balance, Cash Book; filters by date range, supplier, vehicle; PDF for every report; Reports screen. Tests prove report totals equal ledger totals. Excel export is Version 1.1. Staff Outstanding and Ageing reports are Version 1.1. 227 tests passing.
