@@ -16,6 +16,21 @@ flowchart LR
     D --> DB[(SQLite file)]
 ```
 
+## Services by area
+| Folder | Services |
+|---|---|
+| `Services/Security` | `AuthService`, `UserService`, `Permission`/`RolePermissions`, `CurrentUser` |
+| `Services/Masters` | `SupplierService`, `CustomerService`, `VehicleService` |
+| `Services/Ledger` | `LedgerPoster` (the accounting engine), `BusinessCalendar`, `BusinessDays`, `LedgerQueries`, `OpeningBalances` |
+| `Services/Billing` | `InvoiceService`, `InvoiceMath` |
+| `Services/Accounts` | `ReceiptService`, `PaymentService`, `LedgerMasterService`, `StatementService`, `DaySalesService`, `DashboardService` |
+| `Services/Reports` | `ReportService` |
+| `Services/Admin` | `BackupService`, `ActivityLogService` |
+| `Services/Common` | `Money`, `Volume`, `IndianTime`, `Result`, `ReportTable`, `AmountInWords` |
+
+Every service method starts with `await currentUser.RequireAsync(Permission.X)`, and every multi-step save
+runs in one database transaction. PDFs are served by three endpoints in `Program.cs`, each with a permission check.
+
 ## Layers (top talks only to the one below)
 
 | Layer | Folder | Job | Example (later) |
