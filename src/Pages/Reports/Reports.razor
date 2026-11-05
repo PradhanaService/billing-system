@@ -10,7 +10,7 @@
 
 <PageTitle>Reports</PageTitle>
 
-<h1>Reports</h1>
+<PageHeader Title="Reports" IconName="chart" Subtitle="Sales, outstanding, trial balance and cash book. Every report prints to PDF." />
 
 <PageMessage Text="@MessageText" Ok="@MessageOk" />
 
@@ -39,13 +39,13 @@
     </div>
     @if (_table is not null)
     {
-        <a class="btn" href="@PdfLink" target="_blank" rel="noopener">Print PDF</a>
+        <a class="btn" href="@PdfLink" target="_blank" rel="noopener"><Icon Name="printer" /> Print PDF</a>
     }
 </div>
 
 @if (_table is not null)
 {
-    <ReportView Table="_table" />
+    <div class="card"><ReportView Table="_table" /></div>
 }
 
 @code {

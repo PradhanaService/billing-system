@@ -29,37 +29,29 @@ public enum Permission
     BackupRun,
 }
 
-// Which role can do what (CLAUDE.md section 6.1). One table, easy to read and to test.
+// Which role can do what.
+// Client decision (replaces CLAUDE.md 6.1): Admin alone sees and uses Users & Roles, the Activity Log
+// and Backup. Every other role can do all the business work (masters, invoices, ledgers, receipts,
+// payments, day close, reports) exactly like Admin. Roles are still recorded on every log entry.
 public static class RolePermissions
 {
+    // Admin-only features. For other roles these pages do not exist (404), not even a link.
+    public static readonly IReadOnlySet<Permission> AdminOnly = new HashSet<Permission>
+    {
+        Permission.UsersManage,
+        Permission.ActivityLogView,
+        Permission.BackupRun,
+    };
+
+    private static readonly HashSet<Permission> All = Enum.GetValues<Permission>().ToHashSet();
+    private static readonly HashSet<Permission> Business = All.Except(AdminOnly).ToHashSet();
+
     private static readonly Dictionary<UserRole, HashSet<Permission>> Map = new()
     {
-        [UserRole.Admin] = Enum.GetValues<Permission>().ToHashSet(),
-
-        [UserRole.DispatchOperator] =
-        [
-            Permission.DashboardView, Permission.MastersView,
-            Permission.InvoiceView, Permission.InvoiceCreate, Permission.ReceiptCreate,
-        ],
-
-        [UserRole.BillingClerk] =
-        [
-            Permission.DashboardView, Permission.MastersView, Permission.MastersEdit,
-            Permission.InvoiceView, Permission.InvoiceCreate, Permission.InvoiceCancel,
-            Permission.ReceiptCreate, Permission.ReceiptBankUpi,
-            Permission.StatementsView, Permission.DaySalesView,
-        ],
-
-        [UserRole.Accountant] =
-        [
-            Permission.DashboardView, Permission.MastersView,
-            Permission.InvoiceView, Permission.InvoiceCancel,
-            Permission.ReceiptCreate, Permission.ReceiptBankUpi, Permission.ReceiptCancel,
-            Permission.PaymentCreate, Permission.PaymentCancel,
-            Permission.LedgerManage, Permission.StatementsView,
-            Permission.DaySalesView, Permission.DayClose,
-            Permission.ReportsView, Permission.BackupRun,
-        ],
+        [UserRole.Admin] = All,
+        [UserRole.DispatchOperator] = Business,
+        [UserRole.BillingClerk] = Business,
+        [UserRole.Accountant] = Business,
     };
 
     public static bool Has(UserRole role, Permission permission) => Map[role].Contains(permission);

@@ -1,59 +1,48 @@
-/* Styles here apply only to MainLayout (Blazor "CSS isolation"). */
 .shell {
     display: grid;
-    grid-template-columns: 220px 1fr;
-    grid-template-rows: 56px 1fr;
-    grid-template-areas:
-        "top  top"
-        "side main";
+    grid-template-columns: 236px 1fr;
+    grid-template-rows: 72px 1fr;
+    grid-template-areas: "top top" "side main";
     min-height: 100vh;
+    background: linear-gradient(180deg, #0b3f86 0%, #072a5c 100%);
 }
 
 .topbar {
-    grid-area: top;
-    display: flex;
-    align-items: baseline;
-    gap: 1rem;
-    padding: 0 1.25rem;
-    line-height: 56px;
-    background: var(--ink);
-    color: var(--paper);
+    grid-area: top; display: flex; align-items: center; justify-content: space-between;
+    padding: 0 1.5rem 0 1.75rem;
+    background: linear-gradient(90deg, #072a5c 0%, #0b3f86 60%, #0a3670 100%);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.12);
 }
+.brand { color: #ffffff; font-size: 1.85rem; font-weight: 800; text-decoration: none; letter-spacing: 0.01em; }
 
-.brand { font-weight: 700; font-size: 1.1rem; }
-.user { margin-left: auto; font-size: 0.9rem; display: flex; gap: 0.75rem; align-items: baseline; }
-.user a, .user ::deep .link-button { color: var(--paper); }
-.inline { display: inline; }
-.subtitle { opacity: 0.8; font-size: 0.9rem; }
-
-.sidebar {
-    grid-area: side;
-    border-right: 1px solid var(--line);
-    background: var(--panel);
-    padding: 0.75rem 0;
-    overflow-y: auto;
+.user-menu { position: relative; border-left: 1px solid rgba(255, 255, 255, 0.35); padding-left: 1.25rem; }
+.user-menu summary {
+    list-style: none; display: flex; align-items: center; gap: 0.55rem; cursor: pointer;
+    color: #ffffff; font-weight: 600; font-size: 1.05rem;
 }
+.user-menu summary::-webkit-details-marker { display: none; }
+.avatar { display: inline-flex; width: 38px; height: 38px; border-radius: 50%; background: #ffffff; color: #0b3f86; align-items: center; justify-content: center; }
+.user-menu-panel {
+    position: absolute; right: 0; top: calc(100% + 10px); min-width: 210px; z-index: 50;
+    background: #ffffff; border-radius: 10px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25); padding: 0.5rem;
+}
+.user-menu-role { padding: 0.4rem 0.6rem; color: var(--muted); font-size: 0.85rem; border-bottom: 1px solid var(--line); margin-bottom: 0.25rem; }
+.user-menu-panel a, .user-menu-panel button {
+    display: flex; align-items: center; gap: 0.5rem; width: 100%; padding: 0.5rem 0.6rem; border-radius: 6px;
+    color: var(--ink); text-decoration: none; background: none; border: none; font: inherit; cursor: pointer; text-align: left;
+}
+.user-menu-panel a:hover, .user-menu-panel button:hover { background: var(--blue-50); }
+
+.sidebar { grid-area: side; overflow-y: auto; }
 
 .content {
-    grid-area: main;
-    padding: 1.5rem 2rem;
+    grid-area: main; padding: 1.4rem 1.75rem 2.5rem;
+    background: linear-gradient(180deg, #f3f8ff 0%, #eaf2fd 100%);
+    border-top-left-radius: 22px; min-width: 0;
 }
 
 #blazor-error-ui {
-    background: #fff4c2;
-    bottom: 0;
-    box-shadow: 0 -1px 2px rgba(0, 0, 0, 0.2);
-    display: none;
-    left: 0;
-    padding: 0.6rem 1.25rem 0.7rem 1.25rem;
-    position: fixed;
-    width: 100%;
-    z-index: 1000;
+    background: #fff4c2; bottom: 0; box-shadow: 0 -1px 2px rgba(0, 0, 0, 0.2); display: none; left: 0;
+    padding: 0.6rem 1.25rem 0.7rem 1.25rem; position: fixed; width: 100%; z-index: 1000;
 }
-
-#blazor-error-ui .dismiss {
-    cursor: pointer;
-    position: absolute;
-    right: 0.75rem;
-    top: 0.5rem;
-}
+#blazor-error-ui .dismiss { cursor: pointer; position: absolute; right: 0.75rem; top: 0.5rem; }

@@ -7,8 +7,7 @@
 
 <PageTitle>Activity Log</PageTitle>
 
-<h1>Activity Log</h1>
-<p class="muted">Read-only. Entries can never be changed or deleted. Viewing this log is itself recorded.</p>
+<PageHeader Title="Activity Log" IconName="activity" Subtitle="Admin only. Read-only: entries can never be changed or deleted. Viewing is itself recorded." />
 
 <div class="toolbar">
     <div class="field"><label for="from">From</label><input id="from" type="date" @bind="_from" /></div>
@@ -27,7 +26,7 @@
 
 @if (_rows.Count >= ActivityLogService.MaxRows) { <div class="alert alert-warn">Showing the newest @ActivityLogService.MaxRows entries. Narrow the search to see older ones.</div> }
 
-<table class="data">
+<div class="table-wrap"><table class="data">
     <thead><tr><th>Time</th><th>User</th><th>Role</th><th>Category</th><th>Action</th><th>Record</th><th>Details</th></tr></thead>
     <tbody>
         @foreach (var r in _rows)
@@ -50,7 +49,7 @@
             </tr>
         }
     </tbody>
-</table>
+</table></div>
 
 @code {
     private DateOnly _from, _to;

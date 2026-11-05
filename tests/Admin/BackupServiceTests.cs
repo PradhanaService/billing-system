@@ -14,7 +14,7 @@ public class BackupServiceTests : IDisposable, IDbContextFactory<AppDbContext>
 {
     private readonly string _folder = Path.Combine(Path.GetTempPath(), "wb-backup-" + Guid.NewGuid().ToString("N"));
     private readonly FakeTimeProvider _clock = new(new DateTimeOffset(2026, 11, 5, 10, 0, 0, TimeSpan.Zero));
-    private readonly FakeCurrentUser _me = new(new UserInfo(1, "acct", UserRole.Accountant));
+    private readonly FakeCurrentUser _me = new(new UserInfo(1, "admin", UserRole.Admin));   // backups are Admin only
     private readonly StoragePaths _paths;
 
     public BackupServiceTests()

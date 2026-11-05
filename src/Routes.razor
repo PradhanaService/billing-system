@@ -7,8 +7,9 @@
             <NotAuthorized>
                 @if (context.User.Identity?.IsAuthenticated == true)
                 {
-                    <h1>Not allowed</h1>
-                    <p>Your role does not have access to this page.</p>
+                    @* Same text as an unknown address: pages a role cannot use are not revealed. *@
+                    <h1>Page not found</h1>
+                    <p>The page you asked for does not exist. Use the menu on the left.</p>
                 }
                 else
                 {

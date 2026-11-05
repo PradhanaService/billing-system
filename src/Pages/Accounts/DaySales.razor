@@ -6,7 +6,7 @@
 
 <PageTitle>Day Sales</PageTitle>
 
-<h1>View Day Sales</h1>
+<PageHeader Title="Day Sales" IconName="clock" Subtitle="Day opening, daily transactions and day closing (6 PM to 6 PM)." />
 
 <PageMessage Text="@MessageText" Ok="@MessageOk" />
 
@@ -21,14 +21,14 @@
 @if (_day is not null)
 {
     <div class="card">
-        <h2>Day Opening
+        <h2><Icon Name="clock" /> Day Opening
             @if (_day.Status == BusinessDayStatus.Closed) { <span class="badge">Closed</span> } else { <span class="badge badge-off">Open</span> }
         </h2>
         <p>Opening cash (carried from last close): <strong>₹@Money.Format(_day.OpeningCashPaise)</strong></p>
     </div>
 
     <div class="card">
-        <h2>Daily Transactions</h2>
+        <h2><Icon Name="list" /> Daily Transactions</h2>
         <table class="data">
             <thead><tr><th>Type</th><th>No.</th><th>Party / Ledger</th><th>Mode</th><th class="num">Amount</th><th></th></tr></thead>
             <tbody>
@@ -51,7 +51,7 @@
     </div>
 
     <div class="card">
-        <h2>Day Closing</h2>
+        <h2><Icon Name="database" /> Day Closing</h2>
         <table class="data" style="max-width: 520px">
             <tbody>
                 <tr><td>Opening Balance</td><td class="num">@Money.Format(_day.Cash.OpeningPaise)</td></tr>

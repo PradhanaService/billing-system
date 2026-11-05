@@ -4,175 +4,80 @@
 @using WaterBilling.Services.Masters
 @inject SupplierService Svc
 
-<PageTitle>Supplier Master</PageTitle>
+<PageTitle>Suppliers</PageTitle>
 
-<h1>Supplier Master</h1>
+<PageHeader Title="Suppliers" IconName="users" Subtitle="Vehicle suppliers and their contact details.">
+    <Actions>
+        @if (Can(Permission.MastersEdit)) { <a class="btn btn-primary btn-lg" href="/suppliers/new"><Icon Name="plus" /> Add Supplier</a> }
+    </Actions>
+</PageHeader>
 
 <PageMessage Text="@MessageText" Ok="@MessageOk" />
 
-@if (_form is not null)
-{
-    <div class="card">
-        <h2>@(_editingId is null ? "Add supplier" : $"Edit supplier: {_form.Name}")</h2>
-        <EditForm Model="_form" OnValidSubmit="SaveAsync">
-            <DataAnnotationsValidator />
-            <div class="form-grid">
-                <div class="field">
-                    <label for="name">Supplier Name*</label>
-                    <InputText id="name" @bind-Value="_form.Name" />
-                    <ValidationMessage For="() => _form.Name" />
-                </div>
-                <div class="field">
-                    <label for="short">Short name*</label>
-                    <InputText id="short" @bind-Value="_form.ShortName" />
-                    <small>Used to build vehicle nicknames, e.g. "Sangeetha".</small>
-                    <ValidationMessage For="() => _form.ShortName" />
-                </div>
-                <div class="field">
-                    <label for="contact">Contact Person</label>
-                    <InputText id="contact" @bind-Value="_form.ContactPerson" />
-                </div>
-                <div class="field">
-                    <label for="phone">Phone No.*</label>
-                    <InputText id="phone" @bind-Value="_form.Phone" inputmode="tel" />
-                    <ValidationMessage For="() => _form.Phone" />
-                </div>
-                <div class="field">
-                    <label for="alt">Alternate Phone No.</label>
-                    <InputText id="alt" @bind-Value="_form.AltPhone" inputmode="tel" />
-                    <ValidationMessage For="() => _form.AltPhone" />
-                </div>
-                <div class="field">
-                    <label for="status">Status</label>
-                    <InputSelect id="status" @bind-Value="_form.Status">
-                        <option value="@RecordStatus.Active">Active</option>
-                        <option value="@RecordStatus.Inactive">Inactive</option>
-                    </InputSelect>
-                </div>
-                <div class="field">
-                    <label for="ob">Opening balance (₹)</label>
-                    <InputNumber id="ob" @bind-Value="_form.OpeningBalance" step="0.01" min="0" readonly="@(_editingId is not null)" />
-                    <ValidationMessage For="() => _form.OpeningBalance" />
-                    @if (_editingId is not null) { <small>Fixed after creation. It is posted to the ledger once.</small> }
-                </div>
-                <div class="field">
-                    <label for="obside">Dr / Cr</label>
-                    <InputSelect id="obside" @bind-Value="_form.OpeningBalanceSide" disabled="@(_editingId is not null)">
-                        <option value="@BalanceSide.Dr">Dr (supplier owes us)</option>
-                        <option value="@BalanceSide.Cr">Cr (we owe supplier)</option>
-                    </InputSelect>
-                </div>
-            </div>
-            <div class="field">
-                <label for="addr">Address</label>
-                <InputTextArea id="addr" @bind-Value="_form.Address" rows="2" />
-            </div>
-            <div class="form-actions">
-                <button type="submit" class="btn btn-primary" disabled="@Busy">Save</button>
-                <button type="button" class="btn" @onclick="() => _form = null">Cancel</button>
-            </div>
-        </EditForm>
-    </div>
-}
-
 <div class="toolbar">
-    <div class="field">
-        <label for="search">Search</label>
-        <input id="search" @bind="_search" @bind:event="oninput" @bind:after="LoadAsync" placeholder="Name, phone or contact" />
-    </div>
-    <div class="field">
-        <label for="filter">Show</label>
-        <select id="filter" @bind="_filter" @bind:after="LoadAsync">
-            <option value="@StatusFilter.Active">Active</option>
-            <option value="@StatusFilter.Inactive">Inactive</option>
-            <option value="@StatusFilter.All">All</option>
-        </select>
-    </div>
-    @if (Can(Permission.MastersEdit))
-    {
-        <button class="btn btn-primary" @onclick="StartNew">Add supplier</button>
-    }
+    <label class="input-icon search-box">
+        <Icon Name="search" Size="20" />
+        <input aria-label="Search" @bind="_search" @bind:event="oninput" @bind:after="LoadAsync" placeholder="Search by name, phone or contact..." />
+    </label>
+    <span class="grow"></span>
+    <select aria-label="Status" @bind="_filter" @bind:after="LoadAsync" style="min-width: 200px">
+        <option value="@StatusFilter.Active">Active</option>
+        <option value="@StatusFilter.Inactive">Inactive</option>
+        <option value="@StatusFilter.All">All</option>
+    </select>
 </div>
 
-<table class="data">
-    <thead><tr><th>Supplier</th><th>Short name</th><th>Contact</th><th>Phone</th><th class="num">Vehicles</th><th>Status</th><th></th></tr></thead>
-    <tbody>
-        @foreach (var s in _rows)
-        {
-            <tr class="@(s.Status == RecordStatus.Inactive ? "muted" : "")">
-                <td>@s.Name</td>
-                <td>@s.ShortName</td>
-                <td>@s.ContactPerson</td>
-                <td>@s.Phone</td>
-                <td class="num">@s.VehicleCount</td>
-                <td><span class="badge @(s.Status == RecordStatus.Inactive ? "badge-off" : "")">@s.Status</span></td>
-                <td>
-                    @if (Can(Permission.MastersEdit))
-                    {
-                        <button class="btn btn-small" @onclick="() => EditAsync(s.Id)">Edit</button>
-                        @if (_confirmDeleteId == s.Id)
+<div class="table-wrap">
+    <table class="data">
+        <thead><tr><th class="center">S.No.</th><th>Supplier Name</th><th>Short name</th><th>Contact Person</th><th>Phone No.</th><th class="num">Vehicles</th><th class="center">Status</th><th class="center">Action</th></tr></thead>
+        <tbody>
+            @for (var i = 0; i < _rows.Count; i++)
+            {
+                var s = _rows[i];
+                <tr class="@(s.Status == RecordStatus.Inactive ? "muted" : "")">
+                    <td class="center">@(i + 1)</td>
+                    <td><strong>@s.Name</strong></td>
+                    <td>@s.ShortName</td>
+                    <td>@s.ContactPerson</td>
+                    <td class="nowrap">@s.Phone</td>
+                    <td class="num">@s.VehicleCount</td>
+                    <td class="center"><span class="badge @(s.Status == RecordStatus.Inactive ? "badge-off" : "")">@s.Status</span></td>
+                    <td class="center nowrap">
+                        @if (Can(Permission.MastersEdit))
                         {
-                            <button class="btn btn-small btn-danger" @onclick="() => DeleteAsync(s.Id)">Confirm delete</button>
+                            <a class="icon-btn" href="/suppliers/@s.Id/edit" title="Edit @s.Name" aria-label="Edit @s.Name"><Icon Name="edit" Size="22" /></a>
+                            @if (_confirmDeleteId == s.Id)
+                            {
+                                <button class="btn btn-small btn-danger" @onclick="() => DeleteAsync(s.Id)">Confirm delete</button>
+                            }
+                            else
+                            {
+                                <button class="icon-btn danger" @onclick="() => _confirmDeleteId = s.Id" title="Delete @s.Name" aria-label="Delete @s.Name"><Icon Name="trash" Size="22" /></button>
+                            }
                         }
-                        else
-                        {
-                            <button class="btn btn-small btn-danger" @onclick="() => _confirmDeleteId = s.Id">Delete</button>
-                        }
-                    }
-                </td>
-            </tr>
-        }
-        @if (_rows.Count == 0)
-        {
-            <tr><td colspan="7" class="muted">No suppliers found.</td></tr>
-        }
-    </tbody>
-</table>
+                    </td>
+                </tr>
+            }
+            @if (_rows.Count == 0) { <tr><td colspan="8" class="muted center">No suppliers found.</td></tr> }
+        </tbody>
+    </table>
+</div>
 
 @code {
+    [SupplyParameterFromQuery(Name = "saved")] public string? Saved { get; set; }
+
     private IReadOnlyList<SupplierRow> _rows = [];
-    private SupplierForm? _form;
-    private long? _editingId;
     private long? _confirmDeleteId;
     private string _search = "";
     private StatusFilter _filter = StatusFilter.Active;
 
-    protected override Task OnUserReadyAsync() => LoadAsync();
+    protected override Task OnUserReadyAsync()
+    {
+        if (!string.IsNullOrEmpty(Saved)) ShowOk($"{Saved} saved.");
+        return LoadAsync();
+    }
 
     private async Task LoadAsync() => _rows = await Svc.SearchAsync(_search, _filter);
-
-    private void StartNew() { _form = new SupplierForm(); _editingId = null; MessageText = null; }
-
-    private async Task EditAsync(long id)
-    {
-        _form = await Svc.GetAsync(id);
-        _editingId = _form is null ? null : id;
-        MessageText = null;
-    }
-
-    private async Task SaveAsync()
-    {
-        if (_form is null) return;
-        if (Busy) return;   // a click that arrives while saving does nothing (NFR-CON-06)
-        Busy = true;
-        try
-        {
-            if (_editingId is { } id)
-            {
-                var result = await Svc.UpdateAsync(id, _form);
-                Show(result, "Supplier saved.");
-                if (result.Ok) _form = null;
-            }
-            else
-            {
-                var result = await Svc.CreateAsync(_form);
-                if (result.Ok) { ShowOk("Supplier added."); _form = null; }
-                else ShowError(result.Error!);
-            }
-            await LoadAsync();
-        }
-        finally { Busy = false; }
-    }
 
     private async Task DeleteAsync(long id)
     {

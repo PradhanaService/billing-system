@@ -172,6 +172,21 @@ app.UseHttpsRedirection();
 app.UseStaticFiles();
 
 app.UseAuthentication();   // reads the login cookie
+
+// Admin-only areas (Users, Activity Log, Backup) do not exist for anyone else:
+// a logged-in non-admin gets "Page not found", not "Not allowed", so there is no gateway to them.
+app.Use(async (context, next) =>
+{
+    if (context.Request.Path.StartsWithSegments("/admin")
+        && context.User.Identity?.IsAuthenticated == true
+        && UserInfo.FromPrincipal(context.User)?.Role != WaterBilling.Data.Entities.UserRole.Admin)
+    {
+        context.Response.StatusCode = StatusCodes.Status404NotFound;
+        return;
+    }
+    await next();
+});
+
 app.UseAuthorization();    // checks [Authorize] on pages and endpoints
 
 // A user with a temporary password may only use the change-password page (FR-ADM-02).

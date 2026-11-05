@@ -1,0 +1,239 @@
+@* Payment Voucher (FR-TXN-02): pay an expense (P4) or refund a party (P5).
+   Previous / Next browse saved payments (read-only). Delete = cancel with a reason (a reversal is posted). *@
+@inherits UserContextBase
+@using WaterBilling.Services.Accounts
+@using WaterBilling.Services.Masters
+@inject PaymentService Svc
+@inject VehicleService VehicleSvc
+@inject SupplierService SupplierSvc
+@inject CustomerService CustomerSvc
+@inject NavigationManager Nav
+
+<section class="section tab-panel">
+    <h2 class="section-title"><Icon Name="briefcase" Size="26" /> Payment Voucher
+        @if (_viewing is not null)
+        {
+            <span class="badge @(_viewing.Status == VoucherStatus.Cancelled ? "badge-bad" : "badge-info")">Viewing @_viewing.DisplayNo · @_viewing.Status</span>
+        }
+    </h2>
+    <div class="section-body">
+        <PageMessage Text="@MessageText" Ok="@MessageOk" />
+        @if (_viewing is null)
+        {
+            <div class="voucher-grid">
+                <label for="vno">Voucher No.</label><input id="vno" value="@_nextNo" readonly title="Expected. Assigned when you save." />
+                <label class="right">Payment Date</label><div class="input-icon"><Icon Name="calendar" Size="18" /><input readonly value="@IndianTime.FormatDate(_today)" /></div>
+
+                <label for="ledger">Ledger <span class="req">*</span></label>
+                <select id="ledger" class="span3" @bind="_form.AccountId" @bind:after="RefreshAsync">
+                    <option value="0">Choose the ledger (payment purpose)</option>
+                    @foreach (var l in _ledgers) { <option value="@l.Id">@l.Name</option> }
+                </select>
+
+                @if (SelectedLedger?.RefundTo is not null)
+                {
+                    <label for="party">Pay To <span class="req">*</span></label>
+                    <select id="party" class="span3" @bind="_form.PartyId" @bind:after="RefreshAsync">
+                        <option value="0">Choose</option>
+                        @foreach (var p in _parties) { <option value="@p.Id">@p.Name</option> }
+                    </select>
+                }
+                else
+                {
+                    <label for="payto">Pay To</label>
+                    <input id="payto" class="span3" @bind="_form.PayTo" maxlength="120" placeholder="e.g. Murugan Garage" />
+                }
+
+                <label for="mode">Payment Mode</label>
+                <select id="mode" @bind="_form.Mode">
+                    <option value="@PaymentMode.Cash">Cash</option>
+                    <option value="@PaymentMode.Bank">Bank</option>
+                    <option value="@PaymentMode.Upi">UPI</option>
+                </select>
+                <label for="vehicle" class="right">Vehicle</label>
+                <select id="vehicle" @bind="_form.VehicleId">
+                    <option value="">None</option>
+                    @foreach (var v in _vehicles) { <option value="@v.Id">@v.Code - @v.VehicleNo</option> }
+                </select>
+
+                <label for="amount">Amount <span class="req">*</span></label>
+                <input id="amount" type="number" min="0" step="0.01" @bind="_form.Amount" @bind:event="oninput" />
+                <label for="ref" class="right">Reference No.@(_form.Mode != PaymentMode.Cash ? " *" : "")</label>
+                <input id="ref" @bind="_form.ReferenceNo" maxlength="40" placeholder="@(_form.Mode == PaymentMode.Cash ? "Optional" : "Required for Bank / UPI")" />
+
+                <label for="narr">Narration</label>
+                <textarea id="narr" class="span3" rows="2" maxlength="300" @bind="_form.Narration"></textarea>
+            </div>
+
+            @if (_form.AccountId > 0)
+            {
+                <div class="balance-strip">
+                    <span>Ledger balance now <BalanceText Paise="_balance" /></span>
+                    <span>After this payment <BalanceText Paise="@(_balance + AmountPaise)" /></span>
+                    @if (_form.Mode == PaymentMode.Cash) { <span>Cash in hand ₹@Money.Format(_cash)</span> }
+                </div>
+            }
+            @if (_form.Mode == PaymentMode.Cash && AmountPaise > _cash)
+            {
+                <div class="alert alert-warn">
+                    This is more than the cash in hand (₹@Money.Format(_cash)).
+                    <label><input type="checkbox" @bind="_form.ConfirmAboveCash" /> I confirm this payment</label>
+                </div>
+            }
+        }
+        else
+        {
+            <div class="voucher-grid">
+                <label>Voucher No.</label><input readonly value="@_viewing.DisplayNo" />
+                <label class="right">Payment Date</label><input readonly value="@IndianTime.FormatDate(_viewing.Date)" />
+                <label>Ledger</label><input class="span3" readonly value="@_viewing.Ledger" />
+                <label>Pay To</label><input class="span3" readonly value="@_viewing.PayTo" />
+                <label>Payment Mode</label><input readonly value="@_viewing.Mode" />
+                <label class="right">Vehicle</label><input readonly value="@_viewing.VehicleNo" />
+                <label>Amount</label><input readonly value="@Money.Format(_viewing.AmountPaise)" />
+                <label class="right">Reference No.</label><input readonly value="@_viewing.ReferenceNo" />
+                @if (_viewing.CancelReason is not null) { <label>Cancel reason</label><input class="span3" readonly value="@_viewing.CancelReason" /> }
+            </div>
+            @if (_confirmCancel)
+            {
+                <div class="cancel-box">
+                    <label for="reason">Reason for cancelling @_viewing.DisplayNo <span class="req">*</span></label>
+                    <input id="reason" @bind="_cancelReason" maxlength="300" />
+                    <button class="btn btn-danger" @onclick="CancelAsync" disabled="@Busy"><Icon Name="trash" /> Confirm cancel</button>
+                    <button class="btn" @onclick="() => _confirmCancel = false">Keep it</button>
+                </div>
+            }
+        }
+
+        <div class="voucher-buttons">
+            <button class="btn" @onclick="() => Move(newer: true)" disabled="@(_viewing is null)"><Icon Name="next" /> Next</button>
+            <button class="btn" @onclick="() => Move(newer: false)"><Icon Name="prev" /> Previous</button>
+            <button class="btn btn-primary" @onclick="NewVoucher"><Icon Name="plus" /> New</button>
+            <button class="btn btn-primary" @onclick="SaveAsync" disabled="@(Busy || _viewing is not null)"><Icon Name="save" /> Save</button>
+            <button class="btn" @onclick="() => _showHistory = !_showHistory"><Icon Name="eye" /> View</button>
+            <button class="btn" disabled title="Saved payments are never edited. Delete (cancel) it and enter a new one."><Icon Name="edit" /> Edit</button>
+            <button class="btn btn-danger" disabled="@(_viewing is null || _viewing.Status == VoucherStatus.Cancelled || !Can(Permission.PaymentCancel))"
+                    @onclick="() => { _confirmCancel = true; _cancelReason = string.Empty; }"><Icon Name="trash" /> Delete</button>
+            <button class="btn" @onclick="@(() => Nav.NavigateTo("/"))"><Icon Name="exit" /> Exit</button>
+        </div>
+    </div>
+</section>
+
+@if (_showHistory)
+{
+    <section class="section">
+        <h2 class="section-title"><Icon Name="list" Size="22" /> Payment History</h2>
+        <table class="data plain">
+            <thead><tr><th>Voucher</th><th>Date</th><th>Ledger</th><th>Pay To</th><th>Vehicle</th><th>Mode</th><th>Reference</th><th class="num">Amount</th><th>Status</th></tr></thead>
+            <tbody>
+                @foreach (var r in _history)
+                {
+                    <tr class="@(r.Status == VoucherStatus.Cancelled ? "muted" : "")" @onclick="() => Open(r)" style="cursor: pointer">
+                        <td><button class="link-button">@r.DisplayNo</button></td><td>@IndianTime.FormatDate(r.Date)</td><td>@r.Ledger</td><td>@r.PayTo</td><td>@r.VehicleNo</td>
+                        <td>@r.Mode</td><td>@r.ReferenceNo</td><td class="num">@Money.Format(r.AmountPaise)</td><td>@r.Status</td>
+                    </tr>
+                }
+                @if (_history.Count == 0) { <tr><td colspan="9" class="muted">No payments yet.</td></tr> }
+            </tbody>
+        </table>
+    </section>
+}
+
+@code {
+    private PaymentForm _form = new();
+    private IReadOnlyList<PaymentLedger> _ledgers = [];
+    private IReadOnlyList<VehicleRow> _vehicles = [];
+    private List<(long Id, string Name)> _parties = [];
+    private IReadOnlyList<PaymentRow> _history = [];   // newest first
+    private PaymentRow? _viewing;
+    private string _nextNo = "";
+    private DateOnly _today;
+    private long _balance, _cash;
+    private bool _showHistory, _confirmCancel;
+    private string _cancelReason = "";
+
+    [Inject] private DaySalesService Days { get; set; } = default!;
+
+    private PaymentLedger? SelectedLedger => _ledgers.FirstOrDefault(l => l.Id == _form.AccountId);
+    private long AmountPaise => _form.Amount > 0 ? Money.RoundHalfUp(_form.Amount) : 0;
+
+    protected override async Task OnUserReadyAsync()
+    {
+        _today = Days.Today();
+        _ledgers = await Svc.LedgersAsync();
+        _vehicles = await VehicleSvc.SearchAsync(null, StatusFilter.All);
+        await ReloadAsync();
+    }
+
+    private async Task ReloadAsync()
+    {
+        _nextNo = await Svc.PeekNextNumberAsync();
+        _cash = await Svc.CashInHandAsync();
+        _history = await Svc.HistoryAsync(DateOnly.MinValue, DateOnly.MaxValue);
+    }
+
+    private async Task RefreshAsync()
+    {
+        if (SelectedLedger?.RefundTo is { } refundTo)
+        {
+            _form.PartyType = refundTo;
+            _parties = refundTo == PartyType.Supplier
+                ? (await SupplierSvc.SearchAsync(null, StatusFilter.All)).Select(s => (s.Id, s.Name)).ToList()
+                : (await CustomerSvc.SearchAsync(null, StatusFilter.All)).Select(c => (c.Id, c.Name)).ToList();
+        }
+        _balance = _form.AccountId > 0 ? await Svc.LedgerBalanceAsync(_form.AccountId, _form.PartyType, _form.PartyId) : 0;
+        _cash = await Svc.CashInHandAsync();
+    }
+
+    private void NewVoucher() { _viewing = null; _confirmCancel = false; MessageText = null; }
+
+    private void Open(PaymentRow r) { _viewing = r; _confirmCancel = false; MessageText = null; }
+
+    private void Move(bool newer)
+    {
+        MessageText = null;
+        _confirmCancel = false;
+        var index = _viewing is null ? -1 : _history.ToList().FindIndex(h => h.VoucherId == _viewing.VoucherId);
+        var target = newer ? index - 1 : index + 1;
+        if (newer && target < 0) { _viewing = null; return; }
+        if (target >= _history.Count) { ShowError("No older payments."); return; }
+        _viewing = _history[target];
+    }
+
+    private async Task SaveAsync()
+    {
+        if (Busy) return;   // a click that arrives while saving does nothing (NFR-CON-06)
+        Busy = true;
+        try
+        {
+            var result = await Svc.CreateAsync(_form);
+            if (result.Ok)
+            {
+                ShowOk($"Payment {_nextNo} saved.");
+                _form = new PaymentForm();
+                _balance = 0;
+                await ReloadAsync();
+            }
+            else ShowError(result.Error!);
+        }
+        finally { Busy = false; }
+    }
+
+    private async Task CancelAsync()
+    {
+        if (_viewing is null || Busy) return;
+        Busy = true;
+        try
+        {
+            var result = await Svc.CancelAsync(_viewing.VoucherId, _cancelReason, _viewing.Version);
+            Show(result, $"Payment {_viewing.DisplayNo} cancelled. A reversal was posted.");
+            if (result.Ok)
+            {
+                _confirmCancel = false;
+                await ReloadAsync();
+                _viewing = _history.FirstOrDefault(h => h.VoucherId == _viewing.VoucherId);
+            }
+        }
+        finally { Busy = false; }
+    }
+}

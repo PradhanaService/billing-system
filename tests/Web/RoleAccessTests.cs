@@ -56,21 +56,39 @@ public class RoleAccessTests : IClassFixture<TestAppFactory>
         }
         else
         {
-            Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
-            Assert.StartsWith("/account/denied", response.Headers.Location!.PathAndQuery);
+            // Admin-only pages simply do not exist for other roles: "Page not found".
+            Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+            Assert.Contains("Page not found", await response.Content.ReadAsStringAsync());
         }
     }
 
     [Theory]
-    [InlineData(UserRole.DispatchOperator, "/pdf/report?kind=TrialBalance&from=2026-01-01&to=2026-12-31")]
-    [InlineData(UserRole.BillingClerk, "/pdf/report?kind=CashBook&from=2026-01-01&to=2026-12-31")]
-    [InlineData(UserRole.DispatchOperator, "/pdf/statement?kind=Account&id=1&from=2026-01-01&to=2026-12-31")]
-    public async Task Pdf_Endpoints_Refuse_Roles_Without_Permission(UserRole role, string url)
+    [InlineData(UserRole.DispatchOperator)]
+    [InlineData(UserRole.BillingClerk)]
+    [InlineData(UserRole.Accountant)]
+    public async Task Non_Admin_Sees_No_Gateway_To_Backup_Logs_Or_Users(UserRole role)
     {
         var client = await LoginAsAsync(role);
-        var response = await client.GetAsync(url);
-        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
-        Assert.StartsWith("/account/denied", response.Headers.Location!.PathAndQuery);
+
+        foreach (var page in new[] { "/", "/vehicles", "/invoices/new", "/transactions", "/reports" })
+        {
+            var html = await client.GetStringAsync(page);
+            Assert.DoesNotContain("/admin/", html);
+            Assert.DoesNotContain("Activity Log", html);
+            Assert.DoesNotContain("Backup", html);
+        }
+        foreach (var hidden in new[] { "/admin/backup", "/admin/activity-log", "/admin/users", "/admin/anything" })
+            Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync(hidden)).StatusCode);
+    }
+
+    [Fact]
+    public async Task Admin_Sees_Backup_Logs_And_Users()
+    {
+        var client = await LoginAsAsync(UserRole.Admin);
+        var html = await client.GetStringAsync("/");
+        Assert.Contains("/admin/backup", html);
+        Assert.Contains("/admin/activity-log", html);
+        Assert.Contains("/admin/users", html);
     }
 
     [Fact]

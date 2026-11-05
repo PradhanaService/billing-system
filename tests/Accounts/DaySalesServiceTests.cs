@@ -154,11 +154,10 @@ public class DaySalesServiceTests : BillingFixture
     }
 
     [Fact]
-    public async Task NFR_SEC_05_Billing_Clerk_Views_But_Cannot_Close()
+    public async Task Billing_Clerk_Can_Close_The_Day()
     {
         Me.User = Db.AddUser(UserRole.BillingClerk);
-        await Days.GetDayAsync(Day1);
-        await Assert.ThrowsAsync<NotAllowedException>(() => Days.CloseDayAsync(Day1, 0, null, 0));
+        Assert.True((await Days.CloseDayAsync(Day1, 0, null, 0)).Ok);
     }
 
     [Fact]
