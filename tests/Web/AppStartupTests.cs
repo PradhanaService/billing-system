@@ -1,15 +1,14 @@
 using System.Net;
-using Microsoft.AspNetCore.Mvc.Testing;
 
-namespace WaterBilling.Tests;
+namespace WaterBilling.Tests.Web;
 
 // Session 1 smoke tests: the app starts and answers safely.
 // WebApplicationFactory starts the whole app in memory, no browser or port needed.
-public class AppStartupTests : IClassFixture<WebApplicationFactory<Program>>
+public class AppStartupTests : IClassFixture<TestAppFactory>
 {
-    private readonly WebApplicationFactory<Program> _factory;
+    private readonly TestAppFactory _factory;
 
-    public AppStartupTests(WebApplicationFactory<Program> factory) => _factory = factory;
+    public AppStartupTests(TestAppFactory factory) => _factory = factory;
 
     [Fact]
     public async Task HomePage_Loads()
