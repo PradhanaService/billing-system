@@ -1,0 +1,28 @@
+.nav-group { margin-bottom: 0.75rem; }
+
+.nav-heading {
+    padding: 0.25rem 1.25rem;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--muted);
+}
+
+/* ::deep reaches into the <a> that NavLink renders. */
+::deep .nav-link {
+    display: block;
+    padding: 0.4rem 1.25rem;
+    color: var(--ink);
+    text-decoration: none;
+}
+
+::deep a.nav-link:hover { background: var(--line); }
+
+::deep a.nav-link.active {
+    background: var(--accent);
+    color: var(--paper);
+    font-weight: 600;
+}
+
+.nav-link.disabled { color: var(--muted); cursor: default; }

@@ -28,8 +28,18 @@ app.Use(async (context, next) =>
     headers["X-Content-Type-Options"] = "nosniff";      // browser must not guess file types
     headers["X-Frame-Options"] = "DENY";                // page cannot be embedded in another site (clickjacking)
     headers["Referrer-Policy"] = "no-referrer";         // do not leak our URLs to other sites
+    // Content Security Policy: the browser may only load scripts, styles, images and
+    // connections from this app itself. Blocks injected scripts from running.
+    // 'unsafe-inline' for styles only: Blazor's reconnect dialog uses inline styles.
+    headers["Content-Security-Policy"] =
+        "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; " +
+        "img-src 'self' data:; connect-src 'self'; object-src 'none'; " +
+        "base-uri 'self'; form-action 'self'; frame-ancestors 'none'";
     await next();
 });
+
+// Unknown URL (404): show our friendly "Page not found" page, keeping the 404 status code.
+app.UseStatusCodePagesWithReExecute("/not-found");
 
 app.UseHttpsRedirection();
 app.UseStaticFiles();
