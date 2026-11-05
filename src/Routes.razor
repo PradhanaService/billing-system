@@ -1,0 +1,8 @@
+@* The router looks at the URL and picks the page whose @page matches it.
+   Unknown URLs are handled in Program.cs (UseStatusCodePagesWithReExecute -> /not-found). *@
+<Router AppAssembly="typeof(Program).Assembly">
+    <Found Context="routeData">
+        <RouteView RouteData="routeData" DefaultLayout="typeof(MainLayout)" />
+        <FocusOnNavigate RouteData="routeData" Selector="h1" />
+    </Found>
+</Router>

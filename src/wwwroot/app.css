@@ -1,0 +1,32 @@
+/* Colours used across the app. Black and white with one accent (contrast with white above 7:1). */
+:root {
+    --ink: #111111;
+    --paper: #ffffff;
+    --panel: #f5f5f5;
+    --line: #dddddd;
+    --muted: #595959;   /* 7:1 on white, still readable for greyed-out items */
+    --accent: #1a4f8b;
+    --danger: #b00020;
+}
+
+html, body {
+    margin: 0;
+    font-family: "Segoe UI", Arial, sans-serif;
+    font-size: 15px;
+    color: var(--ink);
+    background: var(--paper);
+}
+
+h1 { font-size: 1.5rem; margin-top: 0; }
+h1:focus { outline: none; }
+
+/* Form validation (used from Session 4 on). */
+.invalid { outline: 1px solid var(--danger); }
+.validation-message { color: var(--danger); }
+
+.blazor-error-boundary {
+    background: var(--danger);
+    padding: 1rem;
+    color: white;
+}
+.blazor-error-boundary::after { content: "An error has occurred."; }
