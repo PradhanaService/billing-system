@@ -34,12 +34,15 @@ public class LedgerPoster(TimeProvider clock, BusinessCalendar calendar)
 
     // Fills in number, dates and lines on the voucher and adds it to the context.
     // The caller must already be inside a transaction.
-    public async Task<Voucher> PostAsync(AppDbContext db, Voucher voucher, IReadOnlyList<LineDraft> lines, UserInfo user)
+    // onDate: post on an earlier, still open business day (used only by day closing).
+    public async Task<Voucher> PostAsync(AppDbContext db, Voucher voucher, IReadOnlyList<LineDraft> lines, UserInfo user, DateOnly? onDate = null)
     {
         RequireTransaction(db);
         CheckBalanced(lines);
 
-        var today = await BusinessDays.RequireOpenAsync(db, calendar.Today());
+        var date = onDate ?? calendar.Today();
+        if (date > calendar.Today()) throw new BusinessRuleException("Cannot post to a future business day.");
+        var today = await BusinessDays.RequireOpenAsync(db, date);
         voucher.VoucherDate = today;
         voucher.ValueDate = today;
         await AssignNumberAsync(db, voucher);

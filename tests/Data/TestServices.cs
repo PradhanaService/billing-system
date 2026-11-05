@@ -18,4 +18,5 @@ public sealed class TestServices(TestDatabase db, FakeCurrentUser me)
     public PaymentService Payments => new(db, me, db.Clock, Poster);
     public LedgerMasterService Ledgers => new(db, me, db.Clock);
     public StatementService Statements => new(db, me);
+    public DaySalesService DaySales => new(db, me, db.Clock, Poster, Calendar);
 }

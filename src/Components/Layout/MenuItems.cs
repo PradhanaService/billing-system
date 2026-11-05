@@ -23,12 +23,12 @@ public static class MenuItems
         new("Masters",      "Ledger Master",     "/ledgers",       Permission.LedgerManage,    IsReady: true),
 
         new("Transactions", "Sales Invoice",     "/invoices/new",  Permission.InvoiceCreate,   IsReady: true),
-        new("Transactions", "Invoice Display",   "/invoices",      Permission.DaySalesView,    IsReady: false),
+        new("Transactions", "Invoice Display",   "/invoices",      Permission.DaySalesView,    IsReady: true),
         new("Transactions", "Receipt",           "/receipts",      Permission.ReceiptCreate,   IsReady: true),
         new("Transactions", "Payment",           "/payments",      Permission.PaymentCreate,   IsReady: true),
 
         new("Accounts",     "Ledger Statement",  "/statements",    Permission.StatementsView,  IsReady: true),
-        new("Accounts",     "Day Sales",         "/day-sales",     Permission.DaySalesView,    IsReady: false),
+        new("Accounts",     "Day Sales",         "/day-sales",     Permission.DaySalesView,    IsReady: true),
         new("Accounts",     "Reports",           "/reports",       Permission.ReportsView,     IsReady: false),
 
         new("Admin",        "Users & Roles",     "/admin/users",   Permission.UsersManage,     IsReady: true),

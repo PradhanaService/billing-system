@@ -1,0 +1,77 @@
+@page "/invoices"
+@attribute [Authorize(Policy = nameof(Permission.DaySalesView))]
+@inherits UserContextBase
+@using WaterBilling.Services.Accounts
+@inject DaySalesService Svc
+
+<PageTitle>Invoice Display</PageTitle>
+
+<h1>Invoice Display</h1>
+
+<div class="toolbar">
+    <div class="field"><label for="from">From</label><input id="from" type="date" @bind="_from" @bind:after="LoadAsync" /></div>
+    <div class="field"><label for="to">To</label><input id="to" type="date" @bind="_to" @bind:after="LoadAsync" /></div>
+</div>
+
+@if (_cash is not null && _totals is not null)
+{
+    <div class="cards">
+        <div class="stat"><div class="stat-label">Cash sales</div><div class="stat-value">₹@Money.Format(_totals.CashSalesPaise)</div></div>
+        <div class="stat"><div class="stat-label">Credit sales</div><div class="stat-value">₹@Money.Format(_totals.CreditSalesPaise)</div></div>
+        <div class="stat"><div class="stat-label">Receipts</div><div class="stat-value">₹@Money.Format(_totals.ReceiptsPaise)</div></div>
+        <div class="stat"><div class="stat-label">Payments</div><div class="stat-value">₹@Money.Format(_totals.PaymentsPaise)</div></div>
+        <div class="stat"><div class="stat-label">Opening balance</div><div class="stat-value">₹@Money.Format(_cash.OpeningPaise)</div></div>
+        <div class="stat"><div class="stat-label">Closing balance</div><div class="stat-value">₹@Money.Format(_cash.ClosingPaise)</div></div>
+    </div>
+    <p class="muted">Closing = Opening + Cash Sales (₹@Money.Format(_cash.CashSalesPaise)) + cash Receipts (₹@Money.Format(_cash.CashReceiptsPaise)) − cash Payments (₹@Money.Format(_cash.CashPaymentsPaise))@(_cash.AdjustmentsPaise != 0 ? $" + cash over/short (₹{Money.Format(_cash.AdjustmentsPaise)})" : "").</p>
+
+    <table class="data">
+        <thead><tr><th>Type</th><th>No.</th><th>Party / Ledger</th><th>Mode</th><th class="num">Amount</th><th></th></tr></thead>
+        <tbody>
+            @foreach (var t in _rows)
+            {
+                <tr class="@(t.Cancelled ? "muted" : "")">
+                    <td>@t.Kind</td>
+                    <td>@if (t.InvoiceId is { } id) { <a href="/invoices/@id">@t.DisplayNo</a> } else { @t.DisplayNo }</td>
+                    <td>@t.Party</td><td>@t.Mode</td><td class="num">@Money.Format(t.AmountPaise)</td>
+                    <td>
+                        @if (t.Cancelled) { <span class="badge badge-bad">Cancelled</span> }
+                        @if (t.InvoiceId is { } pid) { <a class="btn btn-small" href="/pdf/invoice/@pid" target="_blank" rel="noopener">Print</a> }
+                    </td>
+                </tr>
+            }
+            @if (_rows.Count == 0) { <tr><td colspan="6" class="muted">Nothing in this period.</td></tr> }
+        </tbody>
+    </table>
+}
+
+@code {
+    [SupplyParameterFromQuery(Name = "month")] public string? MonthParam { get; set; }
+
+    private DateOnly _from, _to;
+    private CashSummary? _cash;
+    private DayTotals? _totals;
+    private IReadOnlyList<DayTransaction> _rows = [];
+
+    protected override async Task OnUserReadyAsync()
+    {
+        var today = Svc.Today();
+        if (DateOnly.TryParse(MonthParam + "-01", out var month))
+        {
+            _from = month;
+            _to = month.AddMonths(1).AddDays(-1);
+        }
+        else
+        {
+            _from = today;
+            _to = today;
+        }
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        if (_to < _from || _to.DayNumber - _from.DayNumber > 366) { _rows = []; _cash = null; return; }
+        (_cash, _totals, _rows) = await Svc.PeriodAsync(_from, _to);
+    }
+}

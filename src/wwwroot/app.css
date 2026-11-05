@@ -76,3 +76,9 @@ table.data tr.muted td { color: var(--muted); }
 .badge-bad { border-color: var(--danger); color: var(--danger); }
 .muted { color: var(--muted); }
 .btn + .btn { margin-left: 0.35rem; }
+
+/* Figure cards (Invoice Display, Dashboard) */
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 0.75rem; margin-bottom: 1rem; }
+.stat { border: 1px solid var(--line); padding: 0.75rem 1rem; background: var(--paper); }
+.stat-label { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.03em; color: var(--muted); }
+.stat-value { font-size: 1.3rem; font-weight: 700; margin-top: 0.2rem; font-variant-numeric: tabular-nums; }

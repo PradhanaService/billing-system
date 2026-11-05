@@ -39,3 +39,6 @@
 
 ## Module 11: Ledger Statements
 - Done: StatementService (supplier, customer, vehicle, account/cash book; opening b/f, lines, period totals, closing c/f; by Date or by Value Date); generic ReportTable + ReportPdf + ReportView shared by statements and reports; statement PDF endpoint; Ledger Statement screen. Test proves statement balances equal the stored running balances. 203 tests passing.
+
+## Module 12: Day Sales, Day Closing & Invoice Display
+- Done: DaySalesService (cash summary from the Cash ledger: opening + cash sales + cash receipts − cash payments; cancelled items net out; day totals and transaction list; blockers = earlier open days; close day with P8/P9 for differences, reason required, locks the day, carries counted cash to the next day even if it already started); Day Sales screen; Invoice Display for any period with the FR-INV-16 closing balance. Bug found in browser test and fixed: a failed close wiped the counted cash. 214 tests passing.
