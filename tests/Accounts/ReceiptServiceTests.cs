@@ -104,14 +104,12 @@ public class ReceiptServiceTests : BillingFixture
     }
 
     [Fact]
-    public async Task NFR_SEC_05_Dispatch_Operator_Takes_Cash_Only()
+    public async Task Dispatch_Operator_Can_Take_Any_Mode()
     {
         Me.User = Db.AddUser(UserRole.DispatchOperator);
 
         Assert.True((await Rcp.CreateAsync(Form(100))).Ok);
-        var upi = await Rcp.CreateAsync(Form(100, PaymentMode.Upi, "UTR1"));
-        Assert.False(upi.Ok);
-        Assert.Contains("cash receipts only", upi.Error);
+        Assert.True((await Rcp.CreateAsync(Form(100, PaymentMode.Upi, "UTR1"))).Ok);
     }
 
     [Fact]
@@ -144,10 +142,11 @@ public class ReceiptServiceTests : BillingFixture
     }
 
     [Fact]
-    public async Task Billing_Clerk_Cannot_Cancel_Receipts()
+    public async Task Billing_Clerk_Can_Cancel_Receipts()
     {
         var id = (await Rcp.CreateAsync(Form(100))).Value;
-        await Assert.ThrowsAsync<NotAllowedException>(() => Rcp.CancelAsync(id, "x", 1));
+        var row = Assert.Single(await Rcp.HistoryAsync(new ReceiptFilter(DateOnly.MinValue, DateOnly.MaxValue)));
+        Assert.True((await Rcp.CancelAsync(id, "x", row.Version)).Ok);
     }
 
     [Fact]

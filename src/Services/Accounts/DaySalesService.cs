@@ -13,7 +13,8 @@ public sealed record CashSummary(long OpeningPaise, long CashSalesPaise, long Ca
     long AdjustmentsPaise, long ClosingPaise);
 
 // One row of the day's transactions (invoices, receipts, payments).
-public sealed record DayTransaction(string Kind, string DisplayNo, string Party, string Mode, long AmountPaise, bool Cancelled, long? InvoiceId);
+public sealed record DayTransaction(string Kind, string DisplayNo, string Party, string Mode, long AmountPaise, bool Cancelled, long? InvoiceId,
+    string? Vehicle = null, int Trips = 0, DateOnly Date = default);
 
 public sealed record DayTotals(long TotalSalesPaise, long CashSalesPaise, long CreditSalesPaise, int Trips, int InvoiceCount,
     long ReceiptsPaise, long PaymentsPaise);
@@ -167,8 +168,9 @@ public class DaySalesService(IDbContextFactory<AppDbContext> dbFactory, ICurrent
                               join c in db.Customers on i.CustomerId equals c.Id into cj
                               from c in cj.DefaultIfEmpty()
                               orderby i.InvoiceNo
-                              select new DayTransaction("Invoice", i.DisplayNo, (c == null ? s.Name : c.Name) + " · " + v.VehicleNo,
-                                  i.PaymentMode.ToString(), i.AmountPaise, i.Status == InvoiceStatus.Cancelled, i.Id)).ToListAsync();
+                              select new DayTransaction("Invoice", i.DisplayNo, c == null ? s.Name : c.Name,
+                                  i.PaymentMode.ToString(), i.AmountPaise, i.Status == InvoiceStatus.Cancelled, i.Id,
+                                  v.Nickname, i.Trips, i.InvoiceDate)).ToListAsync();
         var vouchers = await (from v in db.Vouchers
                               where v.VoucherDate == date && (v.Type == VoucherType.Receipt || v.Type == VoucherType.Payment)
                               join s in db.Suppliers on v.SupplierId equals s.Id into sj
@@ -180,7 +182,8 @@ public class DaySalesService(IDbContextFactory<AppDbContext> dbFactory, ICurrent
                               orderby v.Type, v.Number
                               select new DayTransaction(v.Type == VoucherType.Receipt ? "Receipt" : "Payment", v.DisplayNo,
                                   s != null ? s.Name : c != null ? c.Name : (a != null ? a.Name : "") + (v.PayTo != null ? " · " + v.PayTo : ""),
-                                  v.Mode!.Value.ToString(), v.AmountPaise, v.Status == VoucherStatus.Cancelled, null)).ToListAsync();
+                                  v.Mode!.Value.ToString(), v.AmountPaise, v.Status == VoucherStatus.Cancelled, null,
+                                  null, 0, v.VoucherDate)).ToListAsync();
         return [.. invoices, .. vouchers];
     }
 

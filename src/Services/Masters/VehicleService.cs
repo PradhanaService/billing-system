@@ -9,7 +9,7 @@ using WaterBilling.Services.Security;
 namespace WaterBilling.Services.Masters;
 
 public sealed record VehicleRow(long Id, string Code, string VehicleNo, string Nickname, string SupplierName,
-    int TankCapacityLitres, BillingBasis BillingBasis, long RatePaise, VehicleStatus Status, bool SupplierActive);
+    int TankCapacityLitres, BillingBasis BillingBasis, long RatePaise, VehicleStatus Status, bool SupplierActive, long TripCostPaise = 0);
 
 // What the invoice screen needs about a vehicle (FR-INV-02).
 public sealed record VehicleForBilling(long Id, string Code, string VehicleNo, string Nickname,
@@ -74,7 +74,7 @@ public partial class VehicleService(IDbContextFactory<AppDbContext> dbFactory, I
         }
         return await query.OrderBy(v => v.Code.Length).ThenBy(v => v.Code)
             .Select(v => new VehicleRow(v.Id, v.Code, v.VehicleNo, v.Nickname, v.Supplier!.Name, v.TankCapacityLitres,
-                v.BillingBasis, v.RatePaise, v.Status, v.Supplier.Status == RecordStatus.Active))
+                v.BillingBasis, v.RatePaise, v.Status, v.Supplier.Status == RecordStatus.Active, v.TripCostPaise))
             .ToListAsync();
     }
 

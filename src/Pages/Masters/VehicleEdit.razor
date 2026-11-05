@@ -1,0 +1,173 @@
+@page "/vehicles/new"
+@page "/vehicles/{Id:long}/edit"
+@attribute [Authorize(Policy = nameof(Permission.MastersEdit))]
+@inherits UserContextBase
+@using WaterBilling.Services.Masters
+@inject VehicleService Svc
+@inject SupplierService SupplierSvc
+@inject NavigationManager Nav
+
+<PageTitle>@(IsNew ? "Add Vehicle" : "Edit Vehicle")</PageTitle>
+
+<nav class="breadcrumb" aria-label="Breadcrumb">
+    <a href="/" aria-label="Home"><Icon Name="home" Size="20" /></a> <Icon Name="next" Size="14" />
+    <a href="/vehicles">Vehicle Master</a> <Icon Name="next" Size="14" />
+    <strong>@(IsNew ? "Add Vehicle" : $"Edit {_form?.VehicleNo}")</strong>
+</nav>
+
+<PageHeader Title="@(IsNew ? "Add Vehicle" : "Edit Vehicle")" IconName="truck"
+            Subtitle="@(IsNew ? "Enter vehicle details to register a new vehicle." : "Update this vehicle's details.")" />
+
+<PageMessage Text="@MessageText" Ok="@MessageOk" />
+
+@if (_form is not null)
+{
+    <EditForm Model="_form" OnValidSubmit="SaveAsync">
+        <DataAnnotationsValidator />
+        <section class="section">
+            <h2 class="section-title"><Icon Name="truck" Size="22" /> Vehicle Details</h2>
+            <div class="section-body form-2col">
+                <div>
+                    <div class="field">
+                        <label for="vno">Vehicle No. <span class="req">*</span></label>
+                        <div class="input-icon"><Icon Name="grid" Size="18" /><InputText id="vno" @bind-Value="_form.VehicleNo" placeholder="Enter Vehicle No. (e.g. TN 38 M 3)" /></div>
+                        <ValidationMessage For="() => _form.VehicleNo" />
+                    </div>
+                    <div class="field">
+                        <label for="supplier">Supplier <span class="req">*</span></label>
+                        <div class="input-icon"><Icon Name="users" Size="18" />
+                            @if (IsNew)
+                            {
+                                <InputSelect id="supplier" @bind-Value="_form.SupplierId">
+                                    <option value="0">Select Supplier</option>
+                                    @foreach (var s in _suppliers) { <option value="@s.Id">@s.Name</option> }
+                                </InputSelect>
+                            }
+                            else
+                            {
+                                <input id="supplier" value="@_supplierName" readonly title="A vehicle cannot move to another supplier in this version." />
+                            }
+                        </div>
+                        <ValidationMessage For="() => _form.SupplierId" />
+                    </div>
+                    <div class="field">
+                        <label for="tripcost">Trip Cost (₹) <span class="req">*</span></label>
+                        <div class="input-icon"><Icon Name="rupee" Size="18" /><InputNumber id="tripcost" @bind-Value="_form.TripCost" step="0.01" min="0" placeholder="Enter Trip Cost" /></div>
+                        <small>For reference. Invoices use the Rate below.</small>
+                        <ValidationMessage For="() => _form.TripCost" />
+                    </div>
+                </div>
+                <div>
+                    <div class="field">
+                        <label for="cap">Capacity (Litres) <span class="req">*</span></label>
+                        <div class="input-icon"><Icon Name="database" Size="18" /><InputNumber id="cap" @bind-Value="_form.TankCapacityLitres" min="1" placeholder="Enter Capacity" /></div>
+                        <ValidationMessage For="() => _form.TankCapacityLitres" />
+                    </div>
+                    <div class="field">
+                        <label id="status-label">Vehicle Status <span class="req">*</span></label>
+                        <div class="radio-pills" role="radiogroup" aria-labelledby="status-label">
+                            @foreach (var st in Enum.GetValues<VehicleStatus>())
+                            {
+                                <label class="radio-pill @(_form.Status == st ? "on" : "")">
+                                    <input type="radio" name="status" checked="@(_form.Status == st)" @onchange="() => _form.Status = st" /> @st
+                                </label>
+                            }
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="section">
+            <h2 class="section-title"><Icon Name="rupee" Size="22" /> Billing and Driver</h2>
+            <div class="section-body form-grid">
+                <div class="field">
+                    <label for="code">Vehicle Code</label>
+                    <InputText id="code" @bind-Value="_form.Code" readonly="@(!IsNew)" />
+                    <small>@(IsNew ? "Proposed by the system. Never reused." : "Fixed after creation.")</small>
+                </div>
+                <div class="field">
+                    <label for="basis">Billing basis</label>
+                    <InputSelect id="basis" @bind-Value="_form.BillingBasis">
+                        <option value="@BillingBasis.Trip">Per trip</option>
+                        <option value="@BillingBasis.Volume">Per kL (volume)</option>
+                    </InputSelect>
+                </div>
+                <div class="field">
+                    <label for="rate">Rate (₹ per @(_form.BillingBasis == BillingBasis.Trip ? "trip" : "kL")) <span class="req">*</span></label>
+                    <InputNumber id="rate" @bind-Value="_form.Rate" step="0.01" min="0" />
+                    <ValidationMessage For="() => _form.Rate" />
+                </div>
+                <div class="field">
+                    <label for="nick">Vehicle Name</label>
+                    <InputText id="nick" @bind-Value="_form.Nickname" placeholder="Supplier short name + number" />
+                </div>
+                <div class="field">
+                    <label for="water">Water Details</label>
+                    <InputText id="water" @bind-Value="_form.WaterDetails" />
+                </div>
+                <div class="field">
+                    <label for="dname">Driver name</label>
+                    <InputText id="dname" @bind-Value="_form.DriverName" />
+                </div>
+                <div class="field">
+                    <label for="dphone">Driver phone</label>
+                    <InputText id="dphone" @bind-Value="_form.DriverPhone" inputmode="tel" />
+                    <ValidationMessage For="() => _form.DriverPhone" />
+                </div>
+                <div class="field">
+                    <label for="dlic">Driver licence no.</label>
+                    <InputText id="dlic" @bind-Value="_form.DriverLicenceNo" />
+                </div>
+            </div>
+        </section>
+
+        <div class="form-actions">
+            <button type="button" class="btn btn-lg" @onclick="ClearAsync"><Icon Name="edit" /> Clear</button>
+            <button type="submit" class="btn btn-primary btn-lg" disabled="@Busy"><Icon Name="save" /> Save</button>
+        </div>
+    </EditForm>
+}
+
+@code {
+    [Parameter] public long? Id { get; set; }
+
+    private bool IsNew => Id is null;
+    private VehicleForm? _form;
+    private IReadOnlyList<(long Id, string Name)> _suppliers = [];
+    private string? _supplierName;
+
+    protected override async Task OnUserReadyAsync()
+    {
+        _suppliers = await SupplierSvc.ListActiveAsync();
+        if (IsNew) await ClearAsync();
+        else
+        {
+            _form = await Svc.GetAsync(Id!.Value);
+            if (_form is null) ShowError("Vehicle not found.");
+            else _supplierName = (await SupplierSvc.GetAsync(_form.SupplierId))?.Name;
+        }
+    }
+
+    private async Task ClearAsync()
+    {
+        if (!IsNew) { _form = await Svc.GetAsync(Id!.Value); return; }
+        _form = new VehicleForm { Code = await Svc.ProposeCodeAsync(), TankCapacityLitres = 12000 };
+        MessageText = null;
+    }
+
+    private async Task SaveAsync()
+    {
+        if (_form is null) return;
+        if (Busy) return;   // a click that arrives while saving does nothing (NFR-CON-06)
+        Busy = true;
+        try
+        {
+            var result = IsNew ? (await Svc.CreateAsync(_form)) is var r && r.Ok ? Result.Success() : Result.Fail(r.Error!)
+                               : await Svc.UpdateAsync(Id!.Value, _form);
+            if (result.Ok) Nav.NavigateTo($"/vehicles?saved={Uri.EscapeDataString("Vehicle " + _form.VehicleNo.ToUpperInvariant())}");
+            else ShowError(result.Error!);
+        }
+        finally { Busy = false; }
+    }
+}

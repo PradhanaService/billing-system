@@ -112,10 +112,15 @@ Put the three original spec PDFs (Project Overview, Requirements, Database Schem
 
 | Role | Main job |
 |---|---|
-| Admin | Users, rates, everything, review activity log |
-| Dispatch Operator | Fills on meters, creates trip invoices, cash receipts |
-| Billing Clerk | Invoices, receipts, party statements |
-| Accountant | Vouchers, ledgers, reports, day closing |
+| Admin | Everything, **plus** Users & Roles, Activity Log and Backup (admin-only) |
+| Dispatch Operator | All business work (same as below) |
+| Billing Clerk | All business work: suppliers, customers, vehicles, invoices, ledgers, receipts, payments, day close, statements, reports |
+| Accountant | All business work (same as above) |
+
+> **Client decision (Nov 2026), replaces the earlier per-role split:** only Admin can see or open Backup,
+> Activity Log and Users & Roles. For other roles those pages are not in the menu and their addresses
+> answer "Page not found" (no gateway). Every other role can do all business actions like Admin.
+> Roles are still recorded on every activity-log entry. Code: `RolePermissions` (Services/Security/Permission.cs).
 
 - Permissions are enforced on the **server side** for every action. Hiding a button is not security.
 - Users are deactivated, never deleted.

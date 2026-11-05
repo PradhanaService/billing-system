@@ -1,6 +1,6 @@
 # Test report: Version 1.0
 
-**Result: 311 automated tests, 311 passed.** 56 requirement IDs have named tests; see
+**Result: 360 automated tests, 360 passed.** 56 requirement IDs have named tests; see
 `requirement-test-matrix.md`. All tests run with `dotnet test` in about 30 seconds.
 
 ## How testing is organised
@@ -15,7 +15,7 @@
 | Check | Result |
 |---|---|
 | Pages without a permission check | Only Login, Access denied, Not found, Error (intended) |
-| Every role × every menu page over HTTP (60 cases) | Each role gets exactly what the role table allows; others go to "Not allowed" |
+| Every role × every menu page over HTTP (56 cases) | Each role gets exactly what the role table allows; admin-only pages answer 404 |
 | PDF endpoints for roles without permission | Refused |
 | Raw SQL | One constant `PRAGMA` at startup; all queries are parameterised by EF Core |
 | HTML typed into names (`<script>`) | Shown as text, never run (no `MarkupString` anywhere) |
@@ -64,6 +64,14 @@ every kind of event and then checks every voucher balances and invoice numbers a
 | 15 | Backups left `-wal`/`-shm` side files | Backup copy switched to single-file mode |
 | 15 | `"Automatic": false` could not switch off the daily backup | Proper boolean parse |
 | 16 | A very fast second click could, in theory, save twice | Re-entry guard on every save |
+
+## Update: redesign and role change (Nov 2026)
+- Screens rebuilt to the client designs; every flow re-checked in the browser (suppliers and vehicles through the
+  new Add pages, invoices, receipts and payments with Previous/Next/Delete, Invoice Display, Ledger Master).
+- New role rule tested: for each non-admin role every business page opens; `/admin/*` answers 404; no page they
+  can open contains a link to Backup, Activity Log or Users (`RoleAccessTests`, `RolePermissionsTests`).
+- Bug found and fixed in the browser: choosing a vehicle reset the *Vehicle No.* box to "Choose" when the
+  supplier list re-filtered.
 
 ## Known limits (agreed Version 1.1 or awaiting the client)
 - Meter dispensing (FR-MTR, FR-DSP, FR-OVR) not built: awaiting client confirmation (CLAUDE.md §3, question 9).

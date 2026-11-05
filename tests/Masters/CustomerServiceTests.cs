@@ -62,9 +62,9 @@ public class CustomerServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task Viewer_Cannot_Create()
+    public async Task Accountant_Can_Create_Customers()
     {
         _me.User = _db.AddUser(UserRole.Accountant);
-        await Assert.ThrowsAsync<NotAllowedException>(() => _svc.CreateAsync(Form()));
+        Assert.True((await _svc.CreateAsync(Form())).Ok);
     }
 }

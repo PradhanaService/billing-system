@@ -107,10 +107,10 @@ public class PaymentServiceTests : BillingFixture
     }
 
     [Fact]
-    public async Task NFR_SEC_05_Billing_Clerk_Cannot_Make_Payments()
+    public async Task Billing_Clerk_Can_Make_Payments()
     {
         Me.User = Db.AddUser(UserRole.BillingClerk);
-        await Assert.ThrowsAsync<NotAllowedException>(() => Pay.CreateAsync(new PaymentForm { AccountId = FuelExpense, Amount = 1 }));
+        Assert.True((await Pay.CreateAsync(new PaymentForm { AccountId = FuelExpense, Amount = 1, ConfirmAboveCash = true })).Ok);
     }
 }
 

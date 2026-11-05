@@ -1,28 +1,32 @@
-@* Monthly sales, last 6 months (FR-DASH-04). One series, so no legend: the title names it.
-   Plain HTML + CSS bars, no JavaScript. Each bar is a link to Invoice Display for that month,
-   with a hover/focus tooltip. Values are printed only on the selected and the largest month;
-   the full figures are in the table below the chart. *@
-<figure class="barchart" aria-labelledby="chart-title">
-    <figcaption id="chart-title" class="chart-title">Monthly sales, last 6 months (₹)</figcaption>
-    <div class="plot">
-        @foreach (var m in Months)
-        {
-            var pct = Max == 0 ? 0 : (double)m.SalesPaise / Max * 100;
-            var showValue = m.SalesPaise > 0 && (m.Key == SelectedKey || m.SalesPaise == Max);
-            <a class="bar-slot @(m.Key == SelectedKey ? "selected" : "")" href="/invoices?month=@m.Key"
-               aria-label="@m.Label: ₹@Money.Format(m.SalesPaise). Open invoices for this month.">
-                <span class="bar-value">@(showValue ? Short(m.SalesPaise) : "")</span>
-                <span class="bar" style="height: @pct.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)%"></span>
-                <span class="tip" role="tooltip">@m.Label<br /><strong>₹@Money.Format(m.SalesPaise)</strong></span>
-            </a>
-        }
+@* Monthly sales, last 6 months (FR-DASH-04). One series, so no legend: the section title names it.
+   Plain HTML + CSS, no JavaScript. A value axis on the left with recessive grid lines.
+   Each bar links to Invoice Display for that month and shows a tooltip on hover/focus.
+   Values are printed on the selected and the largest month; all six are in the table view. *@
+<figure class="barchart" aria-label="Monthly sales, last 6 months, in rupees">
+    <div class="chart-area">
+        <div class="y-axis">
+            @foreach (var tick in Ticks.Reverse()) { <span>@IndianShort(tick)</span> }
+        </div>
+        <div class="plot">
+            @foreach (var tick in Ticks.Skip(1)) { <div class="gridline" style="bottom: @Pct(tick)%"></div> }
+            @foreach (var m in Months)
+            {
+                var showValue = m.SalesPaise > 0 && (m.Key == SelectedKey || m.SalesPaise == Max);
+                <a class="bar-slot @(m.Key == SelectedKey ? "selected" : "")" href="/invoices?month=@m.Key"
+                   aria-label="@m.Label: ₹@Money.Format(m.SalesPaise). Open invoices for this month.">
+                    <span class="bar-value">@(showValue ? IndianShort(m.SalesPaise / 100m) : "")</span>
+                    <span class="bar" style="height: @Pct(m.SalesPaise / 100m)%"></span>
+                    <span class="tip" role="tooltip">@m.Label<br /><strong>₹@Money.Format(m.SalesPaise)</strong></span>
+                </a>
+            }
+        </div>
     </div>
     <div class="axis">
-        @foreach (var m in Months) { <span>@m.Label</span> }
+        @foreach (var m in Months) { <span>@m.Label[..3]</span> }
     </div>
     <details class="chart-table">
         <summary>Show as table</summary>
-        <table class="data">
+        <table class="data plain">
             <thead><tr><th>Month</th><th class="num">Sales (₹)</th></tr></thead>
             <tbody>@foreach (var m in Months) { <tr><td>@m.Label</td><td class="num">@Money.Format(m.SalesPaise)</td></tr> }</tbody>
         </table>
@@ -35,13 +39,26 @@
 
     private long Max => Months.Count == 0 ? 0 : Months.Max(m => m.SalesPaise);
 
-    // 4,94,784.00 -> "4.95 L"; 1,23,45,678 -> "1.23 Cr" (short label on the bar only).
-    private static string Short(long paise)
+    // A "nice" top value (1, 2, 2.5 or 5 × a power of ten, in rupees) split into 6 steps.
+    private decimal Top
     {
-        var rupees = paise / 100m;
-        return rupees >= 1_00_00_000 ? $"{rupees / 1_00_00_000:0.##} Cr"
-             : rupees >= 1_00_000 ? $"{rupees / 1_00_000:0.##} L"
-             : rupees >= 1_000 ? $"{rupees / 1_000:0.#} K"
-             : rupees.ToString("0");
+        get
+        {
+            var max = Max / 100m;
+            if (max <= 0) return 600;
+            var step = max / 6;
+            var power = (decimal)Math.Pow(10, Math.Floor(Math.Log10((double)step)));
+            var nice = new[] { 1m, 2m, 2.5m, 5m, 10m }.Select(f => f * power).First(s => s >= step);
+            return nice * 6;
+        }
     }
+
+    private IEnumerable<decimal> Ticks => Enumerable.Range(0, 7).Select(i => Top / 6 * i);
+
+    private string Pct(decimal rupees) =>
+        (Top == 0 ? 0 : Math.Min(100, rupees / Top * 100)).ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
+
+    // Indian grouping for axis labels: 15,00,000
+    private static string IndianShort(decimal rupees) =>
+        rupees.ToString("#,##0", System.Globalization.CultureInfo.GetCultureInfo("en-IN"));
 }

@@ -4,16 +4,20 @@
 @using WaterBilling.Services.Masters
 @inject CustomerService Svc
 
-<PageTitle>Customer Master</PageTitle>
+<PageTitle>Customers</PageTitle>
 
-<h1>Customer Master</h1>
+<PageHeader Title="Customers" IconName="briefcase" Subtitle="Direct billing customers such as construction companies.">
+    <Actions>
+        @if (Can(Permission.MastersEdit)) { <button class="btn btn-primary btn-lg" @onclick="StartNew"><Icon Name="plus" /> Add Customer</button> }
+    </Actions>
+</PageHeader>
 
 <PageMessage Text="@MessageText" Ok="@MessageOk" />
 
 @if (_form is not null)
 {
-    <div class="card">
-        <h2>@(_editingId is null ? "Add customer" : $"Edit customer: {_form.Name}")</h2>
+    <section class="section"><h2 class="section-title"><Icon Name="briefcase" Size="22" /> @(_editingId is null ? "Add Customer" : $"Edit Customer: {_form.Name}")</h2>
+    <div class="section-body">
         <EditForm Model="_form" OnValidSubmit="SaveAsync">
             <DataAnnotationsValidator />
             <div class="form-grid">
@@ -57,29 +61,25 @@
                 <button type="button" class="btn" @onclick="() => _form = null">Cancel</button>
             </div>
         </EditForm>
-    </div>
+    </div></section>
 }
 
 <div class="toolbar">
+    <label class="input-icon search-box">
+        <Icon Name="search" Size="20" />
+        <input id="search" aria-label="Search" @bind="_search" @bind:event="oninput" @bind:after="LoadAsync" placeholder="Search by name or phone..." />
+    </label>
+    <span class="grow"></span>
     <div class="field">
-        <label for="search">Search</label>
-        <input id="search" @bind="_search" @bind:event="oninput" @bind:after="LoadAsync" placeholder="Name or phone" />
-    </div>
-    <div class="field">
-        <label for="filter">Show</label>
-        <select id="filter" @bind="_filter" @bind:after="LoadAsync">
+        <select id="filter" aria-label="Status" @bind="_filter" @bind:after="LoadAsync">
             <option value="@StatusFilter.Active">Active</option>
             <option value="@StatusFilter.Inactive">Inactive</option>
             <option value="@StatusFilter.All">All</option>
         </select>
     </div>
-    @if (Can(Permission.MastersEdit))
-    {
-        <button class="btn btn-primary" @onclick="StartNew">Add customer</button>
-    }
 </div>
 
-<table class="data">
+<div class="table-wrap"><table class="data">
     <thead><tr><th>Customer</th><th>Phone</th><th>Address</th><th>Status</th><th></th></tr></thead>
     <tbody>
         @foreach (var s in _rows)
@@ -92,14 +92,14 @@
                 <td>
                     @if (Can(Permission.MastersEdit))
                     {
-                        <button class="btn btn-small" @onclick="() => EditAsync(s.Id)">Edit</button>
+                        <button class="icon-btn" @onclick="() => EditAsync(s.Id)" title="Edit" aria-label="Edit @s.Name"><Icon Name="edit" Size="22" /></button>
                         @if (_confirmDeleteId == s.Id)
                         {
                             <button class="btn btn-small btn-danger" @onclick="() => DeleteAsync(s.Id)">Confirm delete</button>
                         }
                         else
                         {
-                            <button class="btn btn-small btn-danger" @onclick="() => _confirmDeleteId = s.Id">Delete</button>
+                            <button class="icon-btn danger" @onclick="() => _confirmDeleteId = s.Id" title="Delete" aria-label="Delete @s.Name"><Icon Name="trash" Size="22" /></button>
                         }
                     }
                 </td>
@@ -110,7 +110,7 @@
             <tr><td colspan="5" class="muted">No customers found.</td></tr>
         }
     </tbody>
-</table>
+</table></div>
 
 @code {
     private IReadOnlyList<CustomerRow> _rows = [];

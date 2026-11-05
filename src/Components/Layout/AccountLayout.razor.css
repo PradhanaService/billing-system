@@ -1,4 +1,9 @@
-.account-shell { min-height: 100vh; display: flex; align-items: center; justify-content: center; background: var(--panel); }
-.account-card { width: 360px; background: var(--paper); border: 1px solid var(--line); padding: 2rem; }
-.account-brand { font-weight: 700; font-size: 1.2rem; }
+.account-shell {
+    min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 1rem;
+    background: radial-gradient(circle at 20% 20%, #1d63d6 0%, #0b3f86 40%, #072a5c 100%);
+}
+.account-card { width: 380px; max-width: 100%; background: #ffffff; border-radius: 18px; padding: 2rem; box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35); }
+.account-brand { font-weight: 800; font-size: 1.35rem; color: var(--navy); }
 .account-subtitle { color: var(--muted); margin-bottom: 1.5rem; }
+.account-card ::deep input { width: 100%; box-sizing: border-box; }
+.account-card ::deep .btn { width: 100%; margin-top: 0.5rem; }

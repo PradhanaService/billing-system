@@ -6,63 +6,86 @@
 
 <PageTitle>Dashboard · Water Supply Billing</PageTitle>
 
-<div class="toolbar" style="justify-content: space-between">
-    <h1 style="margin: 0">Dashboard</h1>
-    <div class="field">
-        <label for="month">Month</label>
-        <input id="month" type="month" @bind="_month" @bind:after="LoadAsync" />
-    </div>
-</div>
+<PageHeader Title="Dashboard" IconName="home" Subtitle="Sales, receipts and cash at a glance.">
+    <Actions>
+        <label class="input-icon" title="Month for the month figures">
+            <Icon Name="calendar" Size="18" />
+            <input type="month" aria-label="Month" @bind="_month" @bind:after="LoadAsync" />
+        </label>
+    </Actions>
+</PageHeader>
 
 @if (_d is not null)
 {
+    @* FR-DASH-01 *@
     <div class="cards">
-        <div class="stat"><div class="stat-label">Total sales (@MonthName)</div><div class="stat-value">₹@Money.Format(_d.MonthSalesPaise)</div></div>
-        <div class="stat"><div class="stat-label">Today's sales</div><div class="stat-value">₹@Money.Format(_d.TodaySalesPaise)</div></div>
-        <div class="stat"><div class="stat-label">Today's receipt</div><div class="stat-value">₹@Money.Format(_d.TodayReceiptsPaise)</div></div>
-        <div class="stat"><div class="stat-label">Today's payment</div><div class="stat-value">₹@Money.Format(_d.TodayPaymentsPaise)</div></div>
+        <div class="stat"><div class="stat-icon"><Icon Name="invoice" Size="30" /></div>
+            <div><div class="stat-label">Total Sales (@MonthName)</div><div class="stat-value">₹ @Money.Format(_d.MonthSalesPaise)</div></div></div>
+        <div class="stat green"><div class="stat-icon"><Icon Name="calendar" Size="30" /></div>
+            <div><div class="stat-label">Today's Sales</div><div class="stat-value">₹ @Money.Format(_d.TodaySalesPaise)</div></div></div>
+        <div class="stat"><div class="stat-icon"><Icon Name="download" Size="30" /></div>
+            <div><div class="stat-label">Today's Receipt</div><div class="stat-value">₹ @Money.Format(_d.TodayReceiptsPaise)</div></div></div>
+        <div class="stat pink"><div class="stat-icon"><Icon Name="upload" Size="30" /></div>
+            <div><div class="stat-label">Today's Payment</div><div class="stat-value">₹ @Money.Format(_d.TodayPaymentsPaise)</div></div></div>
     </div>
+
+    @* FR-DASH-02 *@
     <div class="cards">
-        <div class="stat"><div class="stat-label">Cash sales (@MonthName)</div><div class="stat-value">₹@Money.Format(_d.MonthCashSalesPaise)</div></div>
-        <div class="stat"><div class="stat-label">Credit sales (@MonthName)</div><div class="stat-value">₹@Money.Format(_d.MonthCreditSalesPaise)</div></div>
-        <div class="stat"><div class="stat-label">Water trips (@MonthName)</div><div class="stat-value">@_d.MonthTrips</div></div>
-        <div class="stat"><div class="stat-label">Outstanding amount</div><div class="stat-value">₹@Money.Format(_d.OutstandingPaise)</div></div>
-        <div class="stat"><div class="stat-label">Opening cash (today)</div><div class="stat-value">₹@Money.Format(_d.OpeningCashPaise)</div></div>
-        <div class="stat"><div class="stat-label">Closing cash (today)</div><div class="stat-value">₹@Money.Format(_d.ClosingCashPaise)</div></div>
+        <div class="stat small"><div class="stat-icon"><Icon Name="rupee" Size="22" /></div>
+            <div><div class="stat-label">Cash Sales</div><div class="stat-value">₹ @Money.Format(_d.MonthCashSalesPaise)</div></div></div>
+        <div class="stat small"><div class="stat-icon"><Icon Name="book" Size="22" /></div>
+            <div><div class="stat-label">Credit Sales</div><div class="stat-value">₹ @Money.Format(_d.MonthCreditSalesPaise)</div></div></div>
+        <div class="stat small"><div class="stat-icon"><Icon Name="truck" Size="22" /></div>
+            <div><div class="stat-label">Total Water Trips</div><div class="stat-value">@_d.MonthTrips</div></div></div>
+        <div class="stat small"><div class="stat-icon"><Icon Name="users" Size="22" /></div>
+            <div><div class="stat-label">Outstanding Amount</div><div class="stat-value">₹ @Money.Format(_d.OutstandingPaise)</div></div></div>
+        <div class="stat small"><div class="stat-icon"><Icon Name="clock" Size="22" /></div>
+            <div><div class="stat-label">Opening Cash (today)</div><div class="stat-value">₹ @Money.Format(_d.OpeningCashPaise)</div></div></div>
+        <div class="stat small"><div class="stat-icon"><Icon Name="database" Size="22" /></div>
+            <div><div class="stat-label">Closing Cash (today)</div><div class="stat-value">₹ @Money.Format(_d.ClosingCashPaise)</div></div></div>
     </div>
 
     <div class="dash-grid">
-        <div class="card">
-            <SalesBarChart Months="_d.LastSixMonths" SelectedKey="@($"{_d.Year:0000}-{_d.Month:00}")" />
-        </div>
-        <div>
-            <div class="card">
-                <h2>Quick access</h2>
-                <div class="quick">
-                    @if (Can(Permission.InvoiceCreate)) { <a class="btn" href="/invoices/new">Sales Invoice</a> }
-                    @if (Can(Permission.DaySalesView)) { <a class="btn" href="/invoices">Invoice Display</a> }
-                    <a class="btn" href="/vehicles">Vehicle Master</a>
-                    @if (Can(Permission.ReportsView)) { <a class="btn" href="/reports">Reports</a> }
-                </div>
+        <section class="section">
+            <h2 class="section-title"><Icon Name="chart" Size="22" /> Monthly Sales</h2>
+            <div class="section-body">
+                <SalesBarChart Months="_d.LastSixMonths" SelectedKey="@($"{_d.Year:0000}-{_d.Month:00}")" />
             </div>
-            <div class="card">
-                <h2>Recent invoices</h2>
-                <table class="data">
-                    <tbody>
-                        @foreach (var i in _d.RecentInvoices)
-                        {
-                            <tr class="@(i.Status == InvoiceStatus.Cancelled ? "muted" : "")">
-                                <td class="nowrap"><a href="/invoices/@i.Id">@i.DisplayNo</a></td><td class="nowrap">@i.VehicleNo</td><td>@i.BillToName</td>
-                                <td class="num">@Money.Format(i.AmountPaise)</td>
-                            </tr>
-                        }
-                        @if (_d.RecentInvoices.Count == 0) { <tr><td class="muted">No invoices yet.</td></tr> }
-                    </tbody>
-                </table>
-                @if (Can(Permission.DaySalesView)) { <p><a href="/invoices">View all</a></p> }
+        </section>
+        <section class="section">
+            <h2 class="section-title"><Icon Name="zap" Size="22" /> Quick Access</h2>
+            <div class="section-body quick">
+                @if (Can(Permission.InvoiceCreate)) { <a class="quick-tile" href="/invoices/new"><Icon Name="invoice" Size="38" /><span>Sales Invoice</span></a> }
+                @if (Can(Permission.DaySalesView)) { <a class="quick-tile" href="/invoices"><Icon Name="grid" Size="38" /><span>Invoice Display</span></a> }
+                <a class="quick-tile" href="/vehicles"><Icon Name="truck" Size="38" /><span>Vehicle Master</span></a>
+                @if (Can(Permission.ReportsView)) { <a class="quick-tile" href="/reports"><Icon Name="chart" Size="38" /><span>Reports</span></a> }
             </div>
-        </div>
+        </section>
     </div>
+
+    <section class="section">
+        <h2 class="section-title"><Icon Name="list" Size="22" /> <span class="grow">Recent Invoices</span>
+            @if (Can(Permission.DaySalesView)) { <a class="btn btn-small" href="/invoices">View All <Icon Name="next" Size="16" /></a> }
+        </h2>
+        <div class="section-body">
+            <table class="data plain">
+                <thead><tr><th>Inv. No.</th><th>Date</th><th>Party / Supplier</th><th>Vehicle</th><th class="num">Amount</th></tr></thead>
+                <tbody>
+                    @foreach (var i in _d.RecentInvoices)
+                    {
+                        <tr class="@(i.Status == InvoiceStatus.Cancelled ? "muted" : "")">
+                            <td class="nowrap"><a href="/invoices/@i.Id">@i.DisplayNo</a></td>
+                            <td>@IndianTime.FormatDate(i.InvoiceDate)</td>
+                            <td>@i.BillToName</td>
+                            <td class="nowrap">@i.VehicleNo</td>
+                            <td class="num">₹ @Money.Format(i.AmountPaise) @if (i.Status == InvoiceStatus.Cancelled) { <span class="badge badge-bad">Cancelled</span> }</td>
+                        </tr>
+                    }
+                    @if (_d.RecentInvoices.Count == 0) { <tr><td colspan="5" class="muted">No invoices yet.</td></tr> }
+                </tbody>
+            </table>
+        </div>
+    </section>
 }
 
 @code {

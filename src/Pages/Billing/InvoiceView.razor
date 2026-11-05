@@ -13,18 +13,20 @@
 }
 else
 {
-    <h1>Invoice @_inv.DisplayNo
-        @if (_inv.Status == InvoiceStatus.Cancelled) { <span class="badge badge-bad">Cancelled</span> }
-        else { <span class="badge">@_inv.Status</span> }
-    </h1>
+    <PageHeader Title="@($"Invoice {_inv.DisplayNo}")" IconName="invoice" Subtitle="@($"{IndianTime.FormatDate(_inv.InvoiceDate)} · {_inv.BillToName} · {_inv.Status}")">
+        <Actions>
+            @if (_inv.Status == InvoiceStatus.Cancelled) { <span class="badge badge-bad">Cancelled</span> } else { <span class="badge">@_inv.Status</span> }
+        </Actions>
+    </PageHeader>
 
     <PageMessage Text="@MessageText" Ok="@MessageOk" />
 
     <div class="toolbar">
-        <button class="btn" @onclick="() => MoveAsync(false)">◀ Previous</button>
-        <button class="btn" @onclick="() => MoveAsync(true)">Next ▶</button>
-        <a class="btn" href="/pdf/invoice/@_inv.Id" target="_blank" rel="noopener">Print</a>
-        @if (Can(Permission.InvoiceCreate)) { <a class="btn" href="/invoices/new">New invoice</a> }
+        <button class="btn" @onclick="() => MoveAsync(false)"><Icon Name="prev" /> Previous</button>
+        <button class="btn" @onclick="() => MoveAsync(true)"><Icon Name="next" /> Next</button>
+        @if (Can(Permission.InvoiceCreate)) { <a class="btn btn-primary" href="/invoices/new"><Icon Name="plus" /> New</a> }
+        <a class="btn" href="/pdf/invoice/@_inv.Id" target="_blank" rel="noopener"><Icon Name="printer" /> Print</a>
+        <a class="btn" href="/invoices"><Icon Name="exit" /> Exit</a>
     </div>
 
     @if (_inv.Status == InvoiceStatus.Cancelled)
@@ -45,7 +47,7 @@ else
     </div>
 
     <div class="card">
-        <h2>Item Details</h2>
+        <h2><Icon Name="list" /> Item Details</h2>
         <table class="data">
             <thead><tr><th>S.No</th><th>Material</th><th class="num">Qty</th><th>Measurement</th><th class="num">Rate (₹)</th><th class="num">Total Amount (₹)</th></tr></thead>
             <tbody>
@@ -60,13 +62,13 @@ else
     @if (_inv.Status != InvoiceStatus.Cancelled && Can(Permission.InvoiceCancel))
     {
         <div class="card">
-            <h2>Cancel this invoice</h2>
+            <h2><Icon Name="trash" /> Cancel (delete) this invoice</h2>
             <p class="muted">A posted invoice is never edited. Cancelling posts a reversal and keeps the number. To correct it, cancel and make a new invoice.</p>
             <div class="field">
                 <label for="reason">Reason*</label>
                 <input id="reason" @bind="_reason" maxlength="300" />
             </div>
-            <button class="btn btn-danger" @onclick="CancelAsync" disabled="@Busy">Cancel invoice</button>
+            <button class="btn btn-danger" @onclick="CancelAsync" disabled="@Busy"><Icon Name="trash" /> Cancel invoice</button>
         </div>
     }
 }

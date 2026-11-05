@@ -52,13 +52,8 @@ public class VehicleServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task FR_VM_03_Only_Admin_Can_Choose_The_Code()
+    public async Task FR_VM_03_A_Typed_Code_Must_Be_Valid_And_Unused()
     {
-        var clerkForm = Form("TN 67 C");
-        clerkForm.Code = "Z99";
-        await _svc.CreateAsync(clerkForm);
-        Assert.Equal("A1", (await _svc.SearchAsync(null, StatusFilter.All)).Single().Code);
-
         _me.User = _db.AddUser(UserRole.Admin);
         var adminForm = Form("TN 38 M 3");
         adminForm.Code = "s13";
@@ -202,9 +197,12 @@ public class VehicleServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task NFR_SEC_05_Dispatch_Operator_Cannot_Edit_Vehicles()
+    public async Task Dispatch_Operator_Can_Add_Vehicles_And_Choose_Code()
     {
         _me.User = _db.AddUser(UserRole.DispatchOperator);
-        await Assert.ThrowsAsync<NotAllowedException>(() => _svc.CreateAsync(Form()));
+        var form = Form();
+        form.Code = "D7";
+        Assert.True((await _svc.CreateAsync(form)).Ok);
+        Assert.Equal("D7", Assert.Single(await _svc.SearchAsync(null, StatusFilter.All)).Code);
     }
 }

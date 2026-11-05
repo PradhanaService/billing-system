@@ -115,11 +115,10 @@ public class StatementServiceTests : BillingFixture
     }
 
     [Fact]
-    public async Task NFR_SEC_05_Dispatch_Operator_Cannot_See_Statements()
+    public async Task Dispatch_Operator_Can_See_Statements()
     {
         Me.User = Db.AddUser(UserRole.DispatchOperator);
-        await Assert.ThrowsAsync<NotAllowedException>(() =>
-            Svc.Statements.GetAsync(new StatementRequest(StatementKind.Supplier, Supplier, Day1, Day2)));
+        Assert.NotNull(await Svc.Statements.GetAsync(new StatementRequest(StatementKind.Supplier, Supplier, Day1, Day2)));
     }
 }
 

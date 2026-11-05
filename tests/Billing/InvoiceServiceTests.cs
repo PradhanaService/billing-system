@@ -114,7 +114,7 @@ public class InvoiceServiceTests : BillingFixture
     }
 
     [Fact]
-    public async Task FR_INV_04_Rate_Change_Needs_Permission()
+    public async Task FR_INV_04_Rate_Change_By_Any_Role_Needs_A_Reason()
     {
         var form = TripForm();
         form.Rate = 120;
@@ -122,7 +122,7 @@ public class InvoiceServiceTests : BillingFixture
         var result = await Inv.CreateAsync(form);
 
         Assert.False(result.Ok);
-        Assert.Contains("permission", result.Error);
+        Assert.Contains("reason", result.Error);
     }
 
     [Fact]
@@ -199,18 +199,20 @@ public class InvoiceServiceTests : BillingFixture
     }
 
     [Fact]
-    public async Task NFR_SEC_05_Dispatch_Operator_Can_Create_But_Not_Cancel()
+    public async Task Every_Role_Can_Create_And_Cancel_Invoices()
     {
-        Me.User = Db.AddUser(UserRole.DispatchOperator);
-        var id = (await Inv.CreateAsync(TripForm())).Value;
-
-        await Assert.ThrowsAsync<NotAllowedException>(() => Inv.CancelAsync(id, "x", 1));
+        foreach (var role in Enum.GetValues<UserRole>())
+        {
+            Me.User = Db.AddUser(role);
+            var id = (await Inv.CreateAsync(TripForm())).Value;
+            Assert.True((await Inv.CancelAsync(id, "test", 1)).Ok);
+        }
     }
 
     [Fact]
-    public async Task Accountant_Cannot_Create_Invoices()
+    public async Task NFR_SEC_05_Not_Logged_In_Is_Refused()
     {
-        Me.User = Db.AddUser(UserRole.Accountant);
+        Me.User = null;
         await Assert.ThrowsAsync<NotAllowedException>(() => Inv.CreateAsync(TripForm()));
     }
 

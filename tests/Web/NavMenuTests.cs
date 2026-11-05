@@ -17,7 +17,7 @@ public class NavMenuTests : IClassFixture<TestAppFactory>
     {
         var client = await _factory.AdminClientAsync();
 
-        foreach (var item in MenuItems.All.Where(i => i.IsReady))
+        foreach (var item in MenuItems.All)
         {
             var response = await client.GetAsync(item.Href);
             Assert.True(response.StatusCode == HttpStatusCode.OK,
@@ -41,8 +41,11 @@ public class NavMenuTests : IClassFixture<TestAppFactory>
         var titles = MenuItems.For(operatorUser).Select(i => i.Title).ToList();
 
         Assert.Contains("Sales Invoice", titles);
+        Assert.Contains("Transactions", titles);
+        Assert.Contains("Ledger Master", titles);
         Assert.DoesNotContain("Users & Roles", titles);
-        Assert.DoesNotContain("Payment", titles);
+        Assert.DoesNotContain("Activity Log", titles);
+        Assert.DoesNotContain("Backup", titles);
         Assert.Empty(MenuItems.For(null));
     }
 

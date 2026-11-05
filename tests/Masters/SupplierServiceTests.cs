@@ -162,14 +162,23 @@ public class SupplierServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task NFR_SEC_05_Dispatch_Operator_Can_View_But_Not_Edit()
+    public async Task Every_Role_Can_Add_Edit_And_Delete_Suppliers()
     {
-        var id = (await _svc.CreateAsync(Form())).Value;
-        _me.User = _db.AddUser(UserRole.DispatchOperator);
+        foreach (var role in Enum.GetValues<UserRole>())
+        {
+            _me.User = _db.AddUser(role);
+            var id = (await _svc.CreateAsync(Form($"Supplier {role}"))).Value;
+            var form = (await _svc.GetAsync(id))!;
+            form.ContactPerson = "Edited";
+            Assert.True((await _svc.UpdateAsync(id, form)).Ok);
+            Assert.True((await _svc.DeleteAsync(id)).Ok);
+        }
+    }
 
-        Assert.Single(await _svc.SearchAsync(null, StatusFilter.All));
-        await Assert.ThrowsAsync<NotAllowedException>(() => _svc.CreateAsync(Form("Other")));
-        await Assert.ThrowsAsync<NotAllowedException>(() => _svc.UpdateAsync(id, Form()));
-        await Assert.ThrowsAsync<NotAllowedException>(() => _svc.DeleteAsync(id));
+    [Fact]
+    public async Task NFR_SEC_05_Not_Logged_In_Is_Refused()
+    {
+        _me.User = null;
+        await Assert.ThrowsAsync<NotAllowedException>(() => _svc.CreateAsync(Form()));
     }
 }
