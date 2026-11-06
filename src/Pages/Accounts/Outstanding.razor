@@ -1,0 +1,133 @@
+@page "/outstanding"
+@attribute [Authorize(Policy = nameof(Permission.StatementsView))]
+@inherits UserContextBase
+@using WaterBilling.Services.Accounts
+@inject OutstandingService Svc
+@inject DaySalesService Days
+
+@* Who has to give money: the detail behind the dashboard's Outstanding amount card. *@
+
+<PageTitle>Outstanding</PageTitle>
+
+<h1>Outstanding</h1>
+<p class="muted">Balances as on @IndianTime.FormatDate(Days.Today()). Dr = they owe us. Cr = advance received, or we owe them.</p>
+
+@if (_summary is not null)
+{
+    <div class="cards">
+        <div class="stat"><div class="stat-label">Owed to us</div><div class="stat-value">₹@Money.Format(_summary.OwedToUsPaise)</div></div>
+        <div class="stat"><div class="stat-label">Advances / we owe</div><div class="stat-value">₹@Money.Format(_summary.WeOwePaise)</div></div>
+        <div class="stat"><div class="stat-label">Net outstanding</div><div class="stat-value">₹@Money.Format(_summary.NetPaise)</div></div>
+    </div>
+}
+
+<div class="toolbar">
+    <div class="field">
+        <label for="filter">Show</label>
+        <select id="filter" @bind="_filter" @bind:after="LoadAsync">
+            <option value="@OutstandingFilter.All">Suppliers and customers</option>
+            <option value="@OutstandingFilter.Suppliers">Suppliers only</option>
+            <option value="@OutstandingFilter.Customers">Customers only</option>
+        </select>
+    </div>
+    <div class="field">
+        <label for="search">Search</label>
+        <input id="search" @bind="_search" @bind:event="oninput" @bind:after="LoadAsync" placeholder="Party name" />
+    </div>
+    @if (_filter != OutstandingFilter.Customers)
+    {
+        <a class="btn" href="@PdfLink("SupplierOutstanding")" target="_blank" rel="noopener">Print suppliers PDF</a>
+    }
+    @if (_filter != OutstandingFilter.Suppliers)
+    {
+        <a class="btn" href="@PdfLink("CustomerOutstanding")" target="_blank" rel="noopener">Print customers PDF</a>
+    }
+</div>
+
+<table class="data">
+    <thead>
+        <tr><th>Party</th><th>Type</th><th>Phone</th><th class="num">Unpaid invoices</th><th>Oldest unpaid</th><th class="num">Balance</th><th></th></tr>
+    </thead>
+    <tbody>
+        @foreach (var r in _summary?.Rows ?? [])
+        {
+            var key = (r.PartyType, r.PartyId);
+            <tr>
+                <td>@r.Name</td>
+                <td>@r.PartyType</td>
+                <td class="nowrap">@r.Phone</td>
+                <td class="num">@r.OpenInvoices</td>
+                <td>@(r.OldestUnpaid is { } d ? IndianTime.FormatDate(d) : "-")</td>
+                <td class="num"><BalanceText Paise="r.BalancePaise" /></td>
+                <td class="nowrap">
+                    @if (r.OpenInvoices > 0)
+                    {
+                        <button class="btn btn-small" aria-expanded="@(_expanded.ContainsKey(key))" @onclick="() => ToggleAsync(r)">
+                            @(_expanded.ContainsKey(key) ? "Hide invoices" : "Show invoices")
+                        </button>
+                    }
+                    <a class="btn btn-small" href="/statements?kind=@r.PartyType&id=@r.PartyId">Statement</a>
+                </td>
+            </tr>
+            @if (_expanded.TryGetValue(key, out var invoices))
+            {
+                <tr>
+                    <td colspan="7">
+                        <table class="data">
+                            <thead><tr><th>Invoice</th><th>Date</th><th>Vehicle</th><th class="num">Billed</th><th class="num">Paid</th><th class="num">Due</th></tr></thead>
+                            <tbody>
+                                @foreach (var i in invoices)
+                                {
+                                    <tr>
+                                        <td><a href="/invoices/@i.InvoiceId">@i.InvoiceNo</a></td>
+                                        <td>@IndianTime.FormatDate(i.Date)</td>
+                                        <td>@i.VehicleNo</td>
+                                        <td class="num">@Money.Format(i.AmountPaise)</td>
+                                        <td class="num">@Money.Format(i.PaidPaise)</td>
+                                        <td class="num">@Money.Format(i.DuePaise)</td>
+                                    </tr>
+                                }
+                                @* The balance can also hold an opening balance or money received on account. *@
+                                @if (r.BalancePaise - invoices.Sum(i => i.DuePaise) is var other && other != 0)
+                                {
+                                    <tr class="muted">
+                                        <td colspan="5">Opening balance and other entries (see Statement)</td>
+                                        <td class="num"><BalanceText Paise="other" /></td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </td>
+                </tr>
+            }
+        }
+        @if (_summary is { Rows.Count: 0 })
+        {
+            <tr><td colspan="7" class="muted">Nobody owes anything.</td></tr>
+        }
+    </tbody>
+</table>
+
+@code {
+    private OutstandingSummary? _summary;
+    private OutstandingFilter _filter = OutstandingFilter.All;
+    private string _search = "";
+    private readonly Dictionary<(PartyType, long), IReadOnlyList<OpenInvoiceRow>> _expanded = new();
+
+    // The existing outstanding reports print the same balances as PDF.
+    private string PdfLink(string reportKind)
+    {
+        var today = Days.Today();
+        return $"/pdf/report?kind={reportKind}&from={today:yyyy-MM-dd}&to={today:yyyy-MM-dd}";
+    }
+
+    protected override Task OnUserReadyAsync() => LoadAsync();
+
+    private async Task LoadAsync() => _summary = await Svc.GetAsync(_filter, _search);
+
+    private async Task ToggleAsync(OutstandingRow r)
+    {
+        var key = (r.PartyType, r.PartyId);
+        if (!_expanded.Remove(key)) _expanded[key] = await Svc.OpenInvoicesAsync(r.PartyType, r.PartyId);
+    }
+}

@@ -26,7 +26,11 @@
         <div class="stat"><div class="stat-label">Cash sales (@MonthName)</div><div class="stat-value">₹@Money.Format(_d.MonthCashSalesPaise)</div></div>
         <div class="stat"><div class="stat-label">Credit sales (@MonthName)</div><div class="stat-value">₹@Money.Format(_d.MonthCreditSalesPaise)</div></div>
         <div class="stat"><div class="stat-label">Water trips (@MonthName)</div><div class="stat-value">@_d.MonthTrips</div></div>
-        <div class="stat"><div class="stat-label">Outstanding amount</div><div class="stat-value">₹@Money.Format(_d.OutstandingPaise)</div></div>
+        @* Opens the detail: who has to give money. *@
+        <a class="stat stat-link" href="/outstanding" title="See who has to pay">
+            <div class="stat-label">Outstanding amount</div><div class="stat-value">₹@Money.Format(_d.OutstandingPaise)</div>
+            <div class="stat-more">View details</div>
+        </a>
         <div class="stat"><div class="stat-label">Opening cash (today)</div><div class="stat-value">₹@Money.Format(_d.OpeningCashPaise)</div></div>
         <div class="stat"><div class="stat-label">Closing cash (today)</div><div class="stat-value">₹@Money.Format(_d.ClosingCashPaise)</div></div>
     </div>

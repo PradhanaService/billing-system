@@ -91,6 +91,19 @@ public class RoleAccessTests : IClassFixture<TestAppFactory>
         Assert.Contains("/admin/users", html);
     }
 
+    [Theory]
+    [InlineData(UserRole.Admin)]
+    [InlineData(UserRole.DispatchOperator)]
+    [InlineData(UserRole.BillingClerk)]
+    [InlineData(UserRole.Accountant)]
+    public async Task Outstanding_Card_Opens_The_Detail_Page(UserRole role)
+    {
+        var client = await LoginAsAsync(role);
+
+        Assert.Contains("href=\"/outstanding\"", await client.GetStringAsync("/"));
+        Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/outstanding")).StatusCode);
+    }
+
     [Fact]
     public async Task Html_Typed_Into_A_Name_Is_Shown_As_Text_Not_Run()
     {

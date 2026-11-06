@@ -28,6 +28,15 @@ the business work below, exactly like Admin.
 
 ![Dashboard](images/dashboard.png)
 
+## Outstanding (who has to pay)
+Click the **Outstanding amount** box on the Dashboard. The Outstanding page lists every supplier and customer
+whose balance is not zero, biggest first: *Dr* means they owe us, *Cr* means they paid in advance (or we owe them).
+- The three boxes at the top show *Owed to us*, *Advances / we owe* and *Net outstanding* (the same figure as the Dashboard).
+- **Show invoices** lists that party's unpaid invoices with billed, paid and due amounts. A line below them
+  shows any opening balance or money received on account.
+- **Statement** opens the party's full Ledger Statement.
+- Filter by suppliers or customers, search by name, and print the supplier or customer outstanding PDF.
+
 ## Sales Invoice
 1. Choose the vehicle by code (A1) or by name; the supplier and rate fill in.
 2. Trip is 1 unless more; for vehicles billed per kL, type the volume (one decimal).

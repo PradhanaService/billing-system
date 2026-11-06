@@ -50,6 +50,10 @@
 }
 
 @code {
+    // Optional: /statements?kind=Supplier&id=5 opens that party's statement straight away.
+    [SupplyParameterFromQuery(Name = "kind")] public string? KindParam { get; set; }
+    [SupplyParameterFromQuery(Name = "id")] public long? IdParam { get; set; }
+
     private StatementKind _kind = StatementKind.Supplier;
     private long _id;
     private DateOnly _from, _to;
@@ -62,7 +66,13 @@
         var today = DateOnly.FromDateTime(IndianTime.ToIst(Clock.GetUtcNow().UtcDateTime));
         _from = new DateOnly(today.Year, today.Month, 1);
         _to = today.AddDays(1);
+        if (Enum.TryParse<StatementKind>(KindParam, ignoreCase: true, out var kind)) _kind = kind;
         _subjects = await Svc.SubjectsAsync(_kind);
+        if (IdParam is { } id && _subjects.Any(s => s.Id == id))
+        {
+            _id = id;
+            await LoadAsync();
+        }
     }
 
     private async Task KindChangedAsync()

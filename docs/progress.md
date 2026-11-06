@@ -68,3 +68,10 @@
   change from Module 19 (Permission.cs, Program.cs, Routes.razor and the role tests). Removed the arrow glyphs on
   the invoice buttons, the x glyph on the error bar and the em dashes in the docs. The previous state is kept as
   tag `backup-before-restore-c3ed78c`.
+
+## Module 22: Outstanding detail from the Dashboard
+- Done: the Dashboard's Outstanding amount box opens a new Outstanding page (OutstandingService: balances per
+  supplier and customer from the ledger, unpaid invoices per party). Owed to us / advances / net totals (net equals
+  the Dashboard card), filter and search, unpaid invoices with billed/paid/due, a line for opening balance and
+  on-account amounts, Statement button that opens the party's statement directly, outstanding PDFs reused.
+  No database or business-rule changes. 374 tests passing.
