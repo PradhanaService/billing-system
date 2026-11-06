@@ -6,6 +6,10 @@ using WaterBilling.Services.Common;
 
 namespace WaterBilling.Services.Security;
 
+// Users & Roles rules (Admin only): one active login per role (one Admin, one shared Sales login),
+// temporary password changed at first sign-in, logins deactivated but never deleted, the last Admin
+// cannot be removed. Changing a role or deactivating signs that user out straight away.
+
 public sealed record UserRow(long Id, string UserName, string FullName, UserRole Role,
     RecordStatus Status, DateTime? LastLoginAtUtc, int Version);
 

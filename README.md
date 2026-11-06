@@ -37,6 +37,7 @@ See `docs/install-guide.md`: run `installer\build-installer.ps1` on Windows, the
 ## Handover pack (for the reviewer)
 | Document | |
 |---|---|
+| `docs/code-guide.md` | Which file holds which part of the business |
 | `docs/architecture.md` | Layers, request flow, decisions |
 | `docs/database.md` | Database diagram and tables |
 | `docs/ledger-design.md` | Posting rules and guarantees |

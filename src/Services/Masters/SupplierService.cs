@@ -8,6 +8,9 @@ using WaterBilling.Services.Security;
 
 namespace WaterBilling.Services.Masters;
 
+// Supplier Master rules: unique name (ignoring capitals and extra spaces), phone required,
+// opening balance posted once on creation, delete only without vehicles or history, every change recorded.
+
 public sealed record SupplierRow(long Id, string Name, string ShortName, string? ContactPerson, string Phone,
     RecordStatus Status, int VehicleCount);
 

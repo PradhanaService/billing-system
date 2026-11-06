@@ -2,41 +2,40 @@ using WaterBilling.Services.Security;
 
 namespace WaterBilling.Components.Layout;
 
-// One entry in the side menu.
-//   Group      = heading the item sits under (e.g. "Masters")
-//   Title      = text the user sees
-//   Href       = URL of the page
-//   Permission = who sees it. The page itself checks again; the menu only hides links.
-//   IsReady    = false until the module is built. Unready items show greyed out, not as links.
-public sealed record MenuItem(string Group, string Title, string Href, Permission Permission, bool IsReady);
+// The side menu, written as one list so it is easy to read and change.
+// Each entry: the heading it sits under, the text shown, the page address, and the
+// permission needed to see it. The menu only HIDES links; every page and service checks
+// the permission again on the server.
+public sealed record MenuItem(string Group, string Title, string Href, Permission Permission);
 
-// The whole menu lives in one list, so it is easy to read and easy to test.
 public static class MenuItems
 {
     public static readonly IReadOnlyList<MenuItem> All =
     [
-        new("Home",         "Dashboard",         "/",              Permission.DashboardView,   IsReady: true),
+        new("Home",         "Dashboard",         "/",                    Permission.DashboardView),
 
-        new("Masters",      "Supplier Master",   "/suppliers",     Permission.MastersView,     IsReady: true),
-        new("Masters",      "Customer Master",   "/customers",     Permission.MastersView,     IsReady: true),
-        new("Masters",      "Vehicle Master",    "/vehicles",      Permission.MastersView,     IsReady: true),
-        new("Masters",      "Ledger Master",     "/ledgers",       Permission.LedgerManage,    IsReady: true),
+        new("Masters",      "Supplier Master",   "/suppliers",           Permission.MastersView),
+        new("Masters",      "Customer Master",   "/customers",           Permission.MastersView),
+        new("Masters",      "Vehicle Master",    "/vehicles",            Permission.MastersView),
+        new("Masters",      "Ledger Master",     "/ledgers",             Permission.LedgerManage),
 
-        new("Transactions", "Sales Invoice",     "/invoices/new",  Permission.InvoiceCreate,   IsReady: true),
-        new("Transactions", "Invoice Display",   "/invoices",      Permission.DaySalesView,    IsReady: true),
-        new("Transactions", "Receipt",           "/receipts",      Permission.ReceiptCreate,   IsReady: true),
-        new("Transactions", "Payment",           "/payments",      Permission.PaymentCreate,   IsReady: true),
+        new("Transactions", "Sales Invoice",     "/invoices/new",        Permission.InvoiceCreate),
+        new("Transactions", "Invoice Display",   "/invoices",            Permission.DaySalesView),
+        new("Transactions", "Receipt",           "/receipts",            Permission.ReceiptCreate),
+        new("Transactions", "Payment",           "/payments",            Permission.PaymentCreate),
 
-        new("Accounts",     "Ledger Statement",  "/statements",    Permission.StatementsView,  IsReady: true),
-        new("Accounts",     "Day Sales",         "/day-sales",     Permission.DaySalesView,    IsReady: true),
-        new("Accounts",     "Reports",           "/reports",       Permission.ReportsView,     IsReady: true),
+        new("Accounts",     "Ledger Statement",  "/statements",          Permission.StatementsView),
+        new("Accounts",     "Day Sales",         "/day-sales",           Permission.DaySalesView),
+        new("Accounts",     "Reports",           "/reports",             Permission.ReportsView),
 
-        new("Admin",        "Users & Roles",     "/admin/users",   Permission.UsersManage,     IsReady: true),
-        new("Admin",        "Sales Persons",     "/admin/sales-persons", Permission.SalesPersonsManage, IsReady: true),
-        new("Admin",        "Activity Log",      "/admin/activity-log", Permission.ActivityLogView, IsReady: true),
-        new("Admin",        "Backup",            "/admin/backup",  Permission.BackupRun,       IsReady: true),
+        // Admin only: the Sales login does not see these, and their addresses answer "Page not found".
+        new("Admin",        "Users & Roles",     "/admin/users",         Permission.UsersManage),
+        new("Admin",        "Sales Persons",     "/admin/sales-persons", Permission.SalesPersonsManage),
+        new("Admin",        "Activity Log",      "/admin/activity-log",  Permission.ActivityLogView),
+        new("Admin",        "Backup",            "/admin/backup",        Permission.BackupRun),
     ];
 
+    // The entries the logged-in user may see (none when nobody is logged in).
     public static IEnumerable<MenuItem> For(UserInfo? user) =>
         user is null ? [] : All.Where(i => user.Has(i.Permission));
 }

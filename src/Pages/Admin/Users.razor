@@ -3,6 +3,10 @@
 @inject UserService UserSvc
 @inject TimeProvider Clock
 
+@* Users & Roles (Admin only): the two logins, Admin and the shared Sales login. Only one active login
+   per role is allowed. Create a login with a temporary password (changed at first sign-in), reset a
+   password, or deactivate a login (logins are never deleted, so the history keeps its names). *@
+
 <PageTitle>Users &amp; Roles</PageTitle>
 
 <h1>Users &amp; Roles</h1>

@@ -4,6 +4,10 @@
 @using WaterBilling.Services.Masters
 @inject SupplierService Svc
 
+@* Supplier Master: water suppliers who own the tankers. Search, add, edit, set Inactive; delete only
+   if the supplier has no vehicles or transactions. An inactive supplier's vehicles cannot be invoiced.
+   An opening balance can be given only when adding, and is posted to the accounts once. *@
+
 <PageTitle>Supplier Master</PageTitle>
 
 <h1>Supplier Master</h1>

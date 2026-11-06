@@ -87,3 +87,8 @@
   operator/clerk/accountant logins become Sales Person on upgrade. New Sales Persons list (Admin only: add,
   remove; a used name leaves the list but stays on its invoices). Sales Invoice has a required "Created by"
   dropdown, kept between invoices; shown on the invoice, PDF and activity log. 309 tests passing.
+
+## Chore 25: Clean code, comments, complete test
+- Done: removed the unused "IsReady" menu flag; every source file (99 of 99) opens with a plain-English
+  explanation; new docs/code-guide.md (which file holds which business area). Complete test: 309 tests,
+  66-step browser day, headers, packages, Windows publish all pass (docs/test-report.md).

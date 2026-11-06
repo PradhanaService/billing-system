@@ -6,6 +6,9 @@ using WaterBilling.Services.Security;
 
 namespace WaterBilling.Services.Reports;
 
+// The 8 reports. Sales reports read invoices (cancelled ones left out); balance reports read the
+// accounts. Tests check that report totals equal the accounts for the same filter.
+
 public enum ReportKind
 {
     DailySales,

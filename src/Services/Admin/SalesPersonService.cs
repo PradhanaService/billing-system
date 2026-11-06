@@ -8,6 +8,9 @@ using WaterBilling.Services.Security;
 
 namespace WaterBilling.Services.Admin;
 
+// The "Created by" names on the Sales Invoice. The Admin adds and removes them; the Sales login
+// only reads the list. A name already used on invoices is hidden, not deleted, so old invoices keep it.
+
 public sealed record SalesPersonRow(long Id, string Name, int InvoiceCount);
 
 public sealed class SalesPersonForm

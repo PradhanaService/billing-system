@@ -1,6 +1,9 @@
 @page "/account/denied"
 @layout AccountLayout
 
+@* Safety net: shown if someone reaches a page their role may not use. Admin-only pages normally
+   answer "Page not found" instead (see Program.cs), so this page should rarely be seen. *@
+
 <PageTitle>Not allowed</PageTitle>
 
 <h1>Not allowed</h1>

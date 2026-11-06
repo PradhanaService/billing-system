@@ -6,6 +6,10 @@ using WaterBilling.Services.Security;
 
 namespace WaterBilling.Services.Accounts;
 
+// Builds statements (supplier, customer, vehicle or any ledger) for a period: opening balance,
+// each entry with its running balance, period totals and closing balance. One method serves all
+// kinds, so a supplier's and its vehicles' statements can never disagree.
+
 public enum StatementKind { Supplier, Customer, Vehicle, Account }
 
 public sealed record StatementRequest(StatementKind Kind, long Id, DateOnly From, DateOnly To, bool SortByValueDate = false);

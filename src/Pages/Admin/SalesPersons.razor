@@ -4,6 +4,10 @@
 @using WaterBilling.Services.Admin
 @inject SalesPersonService Svc
 
+@* Sales Persons (Admin only): the names offered in "Created by" on the Sales Invoice.
+   Several sales people share one Sales login, so each invoice records who made it.
+   Removing a name takes it off the list; invoices already made keep showing it. *@
+
 <PageTitle>Sales Persons</PageTitle>
 
 <h1>Sales Persons</h1>

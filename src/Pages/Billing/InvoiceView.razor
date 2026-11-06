@@ -5,6 +5,10 @@
 @inject InvoiceService Svc
 @inject NavigationManager Nav
 
+@* One invoice, read-only, with Previous / Next, Print (PDF) and Cancel.
+   A saved invoice is never edited: cancelling needs a reason, posts a reversal and keeps the number;
+   then a new, correct invoice is made. *@
+
 <PageTitle>Invoice @_inv?.DisplayNo</PageTitle>
 
 @if (_inv is null)

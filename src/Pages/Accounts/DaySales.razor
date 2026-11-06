@@ -4,6 +4,11 @@
 @using WaterBilling.Services.Accounts
 @inject DaySalesService Svc
 
+@* Day Sales: one business day (6 PM to 6 PM) from opening cash to closing.
+   Shows the day's invoices, receipts and payments and the expected closing cash
+   (opening + cash sales + cash receipts - cash payments). Closing the day: type the cash counted;
+   any difference needs a reason and is posted as cash short/over. A closed day is locked. *@
+
 <PageTitle>Day Sales</PageTitle>
 
 <h1>View Day Sales</h1>

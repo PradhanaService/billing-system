@@ -8,6 +8,11 @@
 @inject CustomerService CustomerSvc
 @inject WaterBilling.Services.Admin.SalesPersonService SalesPersonSvc
 
+@* Sales Invoice: bill one tanker visit.
+   Choose Created by (the sales person), the vehicle (code or name: the supplier and rate fill in),
+   trips or volume, and Cash or Credit. The amount is worked out as trips x rate or volume x rate.
+   Saving gives the next invoice number and posts the accounts entries in the same step. *@
+
 <PageTitle>Sales Invoice</PageTitle>
 
 <h1>Sales Invoice</h1>

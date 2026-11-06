@@ -8,6 +8,9 @@ using WaterBilling.Services.Security;
 
 namespace WaterBilling.Services.Masters;
 
+// Customer Master rules: unique name (ignoring capitals and extra spaces), phone required,
+// opening balance posted once on creation, delete only without history, every change recorded.
+
 public sealed record CustomerRow(long Id, string Name, string Phone, string? Address, RecordStatus Status);
 
 public sealed class CustomerForm
