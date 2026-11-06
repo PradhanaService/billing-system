@@ -44,7 +44,12 @@ var connectionString = new SqliteConnectionStringBuilder
     DataSource = dbPath,
     ForeignKeys = true,          // the database enforces links between tables
 }.ToString();
-builder.Services.AddDbContextFactory<AppDbContext>(options => options.UseSqlite(connectionString));
+// Every committed save tells open screens to refresh (see Data/DataChanges.cs).
+builder.Services.AddSingleton<DataChangeNotifier>();
+builder.Services.AddSingleton<DataChangeInterceptor>();
+builder.Services.AddDbContextFactory<AppDbContext>((sp, options) => options
+    .UseSqlite(connectionString)
+    .AddInterceptors(sp.GetRequiredService<DataChangeInterceptor>()));
 
 // Keys that protect the login cookie and form tokens. Kept next to the database so logins survive
 // a restart of the service; on Windows they are encrypted with the machine's DPAPI key.

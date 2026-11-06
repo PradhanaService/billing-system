@@ -25,9 +25,13 @@ public sealed class TestDatabase : IDisposable, IDbContextFactory<AppDbContext>
         db.Database.Migrate();
     }
 
+    // Raised after every committed save, as in the app (Data/DataChanges.cs).
+    public DataChangeNotifier Changes { get; } = new();
+
     // Each call gives a fresh context on the same database, like two separate screens.
     public AppDbContext NewContext() =>
-        new(new DbContextOptionsBuilder<AppDbContext>().UseSqlite(_connection).Options, Clock);
+        new(new DbContextOptionsBuilder<AppDbContext>().UseSqlite(_connection)
+            .AddInterceptors(new DataChangeInterceptor(Changes)).Options, Clock);
 
     // Lets services use this database exactly as they use the real one.
     public AppDbContext CreateDbContext() => NewContext();

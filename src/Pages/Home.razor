@@ -79,6 +79,7 @@
     {
         _d = await Svc.GetAsync();
         _month = new DateTime(_d.Year, _d.Month, 1);
+        RefreshWhenDataChanges(LoadAsync);   // figures update as soon as anyone saves
     }
 
     private async Task LoadAsync()

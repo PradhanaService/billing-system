@@ -60,6 +60,7 @@ file small enough to explain.
 | Decision | Why |
 |---|---|
 | Only Admin sees Users, Activity Log, Backup; all other roles do all business work (client decision) | `RolePermissions.AdminOnly`. For non-admins `/admin/*` answers 404 (middleware in `Program.cs`) and unauthorised pages show "Page not found", so there is no visible gateway. |
+| Dashboard and Outstanding refresh themselves after any save | `DataChangeInterceptor` (Data/DataChanges.cs) raises `DataChangeNotifier.Changed` after each committed save (after the transaction commits, never before). Screens opt in with `RefreshWhenDataChanges(...)` in `UserContextBase`. |
 | Every page interactive (`InteractiveServer` in `App.razor`) | Buttons and forms work everywhere; no per-page render-mode mistakes. Login page will be the exception in Session 6 (cookies need a normal page). |
 | Menu defined as a list (`MenuItems.cs`) | One place to change; tested. Unbuilt modules show greyed out. |
 | Unknown URLs → `/not-found` with status 404 | .NET 8 does not use the router's NotFound block for server-rendered pages. |
