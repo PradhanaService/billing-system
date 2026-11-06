@@ -15,6 +15,10 @@ public sealed class InvoiceForm
     [Range(1, long.MaxValue, ErrorMessage = "Choose a vehicle.")]
     public long VehicleId { get; set; }
 
+    // "Created by": the sales person making this invoice (several share one Sales login).
+    [Range(1, long.MaxValue, ErrorMessage = "Choose who is creating this invoice (Created by).")]
+    public long SalesPersonId { get; set; }
+
     public PartyType BillToType { get; set; } = PartyType.Supplier;
     public long? CustomerId { get; set; }
 
@@ -39,7 +43,7 @@ public sealed record InvoiceDetail(
     PartyType BillToType, string BillToName, string? BillToAddress, string? BillToPhone,
     InvoicePaymentMode PaymentMode, string Material, string Quantity, string Measurement,
     int Trips, long VolumeTenths, long RatePaise, RateSource RateSource, long AmountPaise, long AllocatedPaise,
-    string? Narration, string CreatedBy, DateTime CreatedAtUtc,
+    string? Narration, string CreatedBy, DateTime CreatedAtUtc,   // CreatedBy: the chosen sales person
     string? CancelReason, DateTime? CancelledAtUtc, string? ReversalNo, int Version);
 
 public sealed record InvoiceRow(long Id, string DisplayNo, DateOnly InvoiceDate, string VehicleCode, string VehicleNo,
@@ -71,6 +75,10 @@ public class InvoiceService(IDbContextFactory<AppDbContext> dbFactory, ICurrentU
         // FR-VM-09: only an active vehicle of an active supplier can be invoiced.
         var vehicle = await VehicleService.Billable(db).Include(v => v.Supplier).SingleOrDefaultAsync(v => v.Id == form.VehicleId);
         if (vehicle is null) return Result<long>.Fail("This vehicle cannot be invoiced: it or its supplier is not active.");
+
+        var salesPerson = await db.SalesPersons
+            .SingleOrDefaultAsync(p => p.Id == form.SalesPersonId && p.Status == RecordStatus.Active);
+        if (salesPerson is null) return Result<long>.Fail("Choose who is creating this invoice (Created by).");
 
         // Rate defaults from the vehicle. Changing it needs permission and a reason, and is logged (FR-INV-04).
         var ratePaise = Money.FromRupees(form.Rate);
@@ -157,6 +165,7 @@ public class InvoiceService(IDbContextFactory<AppDbContext> dbFactory, ICurrentU
             Status = form.PaymentMode == InvoicePaymentMode.Cash ? InvoiceStatus.Paid : InvoiceStatus.Posted,
             Narration = voucher.Narration,
             VoucherId = voucher.Id,
+            SalesPersonId = salesPerson.Id,
             CreatedByUserId = me.Id,
             CreatedAtUtc = Now,
             Version = 1,
@@ -165,7 +174,7 @@ public class InvoiceService(IDbContextFactory<AppDbContext> dbFactory, ICurrentU
         await db.SaveChangesAsync();
 
         ActivityLogger.Add(db, Now, me, ActivityCategory.Billing, "INVOICE_CREATED", nameof(Invoice), invoice.Id,
-            after: new { invoice.DisplayNo, vehicle.VehicleNo, BillTo = billToName, Mode = form.PaymentMode.ToString(), invoice.AmountPaise });
+            after: new { invoice.DisplayNo, CreatedBy = salesPerson.Name, vehicle.VehicleNo, BillTo = billToName, Mode = form.PaymentMode.ToString(), invoice.AmountPaise });
         if (overridden)
         {
             ActivityLogger.Add(db, Now, me, ActivityCategory.Billing, "INVOICE_RATE_OVERRIDDEN", nameof(Invoice), invoice.Id,
@@ -231,8 +240,11 @@ public class InvoiceService(IDbContextFactory<AppDbContext> dbFactory, ICurrentU
             from c in cj.DefaultIfEmpty()
             join r in db.Vouchers on i.ReversalVoucherId equals r.Id into rj
             from r in rj.DefaultIfEmpty()
+            join p in db.SalesPersons on i.SalesPersonId equals p.Id into pj
+            from p in pj.DefaultIfEmpty()
             where i.Id == id
-            select new { i, v, s, UserName = u.FullName, Customer = c, ReversalNo = r == null ? null : r.DisplayNo }
+            // Invoices made before the "Created by" list show the login's name instead.
+            select new { i, v, s, CreatedBy = p != null ? p.Name : u.FullName, Customer = c, ReversalNo = r == null ? null : r.DisplayNo }
         ).SingleOrDefaultAsync();
         if (row is null) return null;
 
@@ -245,7 +257,7 @@ public class InvoiceService(IDbContextFactory<AppDbContext> dbFactory, ICurrentU
             toCustomer ? row.Customer!.Address : row.s.Address, toCustomer ? row.Customer!.Phone : row.s.Phone,
             inv.PaymentMode, inv.Material, InvoiceMath.Quantity(inv.BillingBasis, inv.Trips, inv.VolumeTenths), inv.Measurement,
             inv.Trips, inv.VolumeTenths, inv.RatePaise, inv.RateSource, inv.AmountPaise, inv.AllocatedPaise,
-            inv.Narration, row.UserName, inv.CreatedAtUtc, inv.CancelReason, inv.CancelledAtUtc, row.ReversalNo, inv.Version);
+            inv.Narration, row.CreatedBy, inv.CreatedAtUtc, inv.CancelReason, inv.CancelledAtUtc, row.ReversalNo, inv.Version);
     }
 
     // FR-INV-14: Previous / Next by invoice number.

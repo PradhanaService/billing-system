@@ -13,9 +13,9 @@ public class DashboardServiceTests : BillingFixture
     [Fact]
     public async Task FR_DASH_01_02_Cards_Match_The_Transactions()
     {
-        await Svc.Invoices.CreateAsync(new InvoiceForm { VehicleId = TripVehicle, Rate = 150, PaymentMode = InvoicePaymentMode.Cash });
-        await Svc.Invoices.CreateAsync(new InvoiceForm { VehicleId = TripVehicle, Rate = 150, Trips = 2 });
-        var cancelled = (await Svc.Invoices.CreateAsync(new InvoiceForm { VehicleId = TripVehicle, Rate = 150 })).Value;
+        await Svc.Invoices.CreateAsync(new InvoiceForm { SalesPersonId = Seller, VehicleId = TripVehicle, Rate = 150, PaymentMode = InvoicePaymentMode.Cash });
+        await Svc.Invoices.CreateAsync(new InvoiceForm { SalesPersonId = Seller, VehicleId = TripVehicle, Rate = 150, Trips = 2 });
+        var cancelled = (await Svc.Invoices.CreateAsync(new InvoiceForm { SalesPersonId = Seller, VehicleId = TripVehicle, Rate = 150 })).Value;
         await Svc.Invoices.CancelAsync(cancelled, "x", 1);
         await Svc.Receipts.CreateAsync(new ReceiptForm { PartyType = PartyType.Supplier, PartyId = Supplier, Amount = 100 });
         await Svc.Payments.CreateAsync(new PaymentForm { AccountId = 10, Amount = 40 });
@@ -32,7 +32,7 @@ public class DashboardServiceTests : BillingFixture
     [Fact]
     public async Task FR_DASH_04_Six_Months_Ending_With_The_Selected_Month()
     {
-        await Svc.Invoices.CreateAsync(new InvoiceForm { VehicleId = TripVehicle, Rate = 150 });
+        await Svc.Invoices.CreateAsync(new InvoiceForm { SalesPersonId = Seller, VehicleId = TripVehicle, Rate = 150 });
 
         var d = await Svc.Dashboard.GetAsync(2026, 12);
 
@@ -43,7 +43,7 @@ public class DashboardServiceTests : BillingFixture
     [Fact]
     public async Task FR_DASH_08_Month_Selector_Changes_Month_Figures_Not_Today()
     {
-        await Svc.Invoices.CreateAsync(new InvoiceForm { VehicleId = TripVehicle, Rate = 150 });
+        await Svc.Invoices.CreateAsync(new InvoiceForm { SalesPersonId = Seller, VehicleId = TripVehicle, Rate = 150 });
 
         var october = await Svc.Dashboard.GetAsync(2026, 10);
 

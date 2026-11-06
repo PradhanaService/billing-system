@@ -112,15 +112,17 @@ Put the three original spec PDFs (Project Overview, Requirements, Database Schem
 
 | Role | Main job |
 |---|---|
-| Admin | Everything, **plus** Users & Roles, Activity Log and Backup (admin-only) |
-| Dispatch Operator | All business work (same as below) |
-| Billing Clerk | All business work: suppliers, customers, vehicles, invoices, ledgers, receipts, payments, day close, statements, reports |
-| Accountant | All business work (same as above) |
+| Admin | Everything, **plus** Users & Roles, Sales Persons, Activity Log and Backup (admin-only) |
+| Sales Person | All business work: suppliers, customers, vehicles, invoices, ledgers, receipts, payments, day close, statements, reports |
 
-> **Client decision (Nov 2026), replaces the earlier per-role split:** only Admin can see or open Backup,
-> Activity Log and Users & Roles. For other roles those pages are not in the menu and their addresses
-> answer "Page not found" (no gateway). Every other role can do all business actions like Admin.
-> Roles are still recorded on every activity-log entry. Code: `RolePermissions` (Services/Security/Permission.cs).
+> **Client decisions (Nov 2026), replace the earlier four-role split:**
+> - Two roles and **one login each**: one Admin login and one shared Sales login. The server refuses a second
+>   active login for a role.
+> - Several sales people share the Sales login, so every invoice has a required **Created by** dropdown.
+>   Admin adds and removes the names (Sales Persons page). A removed name stays on invoices already made.
+> - Admin-only pages are not in the Sales menu and their addresses answer "Page not found" (no gateway).
+> - Roles are recorded on every activity-log entry. Code: `RolePermissions` (Services/Security/Permission.cs),
+>   `SalesPersonService` (Services/Admin).
 
 - Permissions are enforced on the **server side** for every action. Hiding a button is not security.
 - Users are deactivated, never deleted.
@@ -297,7 +299,7 @@ Before merging a branch, tick every item:
 - Requirement-to-test table (requirement ID -> test -> pass/fail).
 - Test report for all 3 rounds.
 - Demo script for one full day: add vehicle -> invoice -> receipt -> payment -> day close -> statement and reports.
-- User guide for the four roles.
+- User guide for the two roles.
 - Written note: Version 1.0 scope delivered and Version 1.1 backlog (the list in section 3).
 - A "how it works" document written by the developer, in their own words.
 

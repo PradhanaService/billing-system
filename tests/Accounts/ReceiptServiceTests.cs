@@ -14,6 +14,7 @@ public class ReceiptServiceTests : BillingFixture
     private async Task<long> CreditInvoiceAsync(long vehicle, decimal volume = 0) =>
         (await Svc.Invoices.CreateAsync(new InvoiceForm
         {
+            SalesPersonId = Seller,
             VehicleId = vehicle, Rate = vehicle == TripVehicle ? 150 : 12.35m, VolumeKl = volume,
         })).Value;
 
@@ -87,7 +88,7 @@ public class ReceiptServiceTests : BillingFixture
     [Fact]
     public async Task Cash_Invoices_Are_Not_Allocated_Again()
     {
-        await Svc.Invoices.CreateAsync(new InvoiceForm { VehicleId = TripVehicle, Rate = 150, PaymentMode = InvoicePaymentMode.Cash });
+        await Svc.Invoices.CreateAsync(new InvoiceForm { SalesPersonId = Seller, VehicleId = TripVehicle, Rate = 150, PaymentMode = InvoicePaymentMode.Cash });
 
         Assert.Empty(await Rcp.PreviewAllocationAsync(PartyType.Supplier, Supplier, 10000));
     }
@@ -96,7 +97,7 @@ public class ReceiptServiceTests : BillingFixture
     public async Task Customer_Receipt_Pays_Customer_Invoices_Only()
     {
         await CreditInvoiceAsync(TripVehicle);   // supplier's invoice
-        await Svc.Invoices.CreateAsync(new InvoiceForm { VehicleId = TripVehicle, Rate = 150, BillToType = PartyType.Customer, CustomerId = Customer });
+        await Svc.Invoices.CreateAsync(new InvoiceForm { SalesPersonId = Seller, VehicleId = TripVehicle, Rate = 150, BillToType = PartyType.Customer, CustomerId = Customer });
 
         var preview = await Rcp.PreviewAllocationAsync(PartyType.Customer, Customer, 100000);
 
@@ -106,7 +107,7 @@ public class ReceiptServiceTests : BillingFixture
     [Fact]
     public async Task Dispatch_Operator_Can_Take_Any_Mode()
     {
-        Me.User = Db.AddUser(UserRole.DispatchOperator);
+        Me.User = Db.AddUser(UserRole.SalesPerson);
 
         Assert.True((await Rcp.CreateAsync(Form(100))).Ok);
         Assert.True((await Rcp.CreateAsync(Form(100, PaymentMode.Upi, "UTR1"))).Ok);
@@ -124,7 +125,7 @@ public class ReceiptServiceTests : BillingFixture
         Assert.False(blocked.Ok);
         Assert.Contains("RV-1", blocked.Error);
 
-        Me.User = Db.AddUser(UserRole.Accountant);
+        Me.User = Db.AddUser(UserRole.SalesPerson);
         var row = Assert.Single(await Rcp.HistoryAsync(new ReceiptFilter(DateOnly.MinValue, DateOnly.MaxValue)));
         Assert.False((await Rcp.CancelAsync(receiptId, "", row.Version)).Ok);
         Assert.True((await Rcp.CancelAsync(receiptId, "Cheque bounced", row.Version)).Ok);
@@ -136,7 +137,7 @@ public class ReceiptServiceTests : BillingFixture
         Assert.All(ctx.ReceiptAllocations, a => Assert.False(a.IsActive));
 
         // Now the invoice can be cancelled.
-        Me.User = Db.AddUser(UserRole.BillingClerk);
+        Me.User = Db.AddUser(UserRole.SalesPerson);
         inv = (await Svc.Invoices.GetAsync(invoiceId))!;
         Assert.True((await Svc.Invoices.CancelAsync(invoiceId, "wrong", inv.Version)).Ok);
     }
@@ -166,7 +167,7 @@ public class ReceiptServiceTests : BillingFixture
     public async Task Ledger_Stays_Balanced_After_Many_Operations()
     {
         await CreditInvoiceAsync(TripVehicle);
-        await Svc.Invoices.CreateAsync(new InvoiceForm { VehicleId = TripVehicle, Rate = 150, PaymentMode = InvoicePaymentMode.Cash });
+        await Svc.Invoices.CreateAsync(new InvoiceForm { SalesPersonId = Seller, VehicleId = TripVehicle, Rate = 150, PaymentMode = InvoicePaymentMode.Cash });
         var r = (await Rcp.CreateAsync(Form(99.99m))).Value;
         Me.User = Db.AddUser(UserRole.Admin);
         await Rcp.CancelAsync(r, "test", 1);

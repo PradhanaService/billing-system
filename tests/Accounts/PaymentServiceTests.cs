@@ -10,7 +10,7 @@ public class PaymentServiceTests : BillingFixture
 {
     private const long FuelExpense = 10;
 
-    public PaymentServiceTests() => Me.User = Db.AddUser(UserRole.Accountant);
+    public PaymentServiceTests() => Me.User = Db.AddUser(UserRole.SalesPerson);
 
     private PaymentService Pay => Svc.Payments;
 
@@ -109,14 +109,14 @@ public class PaymentServiceTests : BillingFixture
     [Fact]
     public async Task Billing_Clerk_Can_Make_Payments()
     {
-        Me.User = Db.AddUser(UserRole.BillingClerk);
+        Me.User = Db.AddUser(UserRole.SalesPerson);
         Assert.True((await Pay.CreateAsync(new PaymentForm { AccountId = FuelExpense, Amount = 1, ConfirmAboveCash = true })).Ok);
     }
 }
 
 public class LedgerMasterServiceTests : BillingFixture
 {
-    public LedgerMasterServiceTests() => Me.User = Db.AddUser(UserRole.Accountant);
+    public LedgerMasterServiceTests() => Me.User = Db.AddUser(UserRole.SalesPerson);
 
     [Fact]
     public async Task FR_TXN_13_Creates_Expense_Ledger_With_Unique_Name()
@@ -159,7 +159,7 @@ public class LedgerMasterServiceTests : BillingFixture
         Assert.True((await Svc.Ledgers.SetSeriesStartAsync("INVOICE", 7232)).Ok);
         Assert.Equal("INV-7232", await Svc.Invoices.PeekNextNumberAsync());
 
-        await Svc.Invoices.CreateAsync(new WaterBilling.Services.Billing.InvoiceForm { VehicleId = TripVehicle, Rate = 150 });
+        await Svc.Invoices.CreateAsync(new WaterBilling.Services.Billing.InvoiceForm { SalesPersonId = Seller, VehicleId = TripVehicle, Rate = 150 });
         Assert.False((await Svc.Ledgers.SetSeriesStartAsync("INVOICE", 1)).Ok);
         Assert.Equal("INV-7233", await Svc.Invoices.PeekNextNumberAsync());
     }

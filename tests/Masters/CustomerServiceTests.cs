@@ -64,7 +64,7 @@ public class CustomerServiceTests : IDisposable
     [Fact]
     public async Task Accountant_Can_Create_Customers()
     {
-        _me.User = _db.AddUser(UserRole.Accountant);
+        _me.User = _db.AddUser(UserRole.SalesPerson);
         Assert.True((await _svc.CreateAsync(Form())).Ok);
     }
 }

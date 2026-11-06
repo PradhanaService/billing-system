@@ -74,7 +74,7 @@ public static class InvoicePdf
                     col.Item().Text($"Narration: {inv.Narration}");
                 col.Item().PaddingTop(30).Row(row =>
                 {
-                    row.RelativeItem().Text($"Prepared by: {inv.CreatedBy}");
+                    row.RelativeItem().Text($"Created by: {inv.CreatedBy}");
                     row.RelativeItem().AlignRight().Text($"For {company.Name}").Bold();
                 });
                 col.Item().PaddingTop(25).AlignRight().Text("Authorised signatory");

@@ -22,8 +22,8 @@ public class RolePermissionsTests
         Assert.Equal(!RolePermissions.AdminOnly.Contains(permission), RolePermissions.Has(role, permission));
 
     [Fact]
-    public void Admin_Only_Is_Exactly_Users_Log_And_Backup() =>
-        Assert.Equal(new[] { Permission.UsersManage, Permission.ActivityLogView, Permission.BackupRun }.OrderBy(p => p),
+    public void Admin_Only_Is_Users_Sales_Persons_Log_And_Backup() =>
+        Assert.Equal(new[] { Permission.UsersManage, Permission.SalesPersonsManage, Permission.ActivityLogView, Permission.BackupRun }.OrderBy(p => p),
             RolePermissions.AdminOnly.OrderBy(p => p));
 
     [Fact]

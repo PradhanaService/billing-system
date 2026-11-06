@@ -35,6 +35,9 @@ public class Invoice
     public DateTime? CancelledAtUtc { get; set; }
     public string? CancelReason { get; set; }
 
+    // The sales person chosen in "Created by" (null on invoices made before the list existed).
+    public long? SalesPersonId { get; set; }
+
     public long CreatedByUserId { get; set; }
     public DateTime CreatedAtUtc { get; set; }
     public int Version { get; set; }

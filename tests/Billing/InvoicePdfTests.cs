@@ -12,7 +12,7 @@ public class InvoicePdfTests : BillingFixture
     public async Task Invoice_Pdf_Is_A_Valid_Pdf()
     {
         QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
-        var id = (await Svc.Invoices.CreateAsync(new InvoiceForm { VehicleId = TripVehicle, Rate = 150 })).Value;
+        var id = (await Svc.Invoices.CreateAsync(new InvoiceForm { SalesPersonId = Seller, VehicleId = TripVehicle, Rate = 150 })).Value;
 
         var pdf = InvoicePdf.Generate((await Svc.Invoices.GetAsync(id))!, new CompanyInfo(), DateTime.UtcNow);
 

@@ -26,13 +26,13 @@ public class ReportServiceTests : BillingFixture
         _kaveri = (await Svc.Suppliers.CreateAsync(new SupplierForm { Name = "Kaveri Tankers", ShortName = "Kaveri", Phone = "9123456780", OpeningBalance = 1000 })).Value;
         _kaveriVehicle = (await Svc.Vehicles.CreateAsync(new VehicleForm { VehicleNo = "TN 01 AB 1234", SupplierId = _kaveri, TankCapacityLitres = 9000, Rate = 120 })).Value;
 
-        await Svc.Invoices.CreateAsync(new InvoiceForm { VehicleId = TripVehicle, Rate = 150, PaymentMode = InvoicePaymentMode.Cash });   // 150 cash
-        await Svc.Invoices.CreateAsync(new InvoiceForm { VehicleId = VolumeVehicle, Rate = 12.35m, VolumeKl = 10 });                      // 123.50 credit
-        var wrong = (await Svc.Invoices.CreateAsync(new InvoiceForm { VehicleId = _kaveriVehicle, Rate = 120 })).Value;
+        await Svc.Invoices.CreateAsync(new InvoiceForm { SalesPersonId = Seller, VehicleId = TripVehicle, Rate = 150, PaymentMode = InvoicePaymentMode.Cash });   // 150 cash
+        await Svc.Invoices.CreateAsync(new InvoiceForm { SalesPersonId = Seller, VehicleId = VolumeVehicle, Rate = 12.35m, VolumeKl = 10 });                      // 123.50 credit
+        var wrong = (await Svc.Invoices.CreateAsync(new InvoiceForm { SalesPersonId = Seller, VehicleId = _kaveriVehicle, Rate = 120 })).Value;
         await Svc.Invoices.CancelAsync(wrong, "wrong vehicle", 1);
         Db.Clock.Advance(TimeSpan.FromDays(1));
-        await Svc.Invoices.CreateAsync(new InvoiceForm { VehicleId = _kaveriVehicle, Rate = 120, Trips = 2 });                           // 240 credit
-        await Svc.Invoices.CreateAsync(new InvoiceForm { VehicleId = TripVehicle, Rate = 150, BillToType = PartyType.Customer, CustomerId = Customer }); // 150 to customer
+        await Svc.Invoices.CreateAsync(new InvoiceForm { SalesPersonId = Seller, VehicleId = _kaveriVehicle, Rate = 120, Trips = 2 });                           // 240 credit
+        await Svc.Invoices.CreateAsync(new InvoiceForm { SalesPersonId = Seller, VehicleId = TripVehicle, Rate = 150, BillToType = PartyType.Customer, CustomerId = Customer }); // 150 to customer
         await Svc.Receipts.CreateAsync(new ReceiptForm { PartyType = PartyType.Supplier, PartyId = _kaveri, Amount = 100 });
         await Svc.Payments.CreateAsync(new PaymentForm { AccountId = 10, Amount = 50 });
     }
@@ -159,7 +159,7 @@ public class ReportServiceTests : BillingFixture
     [Fact]
     public async Task Billing_Clerk_Can_Run_Reports()
     {
-        Me.User = Db.AddUser(UserRole.BillingClerk);
+        Me.User = Db.AddUser(UserRole.SalesPerson);
         Assert.NotNull(await Build(ReportKind.DailySales));
     }
 }

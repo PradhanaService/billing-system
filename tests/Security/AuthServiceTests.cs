@@ -30,7 +30,7 @@ public class AuthServiceTests : IDisposable
     [Fact]
     public async Task Login_Succeeds_With_Right_Password_Any_Case_Of_Name()
     {
-        _db.AddUser(UserRole.BillingClerk, "ravi");
+        _db.AddUser(UserRole.SalesPerson, "ravi");
 
         var result = await _auth.LoginAsync("RAVI", "Passw0rd!");
 
@@ -43,7 +43,7 @@ public class AuthServiceTests : IDisposable
     [InlineData("nobody", "Passw0rd!")]
     public async Task FR_ADM_03_Failed_Login_Is_Refused_And_Logged(string name, string password)
     {
-        _db.AddUser(UserRole.BillingClerk, "ravi");
+        _db.AddUser(UserRole.SalesPerson, "ravi");
 
         var result = await _auth.LoginAsync(name, password);
 
@@ -56,7 +56,7 @@ public class AuthServiceTests : IDisposable
     [Fact]
     public async Task Inactive_User_Cannot_Log_In()
     {
-        var u = _db.AddUser(UserRole.BillingClerk, "ravi");
+        var u = _db.AddUser(UserRole.SalesPerson, "ravi");
         using (var ctx = _db.NewContext())
         {
             ctx.Users.Single(x => x.Id == u.Id).Status = RecordStatus.Inactive;
@@ -69,7 +69,7 @@ public class AuthServiceTests : IDisposable
     [Fact]
     public async Task Changing_Password_Ends_Old_Logins()
     {
-        _db.AddUser(UserRole.BillingClerk, "ravi");
+        _db.AddUser(UserRole.SalesPerson, "ravi");
         var oldLogin = (await _auth.LoginAsync("ravi", "Passw0rd!")).Value!;
         var id = UserInfo.FromPrincipal(oldLogin)!.Id;
 
@@ -88,7 +88,7 @@ public class AuthServiceTests : IDisposable
     [InlineData("12345678", "letter and one number")]
     public async Task Weak_New_Password_Is_Refused(string newPassword, string message)
     {
-        var u = _db.AddUser(UserRole.BillingClerk, "ravi");
+        var u = _db.AddUser(UserRole.SalesPerson, "ravi");
 
         var result = await _auth.ChangePasswordAsync(u.Id, "Passw0rd!", newPassword);
 

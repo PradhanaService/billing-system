@@ -81,3 +81,9 @@
   only read when the page opened). Fix: a database interceptor announces every committed save; both screens reload
   at once. Tested: notice comes after commit with the new balance visible, failed saves send none; two-window
   browser check. 377 tests passing.
+
+## Module 24: Two logins and "Created by" on invoices
+- Done: roles reduced to Admin and Sales Person, one active login per role (server-checked); existing
+  operator/clerk/accountant logins become Sales Person on upgrade. New Sales Persons list (Admin only: add,
+  remove; a used name leaves the list but stays on its invoices). Sales Invoice has a required "Created by"
+  dropdown, kept between invoices; shown on the invoice, PDF and activity log. 309 tests passing.

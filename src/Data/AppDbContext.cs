@@ -25,6 +25,7 @@ public class AppDbContext : DbContext
     public DbSet<LedgerEntry> LedgerEntries => Set<LedgerEntry>();
     public DbSet<Invoice> Invoices => Set<Invoice>();
     public DbSet<ReceiptAllocation> ReceiptAllocations => Set<ReceiptAllocation>();
+    public DbSet<SalesPerson> SalesPersons => Set<SalesPerson>();
     public DbSet<User> Users => Set<User>();
     public DbSet<ActivityLog> ActivityLogs => Set<ActivityLog>();
 
@@ -155,6 +156,16 @@ public class AppDbContext : DbContext
             e.HasOne<Voucher>().WithMany().HasForeignKey(i => i.VoucherId).OnDelete(DeleteBehavior.Restrict);
             e.HasOne<Voucher>().WithMany().HasForeignKey(i => i.ReversalVoucherId).OnDelete(DeleteBehavior.Restrict);
             e.HasOne<User>().WithMany().HasForeignKey(i => i.CreatedByUserId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne<SalesPerson>().WithMany().HasForeignKey(i => i.SalesPersonId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        model.Entity<SalesPerson>(e =>
+        {
+            e.ToTable("SalesPersons", t => t.HasCheckConstraint("CK_SalesPersons_Status", "Status IN ('Active', 'Inactive')"));
+            e.Property(p => p.Name).HasMaxLength(80).IsRequired();
+            e.Property(p => p.NormalizedName).HasMaxLength(80).IsRequired();
+            e.Property(p => p.Version).IsConcurrencyToken();
+            e.HasIndex(p => p.NormalizedName).IsUnique();
         });
 
         model.Entity<ReceiptAllocation>(e =>

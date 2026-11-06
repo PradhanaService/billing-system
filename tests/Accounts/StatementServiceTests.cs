@@ -18,13 +18,13 @@ public class StatementServiceTests : BillingFixture
     // and cancel day 1's invoice (reversal dated day 2, value date day 1).
     private async Task<long> BuildHistoryAsync()
     {
-        var first = (await Svc.Invoices.CreateAsync(new InvoiceForm { VehicleId = TripVehicle, Rate = 150 })).Value;
+        var first = (await Svc.Invoices.CreateAsync(new InvoiceForm { SalesPersonId = Seller, VehicleId = TripVehicle, Rate = 150 })).Value;
         Db.Clock.Advance(TimeSpan.FromDays(1));
-        await Svc.Invoices.CreateAsync(new InvoiceForm { VehicleId = TripVehicle, Rate = 150 });
+        await Svc.Invoices.CreateAsync(new InvoiceForm { SalesPersonId = Seller, VehicleId = TripVehicle, Rate = 150 });
         var inv = (await Svc.Invoices.GetAsync(first))!;
         await Svc.Invoices.CancelAsync(first, "Wrong vehicle", inv.Version);
         await Svc.Receipts.CreateAsync(new ReceiptForm { PartyType = PartyType.Supplier, PartyId = Supplier, Amount = 100 });
-        Me.User = Db.AddUser(UserRole.Accountant);
+        Me.User = Db.AddUser(UserRole.SalesPerson);
         return first;
     }
 
@@ -117,7 +117,7 @@ public class StatementServiceTests : BillingFixture
     [Fact]
     public async Task Dispatch_Operator_Can_See_Statements()
     {
-        Me.User = Db.AddUser(UserRole.DispatchOperator);
+        Me.User = Db.AddUser(UserRole.SalesPerson);
         Assert.NotNull(await Svc.Statements.GetAsync(new StatementRequest(StatementKind.Supplier, Supplier, Day1, Day2)));
     }
 }

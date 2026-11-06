@@ -29,9 +29,10 @@
 
 ## Round 2: one full business day, four users (browser)
 Admin creates three users, sets the first invoice number to 7232, adds 2 suppliers (one with a
-₹5,000 opening balance), a customer and 2 vehicles. The Dispatch Operator makes a cash invoice and a
-10.5 kL credit invoice and takes a cash receipt; the Billing Clerk bills a customer for 2 trips and
-takes a UPI receipt; the Accountant pays ₹50 fuel, closes the day with ₹5 short, and runs reports.
+₹5,000 opening balance), a customer and 2 vehicles. Sales staff make a cash invoice and a
+10.5 kL credit invoice and take a cash receipt, bill a customer for 2 trips and take a UPI receipt,
+pay ₹50 fuel, close the day with ₹5 short, and run reports. (Written for the earlier four roles; since
+Nov 2026 all of this is done on the one Sales login, choosing *Created by* on each invoice.)
 
 | Check | Expected | Seen |
 |---|---|---|
@@ -71,6 +72,12 @@ sees Users & Roles, Activity Log and Backup; every other role does all business 
 role: every business page opens, `/admin/*` answers 404, and no page they can open links to the admin areas
 (`RoleAccessTests`, `RolePermissionsTests`). Service tests that used to expect "not allowed" for a non-admin
 business action now check that the action works.
+
+## Update: two logins and "Created by" (Nov 2026)
+Roles reduced to Admin and Sales Person, one active login each (`UserServiceTests.Only_One_Active_Login_Per_Role`).
+An old database's operator/clerk/accountant logins become Sales Person on upgrade (`RoleMigrationTests`).
+Invoices require *Created by*; Admin adds and removes names; removed names stay on old invoices; the Sales login
+cannot change the list and gets 404 on the admin pages (`SalesPersonServiceTests`, `RoleAccessTests`).
 
 ## Known limits (agreed Version 1.1 or awaiting the client)
 - Meter dispensing (FR-MTR, FR-DSP, FR-OVR) not built: awaiting client confirmation (CLAUDE.md §3, question 9).

@@ -18,9 +18,7 @@ public enum BalanceSide
 public enum UserRole
 {
     Admin,
-    DispatchOperator,
-    BillingClerk,
-    Accountant,
+    SalesPerson,   // the shared sales login; the person is chosen per invoice ("Created by")
 }
 
 // Groups for the activity log, so the Admin can filter it.

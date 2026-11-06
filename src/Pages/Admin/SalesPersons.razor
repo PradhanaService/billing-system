@@ -1,0 +1,84 @@
+@page "/admin/sales-persons"
+@attribute [Authorize(Policy = nameof(Permission.SalesPersonsManage))]
+@inherits UserContextBase
+@using WaterBilling.Services.Admin
+@inject SalesPersonService Svc
+
+<PageTitle>Sales Persons</PageTitle>
+
+<h1>Sales Persons</h1>
+<p class="muted">These names appear in the "Created by" list on the Sales Invoice. Removing a name takes it off the list;
+   invoices already made by that person keep showing their name.</p>
+
+<PageMessage Text="@MessageText" Ok="@MessageOk" />
+
+<div class="card">
+    <h2>Add a name</h2>
+    <EditForm Model="_form" OnValidSubmit="AddAsync">
+        <DataAnnotationsValidator />
+        <div class="toolbar">
+            <div class="field">
+                <label for="name">Sales person's name*</label>
+                <InputText id="name" @bind-Value="_form.Name" />
+                <ValidationMessage For="() => _form.Name" />
+            </div>
+            <button type="submit" class="btn btn-primary" disabled="@Busy">Add</button>
+        </div>
+    </EditForm>
+</div>
+
+<table class="data">
+    <thead><tr><th>Name</th><th class="num">Invoices made</th><th></th></tr></thead>
+    <tbody>
+        @foreach (var p in _rows)
+        {
+            <tr>
+                <td>@p.Name</td>
+                <td class="num">@p.InvoiceCount</td>
+                <td>
+                    @if (_confirmId == p.Id)
+                    {
+                        <button class="btn btn-small btn-danger" @onclick="() => RemoveAsync(p)">Confirm remove</button>
+                        <button class="btn btn-small" @onclick="() => _confirmId = null">Keep</button>
+                    }
+                    else
+                    {
+                        <button class="btn btn-small btn-danger" @onclick="() => _confirmId = p.Id">Remove</button>
+                    }
+                </td>
+            </tr>
+        }
+        @if (_rows.Count == 0) { <tr><td colspan="3" class="muted">No names yet. Add the first one above.</td></tr> }
+    </tbody>
+</table>
+
+@code {
+    private IReadOnlyList<SalesPersonRow> _rows = [];
+    private SalesPersonForm _form = new();
+    private long? _confirmId;
+
+    protected override Task OnUserReadyAsync() => LoadAsync();
+
+    private async Task LoadAsync() => _rows = await Svc.ListAsync();
+
+    private async Task AddAsync()
+    {
+        if (Busy) return;   // a click that arrives while saving does nothing (NFR-CON-06)
+        Busy = true;
+        try
+        {
+            var name = _form.Name.Trim();
+            var result = await Svc.AddAsync(_form);
+            Show(result, $"{name} added.");
+            if (result.Ok) { _form = new(); await LoadAsync(); }
+        }
+        finally { Busy = false; }
+    }
+
+    private async Task RemoveAsync(SalesPersonRow p)
+    {
+        _confirmId = null;
+        Show(await Svc.RemoveAsync(p.Id), $"{p.Name} removed from the list.");
+        await LoadAsync();
+    }
+}

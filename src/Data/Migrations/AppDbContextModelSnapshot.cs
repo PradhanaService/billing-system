@@ -468,6 +468,9 @@ namespace WaterBilling.Data.Migrations
                     b.Property<long?>("ReversalVoucherId")
                         .HasColumnType("INTEGER");
 
+                    b.Property<long?>("SalesPersonId")
+                        .HasColumnType("INTEGER");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(10)
@@ -500,6 +503,8 @@ namespace WaterBilling.Data.Migrations
                         .IsUnique();
 
                     b.HasIndex("ReversalVoucherId");
+
+                    b.HasIndex("SalesPersonId");
 
                     b.HasIndex("VoucherId")
                         .IsUnique();
@@ -707,6 +712,48 @@ namespace WaterBilling.Data.Migrations
                     b.ToTable("ReceiptAllocations", null, t =>
                         {
                             t.HasCheckConstraint("CK_Allocations_Amount", "AmountPaise > 0");
+                        });
+                });
+
+            modelBuilder.Entity("WaterBilling.Data.Entities.SalesPerson", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("NormalizedName")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("NormalizedName")
+                        .IsUnique();
+
+                    b.ToTable("SalesPersons", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_SalesPersons_Status", "Status IN ('Active', 'Inactive')");
                         });
                 });
 
@@ -1086,6 +1133,11 @@ namespace WaterBilling.Data.Migrations
                     b.HasOne("WaterBilling.Data.Entities.Voucher", null)
                         .WithMany()
                         .HasForeignKey("ReversalVoucherId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("WaterBilling.Data.Entities.SalesPerson", null)
+                        .WithMany()
+                        .HasForeignKey("SalesPersonId")
                         .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("WaterBilling.Data.Entities.Supplier", null)

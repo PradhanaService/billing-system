@@ -37,7 +37,7 @@ else
             <tbody>
                 <tr><th>Invoice Date</th><td>@IndianTime.FormatDate(_inv.InvoiceDate)</td><th>Payment Mode</th><td>@_inv.PaymentMode</td></tr>
                 <tr><th>Vehicle</th><td>@_inv.VehicleCode / @_inv.VehicleNo (@_inv.VehicleName)</td><th>Supplier</th><td>@_inv.SupplierName</td></tr>
-                <tr><th>Bill To</th><td>@_inv.BillToName (@_inv.BillToType)</td><th>Prepared by</th><td>@_inv.CreatedBy, @IndianTime.FormatDateTime(_inv.CreatedAtUtc)</td></tr>
+                <tr><th>Bill To</th><td>@_inv.BillToName (@_inv.BillToType)</td><th>Created by</th><td>@_inv.CreatedBy, @IndianTime.FormatDateTime(_inv.CreatedAtUtc)</td></tr>
                 <tr><th>Rate source</th><td>@(_inv.RateSource == RateSource.Master ? "Vehicle Master" : "Changed at billing")</td><th>Paid so far</th><td>₹@Money.Format(_inv.AllocatedPaise)</td></tr>
                 @if (_inv.Narration is not null) { <tr><th>Narration</th><td colspan="3">@_inv.Narration</td></tr> }
             </tbody>

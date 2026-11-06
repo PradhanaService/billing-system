@@ -15,7 +15,7 @@ public class DataChangeTests : BillingFixture
         long? outstandingSeen = null;
         Db.Changes.Changed += () => outstandingSeen ??= Svc.Outstanding.GetAsync().Result.NetPaise;
 
-        await Svc.Invoices.CreateAsync(new InvoiceForm { VehicleId = TripVehicle, Rate = 150 });
+        await Svc.Invoices.CreateAsync(new InvoiceForm { SalesPersonId = Seller, VehicleId = TripVehicle, Rate = 150 });
 
         // At the moment of the notice, another reader already sees the new ₹150 outstanding.
         Assert.Equal(15000, outstandingSeen);
@@ -32,7 +32,7 @@ public class DataChangeTests : BillingFixture
         var notices = 0;
         Db.Changes.Changed += () => notices++;
 
-        var result = await Svc.Invoices.CreateAsync(new InvoiceForm { VehicleId = TripVehicle, Rate = 150 });
+        var result = await Svc.Invoices.CreateAsync(new InvoiceForm { SalesPersonId = Seller, VehicleId = TripVehicle, Rate = 150 });
 
         Assert.False(result.Ok);
         Assert.Equal(0, notices);
