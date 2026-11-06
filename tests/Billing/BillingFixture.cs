@@ -15,6 +15,7 @@ public class BillingFixture : IDisposable
     public long TripVehicle { get; }
     public long VolumeVehicle { get; }
     public long Customer { get; }
+    public long Seller { get; }   // the "Created by" sales person on test invoices
 
     public BillingFixture()
     {
@@ -27,7 +28,9 @@ public class BillingFixture : IDisposable
             VehicleNo = "TN 67 C", SupplierId = Supplier, TankCapacityLitres = 24000, Rate = 12.35m, BillingBasis = BillingBasis.Volume,
         }).Result.Value;
         Customer = Svc.Customers.CreateAsync(new CustomerForm { Name = "Meena Constructions", Phone = "9000000001" }).Result.Value;
-        Me.User = Db.AddUser(UserRole.BillingClerk);
+        Svc.SalesPersons.AddAsync(new WaterBilling.Services.Admin.SalesPersonForm { Name = "Ravi" }).Wait();
+        Seller = Db.NewContext().SalesPersons.Single().Id;
+        Me.User = Db.AddUser(UserRole.SalesPerson);
     }
 
     public void Dispose() => Db.Dispose();

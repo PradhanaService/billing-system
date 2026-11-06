@@ -80,7 +80,7 @@ public class BackupServiceTests : IDisposable, IDbContextFactory<AppDbContext>
     [Fact]
     public async Task Billing_Clerk_Cannot_Run_Backups()
     {
-        _me.User = new UserInfo(2, "clerk", UserRole.BillingClerk);
+        _me.User = new UserInfo(2, "clerk", UserRole.SalesPerson);
         await Assert.ThrowsAsync<NotAllowedException>(() => Svc.RunAsync());
     }
 

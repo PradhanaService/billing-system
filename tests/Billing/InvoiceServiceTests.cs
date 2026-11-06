@@ -11,7 +11,7 @@ public class InvoiceServiceTests : BillingFixture
     private InvoiceService Inv => Svc.Invoices;
 
     private InvoiceForm TripForm(InvoicePaymentMode mode = InvoicePaymentMode.Credit, int trips = 1) =>
-        new() { VehicleId = TripVehicle, Trips = trips, Rate = 150, PaymentMode = mode };
+        new() { SalesPersonId = Seller, VehicleId = TripVehicle, Trips = trips, Rate = 150, PaymentMode = mode };
 
     [Theory]
     [InlineData(1, 15000)]
@@ -33,10 +33,10 @@ public class InvoiceServiceTests : BillingFixture
     [Fact]
     public async Task FR_INV_03_Volume_Vehicle_Needs_Volume_And_Bills_By_It()
     {
-        var noVolume = await Inv.CreateAsync(new InvoiceForm { VehicleId = VolumeVehicle, Rate = 12.35m });
+        var noVolume = await Inv.CreateAsync(new InvoiceForm { SalesPersonId = Seller, VehicleId = VolumeVehicle, Rate = 12.35m });
         Assert.False(noVolume.Ok);
 
-        var id = (await Inv.CreateAsync(new InvoiceForm { VehicleId = VolumeVehicle, Rate = 12.35m, VolumeKl = 10.5m })).Value;
+        var id = (await Inv.CreateAsync(new InvoiceForm { SalesPersonId = Seller, VehicleId = VolumeVehicle, Rate = 12.35m, VolumeKl = 10.5m })).Value;
         var inv = (await Inv.GetAsync(id))!;
         Assert.Equal(12968, inv.AmountPaise);
         Assert.Equal("10.5", inv.Quantity);
@@ -48,7 +48,7 @@ public class InvoiceServiceTests : BillingFixture
     {
         Assert.Equal("INV-1", await Inv.PeekNextNumberAsync());
         await Inv.CreateAsync(TripForm());
-        var bad = await Inv.CreateAsync(new InvoiceForm { VehicleId = VolumeVehicle, Rate = 12.35m });   // fails
+        var bad = await Inv.CreateAsync(new InvoiceForm { SalesPersonId = Seller, VehicleId = VolumeVehicle, Rate = 12.35m });   // fails
         await Inv.CreateAsync(TripForm());
 
         Assert.False(bad.Ok);
@@ -155,7 +155,7 @@ public class InvoiceServiceTests : BillingFixture
         var s = (await Svc.Suppliers.GetAsync(Supplier))!;
         s.Status = RecordStatus.Inactive;
         await Svc.Suppliers.UpdateAsync(Supplier, s);
-        var result = await Inv.CreateAsync(new InvoiceForm { VehicleId = VolumeVehicle, Rate = 12.35m, VolumeKl = 1 });
+        var result = await Inv.CreateAsync(new InvoiceForm { SalesPersonId = Seller, VehicleId = VolumeVehicle, Rate = 12.35m, VolumeKl = 1 });
         Assert.False(result.Ok);
         Assert.Contains("cannot be invoiced", result.Error);
     }

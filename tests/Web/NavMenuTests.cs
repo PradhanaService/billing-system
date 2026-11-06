@@ -37,7 +37,7 @@ public class NavMenuTests : IClassFixture<TestAppFactory>
     [Fact]
     public void Menu_Shows_Only_Items_The_Role_May_Use()
     {
-        var operatorUser = new UserInfo(1, "op", UserRole.DispatchOperator);
+        var operatorUser = new UserInfo(1, "op", UserRole.SalesPerson);
         var titles = MenuItems.For(operatorUser).Select(i => i.Title).ToList();
 
         Assert.Contains("Sales Invoice", titles);

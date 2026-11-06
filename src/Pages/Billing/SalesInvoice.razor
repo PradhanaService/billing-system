@@ -6,6 +6,7 @@
 @inject InvoiceService Svc
 @inject VehicleService VehicleSvc
 @inject CustomerService CustomerSvc
+@inject WaterBilling.Services.Admin.SalesPersonService SalesPersonSvc
 
 <PageTitle>Sales Invoice</PageTitle>
 
@@ -31,6 +32,14 @@
             <label>Invoice Date</label>
             <input value="@IndianTime.FormatDate(_date)" readonly />
             <small>Business day (6 PM to 6 PM).</small>
+        </div>
+        <div class="field">
+            <label for="createdby">Created by*</label>
+            <select id="createdby" @bind="_form.SalesPersonId">
+                <option value="0">Choose your name</option>
+                @foreach (var p in _salesPersons) { <option value="@p.Id">@p.Name</option> }
+            </select>
+            @if (_salesPersons.Count == 0) { <small>No names yet. Ask the Admin to add sales persons.</small> }
         </div>
         <div class="field">
             <label for="vcode">Vehicle Code*</label>
@@ -137,6 +146,7 @@
     private InvoiceForm _form = new();
     private IReadOnlyList<VehicleForBilling> _vehicles = [];
     private IReadOnlyList<(long Id, string Name)> _customers = [];
+    private IReadOnlyList<(long Id, string Name)> _salesPersons = [];
     private VehicleForBilling? _vehicle;
     private string _nextNo = "";
     private DateOnly _date;
@@ -147,6 +157,7 @@
     {
         _vehicles = await VehicleSvc.ListBillableAsync();
         _customers = await CustomerSvc.ListActiveAsync();
+        _salesPersons = await SalesPersonSvc.ListActiveAsync();
         await RefreshHeaderAsync();
     }
 
@@ -205,5 +216,6 @@
         finally { Busy = false; }
     }
 
-    private void ResetForm() { _form = new InvoiceForm(); _vehicle = null; }
+    // Clears the invoice but keeps "Created by": the same person usually makes several invoices in a row.
+    private void ResetForm() { _form = new InvoiceForm { SalesPersonId = _form.SalesPersonId }; _vehicle = null; }
 }

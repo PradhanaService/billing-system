@@ -15,7 +15,7 @@ public class VehicleServiceTests : IDisposable
 
     public VehicleServiceTests()
     {
-        _me = new FakeCurrentUser(_db.AddUser(UserRole.BillingClerk));
+        _me = new FakeCurrentUser(_db.AddUser(UserRole.SalesPerson));
         _svc = new VehicleService(_db, _me, _db.Clock);
         _suppliers = new TestServices(_db, _me).Suppliers;
         _sangeetha = _suppliers.CreateAsync(SupplierServiceTests.Form()).Result.Value;
@@ -199,7 +199,7 @@ public class VehicleServiceTests : IDisposable
     [Fact]
     public async Task Dispatch_Operator_Can_Add_Vehicles_And_Choose_Code()
     {
-        _me.User = _db.AddUser(UserRole.DispatchOperator);
+        _me.User = _db.AddUser(UserRole.SalesPerson);
         var form = Form();
         form.Code = "D7";
         Assert.True((await _svc.CreateAsync(form)).Ok);

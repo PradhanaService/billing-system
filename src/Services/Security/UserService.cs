@@ -23,7 +23,7 @@ public sealed class UserForm
     [StringLength(15)]
     public string? Phone { get; set; }
 
-    public UserRole Role { get; set; } = UserRole.DispatchOperator;
+    public UserRole Role { get; set; } = UserRole.SalesPerson;
 
     // Only used when creating, or when the Admin resets a password.
     public string? TemporaryPassword { get; set; }
@@ -52,6 +52,7 @@ public class UserService(IDbContextFactory<AppDbContext> dbFactory, ICurrentUser
         var key = userName.ToUpperInvariant();
         if (await db.Users.AnyAsync(u => u.NormalizedUserName == key))
             return Result<long>.Fail("A user with this name already exists.");
+        if (await RoleTakenAsync(db, form.Role, exceptUserId: null) is { } taken) return Result<long>.Fail(taken);
 
         var user = new User
         {
@@ -87,6 +88,9 @@ public class UserService(IDbContextFactory<AppDbContext> dbFactory, ICurrentUser
 
         if (user.Role == UserRole.Admin && form.Role != UserRole.Admin && await IsLastActiveAdmin(db, user.Id))
             return Result.Fail("You cannot remove the last active Admin.");
+        if (user.Role != form.Role && user.Status == RecordStatus.Active
+            && await RoleTakenAsync(db, form.Role, user.Id) is { } taken)
+            return Result.Fail(taken);
 
         var before = new { user.FullName, user.Phone, Role = user.Role.ToString() };
         user.FullName = form.FullName.Trim();
@@ -113,6 +117,10 @@ public class UserService(IDbContextFactory<AppDbContext> dbFactory, ICurrentUser
             if (user.Id == me.Id) return Result.Fail("You cannot deactivate your own account.");
             if (user.Role == UserRole.Admin && await IsLastActiveAdmin(db, user.Id))
                 return Result.Fail("You cannot deactivate the last active Admin.");
+        }
+        else if (await RoleTakenAsync(db, user.Role, user.Id) is { } taken)
+        {
+            return Result.Fail(taken);
         }
 
         var before = user.Status;
@@ -141,6 +149,17 @@ public class UserService(IDbContextFactory<AppDbContext> dbFactory, ICurrentUser
     }
 
     private DateTime Now => clock.GetUtcNow().UtcDateTime;
+
+    // Client rule: one login per role (one Admin login, one shared Sales login).
+    // Returns the reason when another active user already has this role.
+    private static async Task<string?> RoleTakenAsync(AppDbContext db, UserRole role, long? exceptUserId)
+    {
+        var holder = await db.Users
+            .Where(u => u.Role == role && u.Status == RecordStatus.Active && u.Id != exceptUserId)
+            .Select(u => u.UserName).FirstOrDefaultAsync();
+        return holder is null ? null
+            : $"There is already an active {RolePermissions.DisplayName(role)} login ({holder}). Only one login per role is allowed: deactivate it first.";
+    }
 
     private static Task<bool> IsLastActiveAdmin(AppDbContext db, long userId) =>
         db.Users.AllAsync(u => u.Id == userId || u.Role != UserRole.Admin || u.Status != RecordStatus.Active);

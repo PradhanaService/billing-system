@@ -7,17 +7,19 @@ You are signed out after 30 minutes without activity. The menu only shows what y
 The business day runs **6:00 PM to 6:00 PM**. Anything entered from 6 PM belongs to the next date.
 
 ## Who can do what
-Only Admin sees **Users & Roles**, **Activity Log** and **Backup**. For everyone else those items are not in the
-menu and their addresses show "Page not found". Dispatch Operators, Billing Clerks and Accountants can do all
-the business work below, exactly like Admin.
+There are two logins: one **Admin** login and one shared **Sales** login. Only one active login per role is allowed.
+Only Admin sees **Users & Roles**, **Sales Persons**, **Activity Log** and **Backup**; on the Sales login those items
+are not in the menu and their addresses show "Page not found". The Sales login can do all the business work below.
 
-| | Admin | Dispatch Operator, Billing Clerk, Accountant |
+Several sales people use the one Sales login, so each invoice asks **Created by**: the person picks their own name.
+
+| | Admin | Sales Person |
 |---|---|---|
 | Dashboard, Supplier, Customer, Vehicle and Ledger Masters | Yes | Yes |
 | Sales Invoice, Invoice Display, cancel invoices, change a rate (with reason) | Yes | Yes |
 | Receipt and Payment (Cash, Bank, UPI), cancel them | Yes | Yes |
 | Ledger Statement, Day Sales and day closing, Reports | Yes | Yes |
-| Users & Roles, Activity Log, Backup | Yes | No (not shown anywhere) |
+| Users & Roles, Sales Persons, Activity Log, Backup | Yes | No (not shown anywhere) |
 
 ## Dashboard and masters
 - **Dashboard**: this month's sales, today's sales/receipts/payments, outstanding, cash, a 6-month chart
@@ -38,12 +40,14 @@ whose balance is not zero, biggest first: *Dr* means they owe us, *Cr* means the
 - Filter by suppliers or customers, search by name, and print the supplier or customer outstanding PDF.
 
 ## Sales Invoice
-1. Choose the vehicle by code (A1) or by name; the supplier and rate fill in.
-2. Trip is 1 unless more; for vehicles billed per kL, type the volume (one decimal).
-3. Payment Mode: *Cash* if paid now, *Credit* otherwise. To bill a customer, set *Bill To* to *A customer*.
-4. Changing the rate needs a reason and is logged. Check the total in Item Details, then **Save invoice**.
-5. Use **Print** for the PDF. The number is given at save and never skipped.
-6. **Cancel an invoice**: open it (Invoice Display, then the number), *Cancel invoice* with a reason. Invoices are
+1. Choose your name in **Created by**. It stays selected for your next invoice; change it when someone else takes over.
+   If the list is empty, ask the Admin to add the names (Sales Persons page).
+2. Choose the vehicle by code (A1) or by name; the supplier and rate fill in.
+3. Trip is 1 unless more; for vehicles billed per kL, type the volume (one decimal).
+4. Payment Mode: *Cash* if paid now, *Credit* otherwise. To bill a customer, set *Bill To* to *A customer*.
+5. Changing the rate needs a reason and is logged. Check the total in Item Details, then **Save invoice**.
+6. Use **Print** for the PDF. The number is given at save and never skipped.
+7. **Cancel an invoice**: open it (Invoice Display, then the number), *Cancel invoice* with a reason. Invoices are
    never edited: cancel and make a new one. If a receipt already paid it, cancel the receipt first.
 
 ![Sales invoice](images/sales-invoice.png)
@@ -67,8 +71,11 @@ whose balance is not zero, biggest first: *Dr* means they owe us, *Cr* means the
 ![Day sales](images/day-sales.png)
 
 ## Admin only
-- **Users & Roles**: add users (temporary password), change role, reset password, deactivate (never delete).
-  You cannot deactivate yourself or remove the last Admin.
+- **Users & Roles**: the Admin login and the one Sales login. Create the Sales login once (temporary password,
+  changed at first sign-in), reset its password, or deactivate it (never delete). A second active login of the
+  same role is refused: deactivate the old one first. You cannot deactivate yourself or remove the last Admin.
+- **Sales Persons**: the names in the invoice *Created by* list. *Add* a name; *Remove* takes it off the list.
+  Invoices already made by that person keep their name. Adding the same name again brings the person back.
 - **Activity Log**: who did what and when, with before/after values. Nobody can change it.
 - **Backup, Backup now** before any big change. One backup is also taken automatically each day.
 

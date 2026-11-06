@@ -18,7 +18,7 @@ The database is created at `src/App_Data/waterbilling.db` on first start.
 ```
 dotnet test
 ```
-377 tests (unit, service, HTTP). See `docs/test-report.md` and `docs/requirement-test-matrix.md`.
+309 tests (unit, service, HTTP). See `docs/test-report.md` and `docs/requirement-test-matrix.md`.
 
 ## Install on the shop PC
 See `docs/install-guide.md`: run `installer\build-installer.ps1` on Windows, then `WaterBillingSetup.exe`.
@@ -44,7 +44,7 @@ See `docs/install-guide.md`: run `installer\build-installer.ps1` on Windows, the
 | `docs/requirement-test-matrix.md` | Requirement ID → tests → result |
 | `docs/test-report.md` | Three test rounds and bugs fixed |
 | `docs/demo-script.md` | One full business day, step by step |
-| `docs/user-guide.md` | For the four roles |
+| `docs/user-guide.md` | For the two roles (Admin, Sales Person) |
 | `docs/install-guide.md` | Build, install, update, uninstall |
 | `docs/scope-and-backlog.md` | Version 1.0 delivered and Version 1.1 backlog |
 | `docs/how-it-works/` | Questions per module, answered by the developer in their own words |

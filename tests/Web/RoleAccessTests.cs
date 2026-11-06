@@ -63,9 +63,7 @@ public class RoleAccessTests : IClassFixture<TestAppFactory>
     }
 
     [Theory]
-    [InlineData(UserRole.DispatchOperator)]
-    [InlineData(UserRole.BillingClerk)]
-    [InlineData(UserRole.Accountant)]
+    [InlineData(UserRole.SalesPerson)]
     public async Task Non_Admin_Sees_No_Gateway_To_Backup_Logs_Or_Users(UserRole role)
     {
         var client = await LoginAsAsync(role);
@@ -93,9 +91,7 @@ public class RoleAccessTests : IClassFixture<TestAppFactory>
 
     [Theory]
     [InlineData(UserRole.Admin)]
-    [InlineData(UserRole.DispatchOperator)]
-    [InlineData(UserRole.BillingClerk)]
-    [InlineData(UserRole.Accountant)]
+    [InlineData(UserRole.SalesPerson)]
     public async Task Outstanding_Card_Opens_The_Detail_Page(UserRole role)
     {
         var client = await LoginAsAsync(role);

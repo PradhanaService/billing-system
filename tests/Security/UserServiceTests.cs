@@ -18,7 +18,7 @@ public class UserServiceTests : IDisposable
 
     public void Dispose() => _db.Dispose();
 
-    private static UserForm Form(string name = "kumar", UserRole role = UserRole.DispatchOperator) =>
+    private static UserForm Form(string name = "kumar", UserRole role = UserRole.SalesPerson) =>
         new() { UserName = name, FullName = "Kumar S", Role = role, TemporaryPassword = "Temp1234" };
 
     [Fact]
@@ -45,9 +45,7 @@ public class UserServiceTests : IDisposable
     }
 
     [Theory]
-    [InlineData(UserRole.DispatchOperator)]
-    [InlineData(UserRole.BillingClerk)]
-    [InlineData(UserRole.Accountant)]
+    [InlineData(UserRole.SalesPerson)]
     public async Task NFR_SEC_05_Only_Admin_Can_Manage_Users(UserRole role)
     {
         _me.User = _db.AddUser(role);
@@ -78,7 +76,7 @@ public class UserServiceTests : IDisposable
     {
         var me = (await _users.ListAsync()).Single(u => u.UserName == "boss");
 
-        var result = await _users.UpdateAsync(me.Id, new UserForm { UserName = "boss", FullName = "Boss", Role = UserRole.Accountant }, me.Version);
+        var result = await _users.UpdateAsync(me.Id, new UserForm { UserName = "boss", FullName = "Boss", Role = UserRole.SalesPerson }, me.Version);
 
         Assert.False(result.Ok);
         Assert.Contains("last active Admin", result.Error);
@@ -88,7 +86,7 @@ public class UserServiceTests : IDisposable
     public async Task Deactivating_Or_Changing_Role_Ends_That_Users_Logins()
     {
         var auth = new AuthService(_db, _db.Clock);
-        _db.AddUser(UserRole.BillingClerk, "ravi");
+        _db.AddUser(UserRole.SalesPerson, "ravi");
         var login = (await auth.LoginAsync("ravi", "Passw0rd!")).Value!;
         var ravi = (await _users.ListAsync()).Single(u => u.UserName == "ravi");
 
@@ -108,5 +106,25 @@ public class UserServiceTests : IDisposable
 
         Assert.False(stale.Ok);
         Assert.Contains("changed by someone else", stale.Error);
+    }
+
+    // Client rule: one login per role (one Admin login, one shared Sales login).
+    [Fact]
+    public async Task Only_One_Active_Login_Per_Role()
+    {
+        var first = await _users.CreateAsync(Form("sales"));
+        Assert.True(first.Ok);
+
+        var second = await _users.CreateAsync(Form("sales2"));
+        Assert.False(second.Ok);
+        Assert.Contains("Only one login per role", second.Error);
+        Assert.False((await _users.CreateAsync(Form("admin2", UserRole.Admin))).Ok);   // "boss" is the Admin
+
+        // Deactivate the first Sales login, then a new one is allowed; the old one cannot come back.
+        var row = (await _users.ListAsync()).Single(u => u.UserName == "sales");
+        await _users.SetStatusAsync(row.Id, RecordStatus.Inactive, row.Version);
+        Assert.True((await _users.CreateAsync(Form("sales2"))).Ok);
+        row = (await _users.ListAsync()).Single(u => u.UserName == "sales");
+        Assert.False((await _users.SetStatusAsync(row.Id, RecordStatus.Active, row.Version)).Ok);
     }
 }

@@ -17,11 +17,11 @@ public class OutstandingServiceTests : BillingFixture
     // Kaveri: opening balance 500 Cr (paid in advance) -> we owe 500.
     private async Task SetUpAsync()
     {
-        await Svc.Invoices.CreateAsync(new InvoiceForm { VehicleId = TripVehicle, Rate = 150 });
+        await Svc.Invoices.CreateAsync(new InvoiceForm { SalesPersonId = Seller, VehicleId = TripVehicle, Rate = 150 });
         Db.Clock.Advance(TimeSpan.FromDays(1));
-        await Svc.Invoices.CreateAsync(new InvoiceForm { VehicleId = TripVehicle, Rate = 150 });
+        await Svc.Invoices.CreateAsync(new InvoiceForm { SalesPersonId = Seller, VehicleId = TripVehicle, Rate = 150 });
         await Svc.Receipts.CreateAsync(new ReceiptForm { PartyType = PartyType.Supplier, PartyId = Supplier, Amount = 100 });
-        await Svc.Invoices.CreateAsync(new InvoiceForm { VehicleId = TripVehicle, Rate = 150, BillToType = PartyType.Customer, CustomerId = Customer });
+        await Svc.Invoices.CreateAsync(new InvoiceForm { SalesPersonId = Seller, VehicleId = TripVehicle, Rate = 150, BillToType = PartyType.Customer, CustomerId = Customer });
         _advanceSupplier = (await Svc.Suppliers.CreateAsync(new SupplierForm
         {
             Name = "Kaveri Tankers", ShortName = "Kaveri", Phone = "9123456780", OpeningBalance = 500, OpeningBalanceSide = BalanceSide.Cr,
@@ -69,7 +69,7 @@ public class OutstandingServiceTests : BillingFixture
     [Fact]
     public async Task Paid_Up_Parties_And_Cash_Sales_Do_Not_Appear()
     {
-        await Svc.Invoices.CreateAsync(new InvoiceForm { VehicleId = TripVehicle, Rate = 150, PaymentMode = InvoicePaymentMode.Cash });
+        await Svc.Invoices.CreateAsync(new InvoiceForm { SalesPersonId = Seller, VehicleId = TripVehicle, Rate = 150, PaymentMode = InvoicePaymentMode.Cash });
 
         var s = await Svc.Outstanding.GetAsync();
 

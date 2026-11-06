@@ -13,7 +13,7 @@ public class SupplierServiceTests : IDisposable
 
     public SupplierServiceTests()
     {
-        _me = new FakeCurrentUser(_db.AddUser(UserRole.BillingClerk));
+        _me = new FakeCurrentUser(_db.AddUser(UserRole.SalesPerson));
         _svc = new TestServices(_db, _me).Suppliers;
     }
 

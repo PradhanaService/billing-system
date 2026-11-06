@@ -19,8 +19,8 @@ public class DaySalesServiceTests : BillingFixture
     // Cash sale 150, credit sale 150, cash receipt 100, cash fuel payment 30.
     private async Task TradeAsync()
     {
-        await Svc.Invoices.CreateAsync(new InvoiceForm { VehicleId = TripVehicle, Rate = 150, PaymentMode = InvoicePaymentMode.Cash });
-        await Svc.Invoices.CreateAsync(new InvoiceForm { VehicleId = TripVehicle, Rate = 150 });
+        await Svc.Invoices.CreateAsync(new InvoiceForm { SalesPersonId = Seller, VehicleId = TripVehicle, Rate = 150, PaymentMode = InvoicePaymentMode.Cash });
+        await Svc.Invoices.CreateAsync(new InvoiceForm { SalesPersonId = Seller, VehicleId = TripVehicle, Rate = 150 });
         await Svc.Receipts.CreateAsync(new ReceiptForm { PartyType = PartyType.Supplier, PartyId = Supplier, Amount = 100 });
         await Svc.Payments.CreateAsync(new PaymentForm { AccountId = 10, Amount = 30 });
     }
@@ -43,7 +43,7 @@ public class DaySalesServiceTests : BillingFixture
     [Fact]
     public async Task Cancelled_Cash_Sale_Reduces_Cash_Sales()
     {
-        var id = (await Svc.Invoices.CreateAsync(new InvoiceForm { VehicleId = TripVehicle, Rate = 150, PaymentMode = InvoicePaymentMode.Cash })).Value;
+        var id = (await Svc.Invoices.CreateAsync(new InvoiceForm { SalesPersonId = Seller, VehicleId = TripVehicle, Rate = 150, PaymentMode = InvoicePaymentMode.Cash })).Value;
         await Svc.Invoices.CancelAsync(id, "mistake", (await Svc.Invoices.GetAsync(id))!.Version);
 
         var day = await Days.GetDayAsync(Day1);
@@ -156,7 +156,7 @@ public class DaySalesServiceTests : BillingFixture
     [Fact]
     public async Task Billing_Clerk_Can_Close_The_Day()
     {
-        Me.User = Db.AddUser(UserRole.BillingClerk);
+        Me.User = Db.AddUser(UserRole.SalesPerson);
         Assert.True((await Days.CloseDayAsync(Day1, 0, null, 0)).Ok);
     }
 

@@ -18,7 +18,7 @@ public class LedgerPosterTests : IDisposable
 
     public LedgerPosterTests()
     {
-        _user = _db.AddUser(UserRole.Accountant);
+        _user = _db.AddUser(UserRole.SalesPerson);
         _svc = new TestServices(_db, new FakeCurrentUser(_db.AddUser(UserRole.Admin)));
         _supplier = _svc.Suppliers.CreateAsync(SupplierServiceTests.Form()).Result.Value;
     }

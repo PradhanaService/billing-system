@@ -13,14 +13,14 @@ public class ActivityLogServiceTests : BillingFixture
     [Fact]
     public async Task FR_ADM_04_Log_Shows_Who_Did_What_With_Before_And_After()
     {
-        var id = (await Svc.Invoices.CreateAsync(new InvoiceForm { VehicleId = TripVehicle, Rate = 150 })).Value;
+        var id = (await Svc.Invoices.CreateAsync(new InvoiceForm { SalesPersonId = Seller, VehicleId = TripVehicle, Rate = 150 })).Value;
         await Svc.Invoices.CancelAsync(id, "Wrong trip", 1);
         Me.User = Db.AddUser(UserRole.Admin);
 
         var rows = await Svc.ActivityLog.SearchAsync(new ActivityFilter(Today, Today, ActivityCategory.Billing));
 
         var cancel = rows.Single(r => r.Action == "INVOICE_CANCELLED");
-        Assert.Equal(("BillingClerk", "Wrong trip"), (cancel.Role, cancel.Reason));
+        Assert.Equal(("SalesPerson", "Wrong trip"), (cancel.Role, cancel.Reason));
         Assert.Contains("Cancelled", cancel.AfterJson);
         Assert.Contains("Posted", cancel.BeforeJson);
         Assert.Contains(rows, r => r.Action == "INVOICE_CREATED");
@@ -29,7 +29,7 @@ public class ActivityLogServiceTests : BillingFixture
     [Fact]
     public async Task Search_By_Text_And_User()
     {
-        await Svc.Invoices.CreateAsync(new InvoiceForm { VehicleId = TripVehicle, Rate = 150 });
+        await Svc.Invoices.CreateAsync(new InvoiceForm { SalesPersonId = Seller, VehicleId = TripVehicle, Rate = 150 });
         Me.User = Db.AddUser(UserRole.Admin);
 
         Assert.Single(await Svc.ActivityLog.SearchAsync(new ActivityFilter(Today, Today, Text: "INV-1")));
@@ -53,7 +53,7 @@ public class ActivityLogServiceTests : BillingFixture
     {
         Me.User = Db.AddUser(UserRole.Admin);
         // 05/11/2026 10:00 UTC = 3:30 PM IST on the 5th. Searching the 4th must not include it.
-        await Svc.Invoices.CreateAsync(new InvoiceForm { VehicleId = TripVehicle, Rate = 150 });
+        await Svc.Invoices.CreateAsync(new InvoiceForm { SalesPersonId = Seller, VehicleId = TripVehicle, Rate = 150 });
 
         Assert.DoesNotContain(await Svc.ActivityLog.SearchAsync(new ActivityFilter(Today.AddDays(-1), Today.AddDays(-1))),
             r => r.Action == "INVOICE_CREATED");
