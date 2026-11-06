@@ -75,3 +75,9 @@
   the Dashboard card), filter and search, unpaid invoices with billed/paid/due, a line for opening balance and
   on-account amounts, Statement button that opens the party's statement directly, outstanding PDFs reused.
   No database or business-rule changes. 374 tests passing.
+
+## Fix 23: Dashboard and Outstanding refresh live
+- Bug: an open Dashboard or Outstanding page kept old figures after an invoice was saved elsewhere (figures were
+  only read when the page opened). Fix: a database interceptor announces every committed save; both screens reload
+  at once. Tested: notice comes after commit with the new balance visible, failed saves send none; two-window
+  browser check. 377 tests passing.

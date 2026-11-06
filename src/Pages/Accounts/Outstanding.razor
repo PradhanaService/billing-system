@@ -121,9 +121,21 @@
         return $"/pdf/report?kind={reportKind}&from={today:yyyy-MM-dd}&to={today:yyyy-MM-dd}";
     }
 
-    protected override Task OnUserReadyAsync() => LoadAsync();
+    protected override async Task OnUserReadyAsync()
+    {
+        await LoadAsync();
+        RefreshWhenDataChanges(RefreshAsync);
+    }
 
     private async Task LoadAsync() => _summary = await Svc.GetAsync(_filter, _search);
+
+    // After any save: new balances, and fresh invoice lists for the rows that are open.
+    private async Task RefreshAsync()
+    {
+        await LoadAsync();
+        foreach (var (type, id) in _expanded.Keys.ToList())
+            _expanded[(type, id)] = await Svc.OpenInvoicesAsync(type, id);
+    }
 
     private async Task ToggleAsync(OutstandingRow r)
     {
