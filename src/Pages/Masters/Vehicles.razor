@@ -5,6 +5,10 @@
 @inject VehicleService Svc
 @inject SupplierService SupplierSvc
 
+@* Vehicle Master: tankers, each owned by one supplier, with capacity and billing rate (per trip or
+   per kL). The vehicle code (A1, A2 ...) is proposed by the system and never reused. Only Active
+   vehicles of Active suppliers can be invoiced. Rate changes are recorded in the Activity Log. *@
+
 <PageTitle>Vehicle Master</PageTitle>
 
 <h1>Vehicle Master</h1>

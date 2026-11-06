@@ -5,6 +5,9 @@ using WaterBilling.Services.Security;
 
 namespace WaterBilling.Services.Accounts;
 
+// Who has to give money: the detail behind the Dashboard's "Outstanding amount".
+// Balances are read from the accounts (the same entries as the Dashboard and the statements).
+
 public enum OutstandingFilter { All, Suppliers, Customers }
 
 // One party that does not have a zero balance.

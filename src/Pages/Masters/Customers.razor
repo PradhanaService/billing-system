@@ -4,6 +4,10 @@
 @using WaterBilling.Services.Masters
 @inject CustomerService Svc
 
+@* Customer Master: companies billed directly (e.g. Meena Constructions) instead of the vehicle's
+   supplier. Search, add, edit, set Inactive; delete only if the customer has no transactions.
+   An opening balance can be given only when adding, and is posted to the accounts once. *@
+
 <PageTitle>Customer Master</PageTitle>
 
 <h1>Customer Master</h1>

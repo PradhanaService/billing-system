@@ -5,6 +5,10 @@
 @inject ReceiptService Svc
 @inject TimeProvider Clock
 
+@* Receipt voucher: money received from a supplier or customer. While typing, the screen shows the
+   balance before and after, and which unpaid invoices the money will pay (oldest first).
+   Bank and UPI need a reference number. A saved receipt is never edited: it is cancelled with a reason. *@
+
 <PageTitle>Receipt</PageTitle>
 
 <h1>Receipt Voucher</h1>

@@ -7,6 +7,10 @@
 @inject VehicleService VehicleSvc
 @inject TimeProvider Clock
 
+@* Payment voucher: money paid out, either an expense (Fuel, Maintenance ...) or a refund to a
+   supplier or customer. Bank and UPI need a reference number. Paying more cash than is in hand needs
+   a tick to confirm. A saved payment is never edited: it is cancelled with a reason (a reversal is posted). *@
+
 <PageTitle>Payment</PageTitle>
 
 <h1>Payment Voucher</h1>

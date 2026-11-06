@@ -5,6 +5,10 @@
 @inject StatementService Svc
 @inject TimeProvider Clock
 
+@* Ledger Statement: every entry for one supplier, customer, vehicle or ledger over a period,
+   with opening balance, totals and closing balance, and a PDF. Can be opened directly for one party
+   with /statements?kind=Supplier&id=5 (used by the Outstanding page). *@
+
 <PageTitle>Ledger Statement</PageTitle>
 
 <h1>Ledger Statement</h1>

@@ -1,5 +1,8 @@
 namespace WaterBilling.Services.Security;
 
+// Password rules used everywhere a password is set: at least 8 characters, at least one letter
+// and one number, and not the same as the user name.
+
 public static class PasswordRules
 {
     public const int MinLength = 8;

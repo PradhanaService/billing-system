@@ -4,6 +4,10 @@
 @using WaterBilling.Services.Accounts
 @inject LedgerMasterService Svc
 
+@* Ledger Master: create and rename expense ledgers (Vehicle Maintenance, Fuel Expense ...).
+   System ledgers (Cash in Hand, Water Sales ...) cannot be changed; a ledger with entries cannot be
+   deleted. The Admin can also set the first invoice number here before the first invoice. *@
+
 <PageTitle>Ledger Master</PageTitle>
 
 <h1>Ledger Master</h1>

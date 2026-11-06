@@ -8,6 +8,10 @@ using WaterBilling.Services.Security;
 
 namespace WaterBilling.Services.Masters;
 
+// Vehicle Master rules: system code proposed and never reused, vehicle number stored in capitals
+// and unique however it is spaced, nickname defaults to supplier short name + number, capacity and
+// rate above zero, and only Active vehicles of Active suppliers can be invoiced.
+
 public sealed record VehicleRow(long Id, string Code, string VehicleNo, string Nickname, string SupplierName,
     int TankCapacityLitres, BillingBasis BillingBasis, long RatePaise, VehicleStatus Status, bool SupplierActive);
 

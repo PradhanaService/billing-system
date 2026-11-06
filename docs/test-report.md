@@ -79,6 +79,28 @@ An old database's operator/clerk/accountant logins become Sales Person on upgrad
 Invoices require *Created by*; Admin adds and removes names; removed names stay on old invoices; the Sales login
 cannot change the list and gets 404 on the admin pages (`SalesPersonServiceTests`, `RoleAccessTests`).
 
+## Complete test run (06/11/2026, after the clean-up)
+| Check | Result |
+|---|---|
+| Automated tests (xUnit) | 309 of 309 passed |
+| Code coverage | 82% of lines overall; business rules (Services) 86-100%, Ledger 100%, Billing 97%, Accounts 91%. Screens 41% (they are checked in the browser run below) |
+| Browser run, fresh database, one full day | 66 of 66 checks passed |
+| Security headers | CSP, X-Frame-Options DENY, nosniff, no-referrer present |
+| Vulnerable packages | none (app and tests) |
+| Windows publish (win-x64, self-contained) | builds, WaterBilling.exe produced |
+| Database model vs migrations | no pending changes |
+
+Browser run covered: Admin forced password change; Sales login created, a second one refused; "Created by" names
+added; first invoice number 7232; 2 suppliers (one with ₹5,000 opening), a customer, 2 vehicles (A1, A2). Sales
+login: no admin items in the menu and 404 on all 4 admin addresses; invoice refused without Created by; cash
+INV-7232 ₹150 (Ravi), volume INV-7233 10.5 kL x 12.35 = ₹129.68, customer INV-7234 ₹300 (Kumar); cash receipt
+RV-1 pays INV-7233 first; UPI refused without reference, RV-2 saved. Dashboard outstanding ₹5,029.68 equals the
+Outstanding page. Cancelling INV-7234 blocked while RV-2 pays it; RV-2 cancelled, then INV-7234 cancelled; view
+still shows Created by Kumar. Fuel payment PV-1 ₹50. Closing balance 0 + 150 + 100 - 50 = ₹200; counted ₹195,
+refused without reason, closed with reason; entry to the closed day refused. All 8 reports show and print PDF;
+Trial Balance 5,279.68 = 5,279.68; Meena statement closes at 0.00; invoice PDF prints. Every screen opens for
+its role, Backup now succeeds, the activity log records the day, no browser errors.
+
 ## Known limits (agreed Version 1.1 or awaiting the client)
 - Meter dispensing (FR-MTR, FR-DSP, FR-OVR) not built: awaiting client confirmation (CLAUDE.md §3, question 9).
 - Login lockout, two-step login, hash-chained audit, Excel export, ageing report, manual receipt allocation,

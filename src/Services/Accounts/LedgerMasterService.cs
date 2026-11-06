@@ -9,6 +9,10 @@ using WaterBilling.Services.Security;
 
 namespace WaterBilling.Services.Accounts;
 
+// Ledger Master rules: users may create, rename or deactivate expense ledgers; system ledgers are
+// fixed; a ledger with entries cannot be deleted. Also the Admin-only "first invoice number" setting,
+// allowed only before a series is used, so invoice numbers stay without gaps.
+
 public sealed record LedgerRow(long Id, string Name, AccountType Type, bool IsSystem, RecordStatus Status, long BalancePaise, bool HasEntries, int Version);
 
 public sealed record SeriesRow(string Code, string Prefix, long NextNo, bool CanChange);

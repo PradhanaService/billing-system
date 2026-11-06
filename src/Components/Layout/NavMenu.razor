@@ -7,15 +7,8 @@
             <div class="nav-heading">@group.Key</div>
             @foreach (var item in group)
             {
-                @if (item.IsReady)
-                {
-                    @* NavLink adds the "active" class when the URL matches, so the current page is highlighted. *@
-                    <NavLink class="nav-link" href="@item.Href" Match="NavLinkMatch.All">@item.Title</NavLink>
-                }
-                else
-                {
-                    <span class="nav-link disabled" title="Coming in a later module">@item.Title</span>
-                }
+                @* NavLink adds the "active" class when the URL matches, so the current page is highlighted. *@
+                <NavLink class="nav-link" href="@item.Href" Match="NavLinkMatch.All">@item.Title</NavLink>
             }
         </div>
     }

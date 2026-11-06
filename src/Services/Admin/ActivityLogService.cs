@@ -5,6 +5,8 @@ using WaterBilling.Services.Security;
 
 namespace WaterBilling.Services.Admin;
 
+// Reads the Activity Log for the Admin, with filters. Each search is itself recorded.
+
 public sealed record ActivityFilter(DateOnly From, DateOnly To, ActivityCategory? Category = null, string? UserName = null, string? Text = null);
 
 public sealed record ActivityRow(long Id, DateTime EventAtUtc, string UserName, string? Role, ActivityCategory Category,

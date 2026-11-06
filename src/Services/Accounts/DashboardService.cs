@@ -7,6 +7,10 @@ using WaterBilling.Services.Security;
 
 namespace WaterBilling.Services.Accounts;
 
+// Works out the Dashboard figures: month sales (cash and credit) and trips for the chosen month,
+// today's sales, receipts and payments, the total outstanding, today's opening and closing cash,
+// sales for the last 6 months, and the 3 latest invoices.
+
 public sealed record MonthSales(int Year, int Month, long SalesPaise)
 {
     public string Key => $"{Year:0000}-{Month:00}";
