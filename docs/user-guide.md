@@ -11,7 +11,8 @@ There are two logins: one **Admin** login and one shared **Sales** login. Only o
 Only Admin sees **Users & Roles**, **Sales Persons**, **Activity Log** and **Backup**; on the Sales login those items
 are not in the menu and their addresses show "Page not found". The Sales login can do all the business work below.
 
-Several sales people use the one Sales login, so each invoice asks **Created by**: the person picks their own name.
+Several sales people use the one Sales login, so each invoice asks **Created by**: the person picks their own name
+(the list holds only the names the Admin added). Invoices made on the Admin login are always *Created by: Admin*.
 
 | | Admin | Sales Person |
 |---|---|---|
@@ -40,7 +41,7 @@ whose balance is not zero, biggest first: *Dr* means they owe us, *Cr* means the
 - Filter by suppliers or customers, search by name, and print the supplier or customer outstanding PDF.
 
 ## Sales Invoice
-1. Choose your name in **Created by**. It stays selected for your next invoice; change it when someone else takes over.
+1. On the Sales login, choose your name in **Created by** (on the Admin login it is fixed to *Admin*). It stays selected for your next invoice; change it when someone else takes over.
    If the list is empty, ask the Admin to add the names (Sales Persons page).
 2. Choose the vehicle by code (A1) or by name; the supplier and rate fill in.
 3. Trip is 1 unless more; for vehicles billed per kL, type the volume (one decimal).
@@ -76,6 +77,7 @@ whose balance is not zero, biggest first: *Dr* means they owe us, *Cr* means the
   same role is refused: deactivate the old one first. You cannot deactivate yourself or remove the last Admin.
 - **Sales Persons**: the names in the invoice *Created by* list. *Add* a name; *Remove* takes it off the list.
   Invoices already made by that person keep their name. Adding the same name again brings the person back.
+  The name "Admin" cannot be added: it is kept for invoices made on the Admin login.
 - **Activity Log**: who did what and when, with before/after values. Nobody can change it.
 - **Backup, Backup now** before any big change. One backup is also taken automatically each day.
 

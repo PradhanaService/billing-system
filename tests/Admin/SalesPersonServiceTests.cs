@@ -45,6 +45,7 @@ public class SalesPersonServiceTests : BillingFixture
     [Fact]
     public async Task Used_Name_Leaves_The_List_But_Stays_On_Old_Invoices()
     {
+        var sales = Me.User;
         var id = (await Svc.Invoices.CreateAsync(Invoice(Seller))).Value;
         AsAdmin();
 
@@ -52,9 +53,12 @@ public class SalesPersonServiceTests : BillingFixture
 
         Assert.Empty(await Svc2.ListActiveAsync());
         Assert.Equal("Ravi", (await Svc.Invoices.GetAsync(id))!.CreatedBy);
+        var admin = Me.User;
+        Me.User = sales;
         Assert.False((await Svc.Invoices.CreateAsync(Invoice(Seller))).Ok);   // can no longer be chosen
 
         // Adding the same name again brings the same person back.
+        Me.User = admin;
         Assert.True((await Svc2.AddAsync(new SalesPersonForm { Name = "RAVI" })).Ok);
         Assert.Equal(Seller, Assert.Single(await Svc2.ListActiveAsync()).Id);
     }
@@ -70,9 +74,9 @@ public class SalesPersonServiceTests : BillingFixture
     }
 
     [Fact]
-    public async Task Invoice_Needs_A_Created_By_Name_And_Records_It()
+    public async Task Sales_Login_Invoice_Needs_A_Created_By_Name_And_Records_It()
     {
-        var missing = await Svc.Invoices.CreateAsync(Invoice(0));
+        var missing = await Svc.Invoices.CreateAsync(new InvoiceForm { VehicleId = TripVehicle, Rate = 150 });
         Assert.False(missing.Ok);
         Assert.Contains("Created by", missing.Error);
 
@@ -81,5 +85,31 @@ public class SalesPersonServiceTests : BillingFixture
         Assert.Equal("Ravi", (await Svc.Invoices.GetAsync(id))!.CreatedBy);
         using var ctx = Db.NewContext();
         Assert.Contains("Ravi", ctx.ActivityLogs.Single(l => l.Action == "INVOICE_CREATED").AfterJson);
+    }
+
+    [Fact]
+    public async Task Admin_Login_Invoice_Is_Always_Made_By_Admin()
+    {
+        AsAdmin();
+
+        var noName = (await Svc.Invoices.CreateAsync(new InvoiceForm { VehicleId = TripVehicle, Rate = 150 })).Value;
+        var withName = (await Svc.Invoices.CreateAsync(Invoice(Seller))).Value;   // a name sent anyway is ignored
+
+        Assert.Equal("Admin", (await Svc.Invoices.GetAsync(noName))!.CreatedBy);
+        Assert.Equal("Admin", (await Svc.Invoices.GetAsync(withName))!.CreatedBy);
+        using var ctx = Db.NewContext();
+        Assert.All(ctx.Invoices, i => Assert.Null(i.SalesPersonId));
+        Assert.All(ctx.ActivityLogs.Where(l => l.Action == "INVOICE_CREATED"), l => Assert.Contains("Admin", l.AfterJson));
+    }
+
+    [Fact]
+    public async Task Admin_Cannot_Be_Added_As_A_Sales_Person()
+    {
+        AsAdmin();
+
+        var result = await Svc2.AddAsync(new SalesPersonForm { Name = " admin " });
+
+        Assert.False(result.Ok);
+        Assert.DoesNotContain(await Svc2.ListActiveAsync(), p => p.Name.Equals("Admin", StringComparison.OrdinalIgnoreCase));
     }
 }

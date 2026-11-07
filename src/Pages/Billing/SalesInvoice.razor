@@ -40,11 +40,19 @@
         </div>
         <div class="field">
             <label for="createdby">Created by*</label>
-            <select id="createdby" @bind="_form.SalesPersonId">
-                <option value="0">Choose your name</option>
-                @foreach (var p in _salesPersons) { <option value="@p.Id">@p.Name</option> }
-            </select>
-            @if (_salesPersons.Count == 0) { <small>No names yet. Ask the Admin to add sales persons.</small> }
+            @* Admin login: always "Admin". Sales login: only the names the Admin added (Sales Persons page). *@
+            @if (IsAdmin)
+            {
+                <input id="createdby" value="@InvoiceService.AdminName" readonly />
+            }
+            else
+            {
+                <select id="createdby" @bind="_form.SalesPersonId">
+                    <option value="">Choose your name</option>
+                    @foreach (var p in _salesPersons) { <option value="@p.Id">@p.Name</option> }
+                </select>
+                @if (_salesPersons.Count == 0) { <small>No names yet. Ask the Admin to add sales persons.</small> }
+            }
         </div>
         <div class="field">
             <label for="vcode">Vehicle Code*</label>
@@ -222,5 +230,7 @@
     }
 
     // Clears the invoice but keeps "Created by": the same person usually makes several invoices in a row.
+    private bool IsAdmin => Me?.Role == UserRole.Admin;
+
     private void ResetForm() { _form = new InvoiceForm { SalesPersonId = _form.SalesPersonId }; _vehicle = null; }
 }

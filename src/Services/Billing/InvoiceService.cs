@@ -15,9 +15,9 @@ public sealed class InvoiceForm
     [Range(1, long.MaxValue, ErrorMessage = "Choose a vehicle.")]
     public long VehicleId { get; set; }
 
-    // "Created by": the sales person making this invoice (several share one Sales login).
-    [Range(1, long.MaxValue, ErrorMessage = "Choose who is creating this invoice (Created by).")]
-    public long SalesPersonId { get; set; }
+    // "Created by": on the Sales login, the sales person making this invoice (several share one login).
+    // Left empty on the Admin login: the Admin's invoices are always recorded as made by Admin.
+    public long? SalesPersonId { get; set; }
 
     public PartyType BillToType { get; set; } = PartyType.Supplier;
     public long? CustomerId { get; set; }
@@ -63,6 +63,9 @@ public class InvoiceService(IDbContextFactory<AppDbContext> dbFactory, ICurrentU
 
     public DateOnly BusinessDate() => calendar.Today();
 
+    // What "Created by" shows for an invoice made on the Admin login.
+    public const string AdminName = "Admin";
+
     public async Task<Result<long>> CreateAsync(InvoiceForm form)
     {
         var me = await currentUser.RequireAsync(Permission.InvoiceCreate);
@@ -76,9 +79,15 @@ public class InvoiceService(IDbContextFactory<AppDbContext> dbFactory, ICurrentU
         var vehicle = await VehicleService.Billable(db).Include(v => v.Supplier).SingleOrDefaultAsync(v => v.Id == form.VehicleId);
         if (vehicle is null) return Result<long>.Fail("This vehicle cannot be invoiced: it or its supplier is not active.");
 
-        var salesPerson = await db.SalesPersons
-            .SingleOrDefaultAsync(p => p.Id == form.SalesPersonId && p.Status == RecordStatus.Active);
-        if (salesPerson is null) return Result<long>.Fail("Choose who is creating this invoice (Created by).");
+        // Created by: Admin login = "Admin"; Sales login = a name from the Admin's Sales Persons list.
+        SalesPerson? salesPerson = null;
+        if (me.Role != UserRole.Admin)
+        {
+            salesPerson = await db.SalesPersons
+                .SingleOrDefaultAsync(p => p.Id == form.SalesPersonId && p.Status == RecordStatus.Active);
+            if (salesPerson is null) return Result<long>.Fail("Choose who is creating this invoice (Created by).");
+        }
+        var createdBy = salesPerson?.Name ?? AdminName;
 
         // Rate defaults from the vehicle. Changing it needs permission and a reason, and is logged (FR-INV-04).
         var ratePaise = Money.FromRupees(form.Rate);
@@ -165,7 +174,7 @@ public class InvoiceService(IDbContextFactory<AppDbContext> dbFactory, ICurrentU
             Status = form.PaymentMode == InvoicePaymentMode.Cash ? InvoiceStatus.Paid : InvoiceStatus.Posted,
             Narration = voucher.Narration,
             VoucherId = voucher.Id,
-            SalesPersonId = salesPerson.Id,
+            SalesPersonId = salesPerson?.Id,
             CreatedByUserId = me.Id,
             CreatedAtUtc = Now,
             Version = 1,
@@ -174,7 +183,7 @@ public class InvoiceService(IDbContextFactory<AppDbContext> dbFactory, ICurrentU
         await db.SaveChangesAsync();
 
         ActivityLogger.Add(db, Now, me, ActivityCategory.Billing, "INVOICE_CREATED", nameof(Invoice), invoice.Id,
-            after: new { invoice.DisplayNo, CreatedBy = salesPerson.Name, vehicle.VehicleNo, BillTo = billToName, Mode = form.PaymentMode.ToString(), invoice.AmountPaise });
+            after: new { invoice.DisplayNo, CreatedBy = createdBy, vehicle.VehicleNo, BillTo = billToName, Mode = form.PaymentMode.ToString(), invoice.AmountPaise });
         if (overridden)
         {
             ActivityLogger.Add(db, Now, me, ActivityCategory.Billing, "INVOICE_RATE_OVERRIDDEN", nameof(Invoice), invoice.Id,
@@ -243,8 +252,8 @@ public class InvoiceService(IDbContextFactory<AppDbContext> dbFactory, ICurrentU
             join p in db.SalesPersons on i.SalesPersonId equals p.Id into pj
             from p in pj.DefaultIfEmpty()
             where i.Id == id
-            // Invoices made before the "Created by" list show the login's name instead.
-            select new { i, v, s, CreatedBy = p != null ? p.Name : u.FullName, Customer = c, ReversalNo = r == null ? null : r.DisplayNo }
+            // No sales person: made on the Admin login ("Admin"), or made before the "Created by" list (login's name).
+            select new { i, v, s, CreatedBy = p != null ? p.Name : u.Role == UserRole.Admin ? AdminName : u.FullName, Customer = c, ReversalNo = r == null ? null : r.DisplayNo }
         ).SingleOrDefaultAsync();
         if (row is null) return null;
 

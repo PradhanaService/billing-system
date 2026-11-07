@@ -2,6 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using Microsoft.EntityFrameworkCore;
 using WaterBilling.Data;
 using WaterBilling.Data.Entities;
+using WaterBilling.Services.Billing;
 using WaterBilling.Services.Common;
 using WaterBilling.Services.Masters;
 using WaterBilling.Services.Security;
@@ -48,6 +49,9 @@ public class SalesPersonService(IDbContextFactory<AppDbContext> dbFactory, ICurr
         if (FormValidator.FirstError(form) is { } error) return Result.Fail(error);
         var name = PartyRules.Tidy(form.Name);
         var key = Supplier.NormalizeName(name);
+        // "Admin" is kept for invoices made on the Admin login, so it never appears in the Sales dropdown.
+        if (key == Supplier.NormalizeName(InvoiceService.AdminName))
+            return Result.Fail("\"Admin\" is used for invoices made on the Admin login. Add the sales person's own name.");
 
         await using var db = await dbFactory.CreateDbContextAsync();
         await using var tx = await db.Database.BeginTransactionAsync();
