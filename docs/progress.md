@@ -101,3 +101,10 @@
 - Done (client request): on the Sales login the Created by dropdown lists only the names the Admin added; on
   the Admin login it is fixed to "Admin" (no sales person stored; view, PDF and log show Admin). "Admin"
   cannot be added as a sales person. 315 tests passing; both logins checked in the browser.
+
+## Module 28: Soft delete and Recovery
+- Done (client request): deleting a supplier, customer, vehicle, ledger or sales person name only hides it.
+  New Recovery page for both logins (after Backup for Admin, at the bottom for Sales): lists deletions of the
+  last 30 days with who and when; both roles can restore. After 30 days a background job removes them for
+  good; a removed vehicle's code is kept so it is never reused. Delete, restore and final removal are all in
+  the activity log. Upgrade of an existing database checked. 326 tests passing; both logins checked in the browser.

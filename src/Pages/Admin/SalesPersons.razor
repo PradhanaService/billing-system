@@ -82,7 +82,7 @@
     private async Task RemoveAsync(SalesPersonRow p)
     {
         _confirmId = null;
-        Show(await Svc.RemoveAsync(p.Id), $"{p.Name} removed from the list.");
+        Show(await Svc.RemoveAsync(p.Id), $"{p.Name} removed from the list. It can be restored from Recovery for 30 days.");
         await LoadAsync();
     }
 }

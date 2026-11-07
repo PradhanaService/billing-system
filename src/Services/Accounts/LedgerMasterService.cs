@@ -5,6 +5,7 @@ using WaterBilling.Data.Entities;
 using WaterBilling.Services.Common;
 using WaterBilling.Services.Ledger;
 using WaterBilling.Services.Masters;
+using WaterBilling.Services.Recovery;
 using WaterBilling.Services.Security;
 
 namespace WaterBilling.Services.Accounts;
@@ -85,6 +86,8 @@ public class LedgerMasterService(IDbContextFactory<AppDbContext> dbFactory, ICur
         catch (DbUpdateConcurrencyException) { return Result.Fail(Messages.ChangedBySomeoneElse); }
     }
 
+    // Only a user-made ledger with no entries.
+    // Soft delete: the record is hidden, not removed. It can be restored from Recovery for 30 days.
     public async Task<Result> DeleteAsync(long id)
     {
         var me = await currentUser.RequireAsync(Permission.LedgerManage);
@@ -94,7 +97,7 @@ public class LedgerMasterService(IDbContextFactory<AppDbContext> dbFactory, ICur
         if (account.IsSystem) return Result.Fail("System ledgers cannot be deleted.");
         if (await db.LedgerEntries.AnyAsync(e => e.AccountId == id) || await db.Vouchers.AnyAsync(v => v.PurposeAccountId == id))
             return Result.Fail("This ledger has entries, so it cannot be deleted. Set it to Inactive instead.");
-        db.Accounts.Remove(account);
+        RecoveryService.MarkDeleted(account, me, Now);
         ActivityLogger.Add(db, Now, me, ActivityCategory.Master, "LEDGER_DELETED", nameof(Account), id, before: new { account.Name });
         await db.SaveChangesAsync();
         return Result.Success();

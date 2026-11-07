@@ -226,7 +226,7 @@
     private async Task DeleteAsync(long id)
     {
         _confirmDeleteId = null;
-        Show(await Svc.DeleteAsync(id), "Vehicle deleted.");
+        Show(await Svc.DeleteAsync(id), "Vehicle deleted. It can be restored from Recovery for 30 days.");
         await LoadAsync();
     }
 }

@@ -2,7 +2,7 @@ namespace WaterBilling.Data.Entities;
 
 // A ledger (Ledger Master): Cash in Hand, Water Sales, Fuel Expense ...
 // System ledgers are created by the app and cannot be changed (FR-TXN-13).
-public class Account : IAuditedEntity
+public class Account : IAuditedEntity, ISoftDeletable
 {
     public long Id { get; set; }
     public string Name { get; set; } = "";
@@ -13,6 +13,10 @@ public class Account : IAuditedEntity
     public string? SystemCode { get; set; }
     public bool IsSystem { get; set; }
     public RecordStatus Status { get; set; } = RecordStatus.Active;
+
+    // Soft delete (see ISoftDeletable): set when deleted, cleared when restored.
+    public DateTime? DeletedAtUtc { get; set; }
+    public long? DeletedByUserId { get; set; }
 
     public DateTime CreatedAtUtc { get; set; }
     public DateTime UpdatedAtUtc { get; set; }

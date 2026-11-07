@@ -116,6 +116,9 @@ builder.Services.AddScoped<WaterBilling.Services.Reports.ReportService>();
 builder.Services.AddScoped<WaterBilling.Services.Admin.ActivityLogService>();
 builder.Services.AddScoped<WaterBilling.Services.Admin.BackupService>();
 builder.Services.AddScoped<WaterBilling.Services.Admin.SalesPersonService>();
+builder.Services.AddScoped<WaterBilling.Services.Recovery.RecoveryService>();
+// Removes for good what has been in Recovery for more than 30 days.
+builder.Services.AddHostedService<WaterBilling.Services.Recovery.RecoveryCleanupJob>();
 builder.Services.AddSingleton(new WaterBilling.Services.Admin.StoragePaths(
     dbPath,
     Path.Combine(builder.Environment.ContentRootPath,

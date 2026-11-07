@@ -4,6 +4,7 @@ using WaterBilling.Data;
 using WaterBilling.Data.Entities;
 using WaterBilling.Services.Common;
 using WaterBilling.Services.Ledger;
+using WaterBilling.Services.Recovery;
 using WaterBilling.Services.Security;
 
 namespace WaterBilling.Services.Masters;
@@ -119,6 +120,8 @@ public class CustomerService(IDbContextFactory<AppDbContext> dbFactory, ICurrent
         catch (DbUpdateConcurrencyException) { return Result.Fail(Messages.ChangedBySomeoneElse); }
     }
 
+    // Only a customer with no transactions.
+    // Soft delete: the record is hidden, not removed. It can be restored from Recovery for 30 days.
     public async Task<Result> DeleteAsync(long id)
     {
         var me = await currentUser.RequireAsync(Permission.MastersEdit);
@@ -128,7 +131,7 @@ public class CustomerService(IDbContextFactory<AppDbContext> dbFactory, ICurrent
         if (await MasterHistory.CustomerHasHistoryAsync(db, id))
             return Result.Fail("This customer has transactions, so it cannot be deleted. Set it to Inactive instead.");
 
-        db.Customers.Remove(customer);
+        RecoveryService.MarkDeleted(customer, me, Now);
         ActivityLogger.Add(db, Now, me, ActivityCategory.Master, "CUSTOMER_DELETED", nameof(Customer), id, before: Snapshot(customer));
         await db.SaveChangesAsync();
         return Result.Success();

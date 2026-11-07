@@ -1,0 +1,82 @@
+@page "/recovery"
+@attribute [Authorize(Policy = nameof(Permission.RecoveryManage))]
+@inherits UserContextBase
+@using WaterBilling.Services.Recovery
+@inject RecoveryService Svc
+
+@* Recovery (Admin and Sales): everything deleted in the last 30 days, with who deleted it and when.
+   Restore brings it back exactly as it was. After 30 days it is removed for good automatically.
+   Deletes, restores and final removals all appear in the Activity Log. *@
+
+<PageTitle>Recovery</PageTitle>
+
+<h1>Recovery</h1>
+<p class="muted">Deleted suppliers, customers, vehicles, ledgers and sales person names stay here for
+   @RecoveryService.KeepDays days and can be restored. After that they are removed for good.</p>
+
+<PageMessage Text="@MessageText" Ok="@MessageOk" />
+
+<div class="toolbar">
+    <div class="field">
+        <label for="kind">Show</label>
+        <select id="kind" @bind="_kind" @bind:after="LoadAsync">
+            <option value="">Everything</option>
+            @foreach (var k in Enum.GetValues<RecoveryKind>()) { <option value="@k">@Label(k)</option> }
+        </select>
+    </div>
+</div>
+
+<table class="data">
+    <thead>
+        <tr><th>Type</th><th>Name</th><th>Details</th><th>Deleted on</th><th>Deleted by</th><th>Removed for good on</th><th></th></tr>
+    </thead>
+    <tbody>
+        @foreach (var r in _rows)
+        {
+            <tr>
+                <td>@Label(r.Kind)</td>
+                <td>@r.Name</td>
+                <td>@r.Details</td>
+                <td class="nowrap">@IndianTime.FormatDateTime(r.DeletedAtUtc)</td>
+                <td>@r.DeletedBy</td>
+                <td class="nowrap">@IndianTime.FormatDateTime(r.RemovedForGoodAtUtc)</td>
+                <td><button class="btn btn-small" disabled="@Busy" @onclick="() => RestoreAsync(r)">Restore</button></td>
+            </tr>
+        }
+        @if (_rows.Count == 0)
+        {
+            <tr><td colspan="7" class="muted">Nothing has been deleted in the last @RecoveryService.KeepDays days.</td></tr>
+        }
+    </tbody>
+</table>
+
+@code {
+    private IReadOnlyList<DeletedItemRow> _rows = [];
+    private RecoveryKind? _kind;
+
+    protected override async Task OnUserReadyAsync()
+    {
+        await LoadAsync();
+        RefreshWhenDataChanges(LoadAsync);   // a delete made in another window appears here at once
+    }
+
+    private async Task LoadAsync() => _rows = await Svc.ListAsync(_kind);
+
+    private async Task RestoreAsync(DeletedItemRow r)
+    {
+        Busy = true;
+        try
+        {
+            var result = await Svc.RestoreAsync(r.Kind, r.Id);
+            if (result.Ok) { MessageOk = true; MessageText = result.Value; } else ShowError(result.Error!);
+            await LoadAsync();
+        }
+        finally { Busy = false; }
+    }
+
+    private static string Label(RecoveryKind k) => k switch
+    {
+        RecoveryKind.SalesPerson => "Sales person",
+        _ => k.ToString(),
+    };
+}

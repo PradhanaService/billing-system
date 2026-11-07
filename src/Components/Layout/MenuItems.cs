@@ -33,6 +33,9 @@ public static class MenuItems
         new("Admin",        "Sales Persons",     "/admin/sales-persons", Permission.SalesPersonsManage),
         new("Admin",        "Activity Log",      "/admin/activity-log",  Permission.ActivityLogView),
         new("Admin",        "Backup",            "/admin/backup",        Permission.BackupRun),
+
+        // Both logins: after Backup for the Admin, at the bottom of the menu for the Sales login.
+        new("Recovery",     "Recovery",          "/recovery",            Permission.RecoveryManage),
     ];
 
     // The entries the logged-in user may see (none when nobody is logged in).

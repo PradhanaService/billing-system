@@ -25,7 +25,8 @@ Several sales people use the one Sales login, so each invoice asks **Created by*
 ## Dashboard and masters
 - **Dashboard**: this month's sales, today's sales/receipts/payments, outstanding, cash, a 6-month chart
   (click a bar to see that month's invoices) and the last 3 invoices. Change the month at the top right.
-- **Supplier / Customer / Vehicle Master**: search, add, edit, set Inactive, delete a record with no history.
+- **Supplier / Customer / Vehicle Master**: search, add, edit, set Inactive, delete a record with no history
+  (a deleted record goes to **Recovery** for 30 days).
   A vehicle code (A1, A2 ...) is proposed and never reused; you may type another unused code.
 - **Change password**: link at the top right.
 
@@ -70,6 +71,13 @@ whose balance is not zero, biggest first: *Dr* means they owe us, *Cr* means the
 - **Reports**: 8 reports, filter by dates, supplier, vehicle; *Print PDF*.
 
 ![Day sales](images/day-sales.png)
+
+## Recovery (both logins)
+Nothing is removed straight away. A deleted supplier, customer, vehicle, ledger or sales person name is hidden
+everywhere and listed on the **Recovery** page (after Backup on the Admin menu, at the bottom of the Sales menu),
+with who deleted it and when. Admin and Sales can both press **Restore** to bring it back exactly as it was.
+A restore is refused if the same name or vehicle number has been added again since.
+After **30 days** the item is removed for good automatically. Every delete, restore and final removal is in the Activity Log.
 
 ## Admin only
 - **Users & Roles**: the Admin login and the one Sales login. Create the Sales login once (temporary password,

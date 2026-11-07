@@ -26,6 +26,12 @@ namespace WaterBilling.Data.Migrations
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("TEXT");
 
+                    b.Property<DateTime?>("DeletedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long?>("DeletedByUserId")
+                        .HasColumnType("INTEGER");
+
                     b.Property<bool>("IsSystem")
                         .HasColumnType("INTEGER");
 
@@ -63,7 +69,8 @@ namespace WaterBilling.Data.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("NormalizedName")
-                        .IsUnique();
+                        .IsUnique()
+                        .HasFilter("DeletedAtUtc IS NULL");
 
                     b.HasIndex("SystemCode")
                         .IsUnique();
@@ -341,6 +348,12 @@ namespace WaterBilling.Data.Migrations
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("TEXT");
 
+                    b.Property<DateTime?>("DeletedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long?>("DeletedByUserId")
+                        .HasColumnType("INTEGER");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(120)
@@ -379,7 +392,8 @@ namespace WaterBilling.Data.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("NormalizedName")
-                        .IsUnique();
+                        .IsUnique()
+                        .HasFilter("DeletedAtUtc IS NULL");
 
                     b.ToTable("Customers", null, t =>
                         {
@@ -715,6 +729,20 @@ namespace WaterBilling.Data.Migrations
                         });
                 });
 
+            modelBuilder.Entity("WaterBilling.Data.Entities.RetiredVehicleCode", b =>
+                {
+                    b.Property<string>("Code")
+                        .HasMaxLength(10)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("RetiredAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Code");
+
+                    b.ToTable("RetiredVehicleCodes");
+                });
+
             modelBuilder.Entity("WaterBilling.Data.Entities.SalesPerson", b =>
                 {
                     b.Property<long>("Id")
@@ -723,6 +751,12 @@ namespace WaterBilling.Data.Migrations
 
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("DeletedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long?>("DeletedByUserId")
+                        .HasColumnType("INTEGER");
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -749,7 +783,8 @@ namespace WaterBilling.Data.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("NormalizedName")
-                        .IsUnique();
+                        .IsUnique()
+                        .HasFilter("DeletedAtUtc IS NULL");
 
                     b.ToTable("SalesPersons", null, t =>
                         {
@@ -777,6 +812,12 @@ namespace WaterBilling.Data.Migrations
 
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("DeletedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long?>("DeletedByUserId")
+                        .HasColumnType("INTEGER");
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -821,7 +862,8 @@ namespace WaterBilling.Data.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("NormalizedName")
-                        .IsUnique();
+                        .IsUnique()
+                        .HasFilter("DeletedAtUtc IS NULL");
 
                     b.HasIndex("Status");
 
@@ -921,6 +963,12 @@ namespace WaterBilling.Data.Migrations
 
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("DeletedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long?>("DeletedByUserId")
+                        .HasColumnType("INTEGER");
 
                     b.Property<string>("DriverLicenceNo")
                         .HasMaxLength(25)
