@@ -108,3 +108,8 @@
   last 30 days with who and when; both roles can restore. After 30 days a background job removes them for
   good; a removed vehicle's code is kept so it is never reused. Delete, restore and final removal are all in
   the activity log. Upgrade of an existing database checked. 326 tests passing; both logins checked in the browser.
+
+## Module 29: "Deleted by" on every delete
+- Done (client request): deleting a supplier, customer, vehicle or ledger asks "Deleted by". Sales login:
+  dropdown of the Admin's sales persons (required, server-checked); Admin login: fixed to "Admin". Shown on
+  Recovery and in the activity log ("Deleted by Ravi"). 328 tests passing; both logins checked in the browser.

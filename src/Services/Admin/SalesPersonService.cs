@@ -95,7 +95,7 @@ public class SalesPersonService(IDbContextFactory<AppDbContext> dbFactory, ICurr
         RecoveryService.MarkDeleted(person, me, Now);
 
         ActivityLogger.Add(db, Now, me, ActivityCategory.Admin, "SALES_PERSON_REMOVED", nameof(SalesPerson), id,
-            before: new { person.Name });
+            before: new { person.Name }, reason: "Deleted by Admin");
         await db.SaveChangesAsync();
         return Result.Success();
     }

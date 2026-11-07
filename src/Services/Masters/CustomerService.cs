@@ -122,17 +122,20 @@ public class CustomerService(IDbContextFactory<AppDbContext> dbFactory, ICurrent
 
     // Only a customer with no transactions.
     // Soft delete: the record is hidden, not removed. It can be restored from Recovery for 30 days.
-    public async Task<Result> DeleteAsync(long id)
+    // deletedBy: the sales person chosen in "Deleted by" (Sales login); ignored on the Admin login.
+    public async Task<Result> DeleteAsync(long id, long? deletedBy = null)
     {
         var me = await currentUser.RequireAsync(Permission.MastersEdit);
         await using var db = await dbFactory.CreateDbContextAsync();
+        var who = await RecoveryService.DeletedByAsync(db, me, deletedBy);
+        if (!who.Ok) return Result.Fail(who.Error!);
         var customer = await db.Customers.FindAsync(id);
         if (customer is null) return Result.Fail("Customer not found.");
         if (await MasterHistory.CustomerHasHistoryAsync(db, id))
             return Result.Fail("This customer has transactions, so it cannot be deleted. Set it to Inactive instead.");
 
-        RecoveryService.MarkDeleted(customer, me, Now);
-        ActivityLogger.Add(db, Now, me, ActivityCategory.Master, "CUSTOMER_DELETED", nameof(Customer), id, before: Snapshot(customer));
+        RecoveryService.MarkDeleted(customer, me, Now, deletedBy);
+        ActivityLogger.Add(db, Now, me, ActivityCategory.Master, "CUSTOMER_DELETED", nameof(Customer), id, before: Snapshot(customer), reason: $"Deleted by {who.Value}");
         await db.SaveChangesAsync();
         return Result.Success();
     }

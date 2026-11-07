@@ -88,17 +88,20 @@ public class LedgerMasterService(IDbContextFactory<AppDbContext> dbFactory, ICur
 
     // Only a user-made ledger with no entries.
     // Soft delete: the record is hidden, not removed. It can be restored from Recovery for 30 days.
-    public async Task<Result> DeleteAsync(long id)
+    // deletedBy: the sales person chosen in "Deleted by" (Sales login); ignored on the Admin login.
+    public async Task<Result> DeleteAsync(long id, long? deletedBy = null)
     {
         var me = await currentUser.RequireAsync(Permission.LedgerManage);
         await using var db = await dbFactory.CreateDbContextAsync();
+        var who = await RecoveryService.DeletedByAsync(db, me, deletedBy);
+        if (!who.Ok) return Result.Fail(who.Error!);
         var account = await db.Accounts.FindAsync(id);
         if (account is null) return Result.Fail("Ledger not found.");
         if (account.IsSystem) return Result.Fail("System ledgers cannot be deleted.");
         if (await db.LedgerEntries.AnyAsync(e => e.AccountId == id) || await db.Vouchers.AnyAsync(v => v.PurposeAccountId == id))
             return Result.Fail("This ledger has entries, so it cannot be deleted. Set it to Inactive instead.");
-        RecoveryService.MarkDeleted(account, me, Now);
-        ActivityLogger.Add(db, Now, me, ActivityCategory.Master, "LEDGER_DELETED", nameof(Account), id, before: new { account.Name });
+        RecoveryService.MarkDeleted(account, me, Now, deletedBy);
+        ActivityLogger.Add(db, Now, me, ActivityCategory.Master, "LEDGER_DELETED", nameof(Account), id, before: new { account.Name }, reason: $"Deleted by {who.Value}");
         await db.SaveChangesAsync();
         return Result.Success();
     }

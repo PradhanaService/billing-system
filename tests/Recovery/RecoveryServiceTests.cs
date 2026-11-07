@@ -23,7 +23,7 @@ public class RecoveryServiceTests : BillingFixture
     {
         var id = await NewSupplierAsync();
 
-        Assert.True((await Svc.Suppliers.DeleteAsync(id)).Ok);
+        Assert.True((await Svc.Suppliers.DeleteAsync(id, Seller)).Ok);
 
         using var ctx = Db.NewContext();
         var row = ctx.Suppliers.IgnoreQueryFilters().Single(s => s.Id == id);   // still in the database
@@ -38,10 +38,10 @@ public class RecoveryServiceTests : BillingFixture
     {
         var supplier = await NewSupplierAsync();
         var ledger = (await Svc.Ledgers.CreateAsync(new LedgerForm { Name = "Tyre Repair" })).Value;
-        await Svc.Suppliers.DeleteAsync(supplier);
-        await Svc.Customers.DeleteAsync(Customer);
-        await Svc.Vehicles.DeleteAsync(VolumeVehicle);
-        await Svc.Ledgers.DeleteAsync(ledger);
+        await Svc.Suppliers.DeleteAsync(supplier, Seller);
+        await Svc.Customers.DeleteAsync(Customer, Seller);
+        await Svc.Vehicles.DeleteAsync(VolumeVehicle, Seller);
+        await Svc.Ledgers.DeleteAsync(ledger, Seller);
         var sales = Me.User;
         Me.User = Db.AddUser(UserRole.Admin, "boss");
         await Svc.SalesPersons.RemoveAsync(Seller);
@@ -68,8 +68,8 @@ public class RecoveryServiceTests : BillingFixture
     {
         var a = await NewSupplierAsync("Supplier A");
         var b = await NewSupplierAsync("Supplier B");
-        await Svc.Suppliers.DeleteAsync(a);
-        await Svc.Suppliers.DeleteAsync(b);
+        await Svc.Suppliers.DeleteAsync(a, Seller);
+        await Svc.Suppliers.DeleteAsync(b, Seller);
 
         Assert.True((await Recovery.RestoreAsync(RecoveryKind.Supplier, a)).Ok);   // Sales login
         Me.User = Db.AddUser(UserRole.Admin, "boss");
@@ -80,7 +80,7 @@ public class RecoveryServiceTests : BillingFixture
     public async Task Restore_Is_Refused_When_The_Name_Is_Used_Again()
     {
         var old = await NewSupplierAsync();
-        await Svc.Suppliers.DeleteAsync(old);
+        await Svc.Suppliers.DeleteAsync(old, Seller);
         Assert.True((await Svc.Suppliers.CreateAsync(new SupplierForm { Name = "kaveri tankers", ShortName = "K", Phone = "9123456789" })).Ok);
 
         var result = await Recovery.RestoreAsync(RecoveryKind.Supplier, old);
@@ -92,12 +92,12 @@ public class RecoveryServiceTests : BillingFixture
     [Fact]
     public async Task Vehicle_Restore_Gets_Its_Number_Back_Unless_It_Was_Reused()
     {
-        await Svc.Vehicles.DeleteAsync(VolumeVehicle);
+        await Svc.Vehicles.DeleteAsync(VolumeVehicle, Seller);
         var reused = (await Svc.Vehicles.CreateAsync(new VehicleForm { VehicleNo = "TN 67 C", SupplierId = Supplier, TankCapacityLitres = 1000, Rate = 1 })).Value;
 
         Assert.False((await Recovery.RestoreAsync(RecoveryKind.Vehicle, VolumeVehicle)).Ok);
 
-        await Svc.Vehicles.DeleteAsync(reused);
+        await Svc.Vehicles.DeleteAsync(reused, Seller);
         Assert.True((await Recovery.RestoreAsync(RecoveryKind.Vehicle, VolumeVehicle)).Ok);
         Assert.Equal("TN 67 C", (await Svc.Vehicles.GetAsync(VolumeVehicle))!.VehicleNo);
     }
@@ -106,8 +106,8 @@ public class RecoveryServiceTests : BillingFixture
     public async Task After_30_Days_It_Is_Removed_For_Good_And_Logged()
     {
         var supplier = await NewSupplierAsync();
-        await Svc.Suppliers.DeleteAsync(supplier);
-        await Svc.Vehicles.DeleteAsync(VolumeVehicle);
+        await Svc.Suppliers.DeleteAsync(supplier, Seller);
+        await Svc.Vehicles.DeleteAsync(VolumeVehicle, Seller);
         var code = Db.NewContext().Vehicles.IgnoreQueryFilters().Single(v => v.Id == VolumeVehicle).Code;
 
         Db.Clock.Advance(TimeSpan.FromDays(29));
@@ -129,7 +129,7 @@ public class RecoveryServiceTests : BillingFixture
     [Fact]
     public async Task Code_Of_A_Vehicle_Removed_For_Good_Is_Never_Reused()
     {
-        await Svc.Vehicles.DeleteAsync(VolumeVehicle);                 // the highest code, A2
+        await Svc.Vehicles.DeleteAsync(VolumeVehicle, Seller);                 // the highest code, A2
         Db.Clock.Advance(TimeSpan.FromDays(31));
         await Recovery.RemoveExpiredAsync();
 
@@ -150,5 +150,37 @@ public class RecoveryServiceTests : BillingFixture
         Assert.Equal("Ravi", (await Svc.Invoices.GetAsync(invoice))!.CreatedBy);
         Assert.True((await Svc.SalesPersons.AddAsync(new SalesPersonForm { Name = "Ravi" })).Ok);   // brings Ravi back
         Assert.Equal(Seller, Assert.Single(await Svc.SalesPersons.ListActiveAsync()).Id);
+    }
+
+    [Fact]
+    public async Task Sales_Login_Must_Choose_Who_Is_Deleting()
+    {
+        var id = await NewSupplierAsync();
+
+        var missing = await Svc.Suppliers.DeleteAsync(id);
+        Assert.False(missing.Ok);
+        Assert.Contains("Deleted by", missing.Error);
+        Assert.False((await Svc.Customers.DeleteAsync(Customer)).Ok);
+        Assert.False((await Svc.Vehicles.DeleteAsync(VolumeVehicle)).Ok);
+        Assert.False((await Svc.Ledgers.DeleteAsync(11)).Ok);
+
+        Assert.True((await Svc.Suppliers.DeleteAsync(id, Seller)).Ok);
+        Assert.Equal("Ravi", Assert.Single(await Recovery.ListAsync()).DeletedBy);
+        using var ctx = Db.NewContext();
+        Assert.Equal("Deleted by Ravi", ctx.ActivityLogs.Single(l => l.Action == "SUPPLIER_DELETED").Reason);
+    }
+
+    [Fact]
+    public async Task Admin_Login_Deletes_Are_Recorded_As_Admin()
+    {
+        var id = await NewSupplierAsync();
+        Me.User = Db.AddUser(UserRole.Admin, "boss");
+
+        Assert.True((await Svc.Suppliers.DeleteAsync(id, Seller)).Ok);   // a name sent anyway is ignored
+
+        Assert.Equal("Admin", Assert.Single(await Recovery.ListAsync()).DeletedBy);
+        using var ctx = Db.NewContext();
+        Assert.Null(ctx.Suppliers.IgnoreQueryFilters().Single(s => s.Id == id).DeletedBySalesPersonId);
+        Assert.Equal("Deleted by Admin", ctx.ActivityLogs.Single(l => l.Action == "SUPPLIER_DELETED").Reason);
     }
 }

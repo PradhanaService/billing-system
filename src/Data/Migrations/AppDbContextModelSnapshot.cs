@@ -29,6 +29,9 @@ namespace WaterBilling.Data.Migrations
                     b.Property<DateTime?>("DeletedAtUtc")
                         .HasColumnType("TEXT");
 
+                    b.Property<long?>("DeletedBySalesPersonId")
+                        .HasColumnType("INTEGER");
+
                     b.Property<long?>("DeletedByUserId")
                         .HasColumnType("INTEGER");
 
@@ -350,6 +353,9 @@ namespace WaterBilling.Data.Migrations
 
                     b.Property<DateTime?>("DeletedAtUtc")
                         .HasColumnType("TEXT");
+
+                    b.Property<long?>("DeletedBySalesPersonId")
+                        .HasColumnType("INTEGER");
 
                     b.Property<long?>("DeletedByUserId")
                         .HasColumnType("INTEGER");
@@ -755,6 +761,9 @@ namespace WaterBilling.Data.Migrations
                     b.Property<DateTime?>("DeletedAtUtc")
                         .HasColumnType("TEXT");
 
+                    b.Property<long?>("DeletedBySalesPersonId")
+                        .HasColumnType("INTEGER");
+
                     b.Property<long?>("DeletedByUserId")
                         .HasColumnType("INTEGER");
 
@@ -815,6 +824,9 @@ namespace WaterBilling.Data.Migrations
 
                     b.Property<DateTime?>("DeletedAtUtc")
                         .HasColumnType("TEXT");
+
+                    b.Property<long?>("DeletedBySalesPersonId")
+                        .HasColumnType("INTEGER");
 
                     b.Property<long?>("DeletedByUserId")
                         .HasColumnType("INTEGER");
@@ -966,6 +978,9 @@ namespace WaterBilling.Data.Migrations
 
                     b.Property<DateTime?>("DeletedAtUtc")
                         .HasColumnType("TEXT");
+
+                    b.Property<long?>("DeletedBySalesPersonId")
+                        .HasColumnType("INTEGER");
 
                     b.Property<long?>("DeletedByUserId")
                         .HasColumnType("INTEGER");

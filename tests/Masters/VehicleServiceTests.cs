@@ -9,6 +9,7 @@ public class VehicleServiceTests : IDisposable
 {
     private readonly TestDatabase _db = new();
     private readonly FakeCurrentUser _me;
+    private readonly long _seller;   // the "Deleted by" name on the Sales login
     private readonly VehicleService _svc;
     private readonly SupplierService _suppliers;
     private readonly long _sangeetha;
@@ -16,6 +17,7 @@ public class VehicleServiceTests : IDisposable
     public VehicleServiceTests()
     {
         _me = new FakeCurrentUser(_db.AddUser(UserRole.SalesPerson));
+        _seller = _db.AddSalesPerson();
         _svc = new VehicleService(_db, _me, _db.Clock);
         _suppliers = new TestServices(_db, _me).Suppliers;
         _sangeetha = _suppliers.CreateAsync(SupplierServiceTests.Form()).Result.Value;
@@ -43,7 +45,7 @@ public class VehicleServiceTests : IDisposable
     public async Task FR_VM_03_Code_Of_Deleted_Vehicle_Is_Never_Reused()
     {
         var id = (await _svc.CreateAsync(Form())).Value;
-        await _svc.DeleteAsync(id);
+        await _svc.DeleteAsync(id, _seller);
 
         await _svc.CreateAsync(Form("TN 67 C"));
 
@@ -144,7 +146,7 @@ public class VehicleServiceTests : IDisposable
     {
         await _svc.CreateAsync(Form());
 
-        var result = await _suppliers.DeleteAsync(_sangeetha);
+        var result = await _suppliers.DeleteAsync(_sangeetha, _seller);
 
         Assert.False(result.Ok);
         Assert.Contains("Inactive", result.Error);
@@ -191,7 +193,7 @@ public class VehicleServiceTests : IDisposable
     public async Task Deleted_Vehicle_Number_Can_Be_Registered_Again()
     {
         var id = (await _svc.CreateAsync(Form("TN 38 M 3"))).Value;
-        await _svc.DeleteAsync(id);
+        await _svc.DeleteAsync(id, _seller);
 
         Assert.True((await _svc.CreateAsync(Form("TN 38 M 3"))).Ok);
     }

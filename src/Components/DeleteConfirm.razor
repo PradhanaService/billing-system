@@ -1,0 +1,39 @@
+@using WaterBilling.Services.Admin
+@using WaterBilling.Services.Billing
+@inject SalesPersonService SalesPersons
+
+@* The confirm step of every Delete: asks "Deleted by" before deleting.
+   Sales login: choose a name from the Admin's Sales Persons list. Admin login: fixed to "Admin".
+   The server checks the same rule (RecoveryService.DeletedByAsync). *@
+
+<span class="delete-confirm">
+    <label for="deletedby-@Id">Deleted by</label>
+    @if (Admin)
+    {
+        <input id="deletedby-@Id" class="deletedby" value="@InvoiceService.AdminName" readonly size="6" />
+    }
+    else
+    {
+        <select id="deletedby-@Id" class="deletedby" @bind="_salesPersonId">
+            <option value="">Choose your name</option>
+            @foreach (var p in _people) { <option value="@p.Id">@p.Name</option> }
+        </select>
+    }
+    <button class="btn btn-small btn-danger" @onclick="() => OnConfirm.InvokeAsync(_salesPersonId)">Confirm delete</button>
+    <button class="btn btn-small" @onclick="OnCancel">Cancel</button>
+</span>
+
+@code {
+    [Parameter] public long Id { get; set; }                       // the record being deleted (keeps ids unique)
+    [Parameter] public bool Admin { get; set; }                    // signed in as Admin
+    [Parameter] public EventCallback<long?> OnConfirm { get; set; } // gets the chosen sales person (null on Admin)
+    [Parameter] public EventCallback OnCancel { get; set; }
+
+    private IReadOnlyList<(long Id, string Name)> _people = [];
+    private long? _salesPersonId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!Admin) _people = await SalesPersons.ListActiveAsync();
+    }
+}

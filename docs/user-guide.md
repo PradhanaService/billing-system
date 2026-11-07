@@ -76,6 +76,8 @@ whose balance is not zero, biggest first: *Dr* means they owe us, *Cr* means the
 Nothing is removed straight away. A deleted supplier, customer, vehicle, ledger or sales person name is hidden
 everywhere and listed on the **Recovery** page (after Backup on the Admin menu, at the bottom of the Sales menu),
 with who deleted it and when. Admin and Sales can both press **Restore** to bring it back exactly as it was.
+Every delete asks **Deleted by**: on the Sales login choose your name (the Admin's Sales Persons list); on the
+Admin login it is fixed to *Admin*.
 A restore is refused if the same name or vehicle number has been added again since.
 After **30 days** the item is removed for good automatically. Every delete, restore and final removal is in the Activity Log.
 

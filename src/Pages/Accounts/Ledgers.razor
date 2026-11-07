@@ -54,7 +54,14 @@
                         <button class="btn btn-small" @onclick="() => Edit(l)">Edit</button>
                         @if (!l.HasEntries)
                         {
-                            <button class="btn btn-small btn-danger" @onclick="() => DeleteAsync(l.Id)">Delete</button>
+                            @if (_confirmDeleteId == l.Id)
+                            {
+                                <DeleteConfirm Id="l.Id" Admin="IsAdmin" OnConfirm="who => DeleteAsync(l.Id, who)" OnCancel="() => _confirmDeleteId = null" />
+                            }
+                            else
+                            {
+                                <button class="btn btn-small btn-danger" @onclick="() => _confirmDeleteId = l.Id">Delete</button>
+                            }
                         }
                     }
                 </td>
@@ -133,9 +140,15 @@
         finally { Busy = false; }
     }
 
-    private async Task DeleteAsync(long id)
+    private long? _confirmDeleteId;
+    private bool IsAdmin => Me?.Role == UserRole.Admin;
+
+    // who: the name chosen in "Deleted by" (Sales login).
+    private async Task DeleteAsync(long id, long? who)
     {
-        Show(await Svc.DeleteAsync(id), "Ledger deleted. It can be restored from Recovery for 30 days.");
+        var result = await Svc.DeleteAsync(id, who);
+        if (result.Ok) _confirmDeleteId = null;   // stay on the confirm step if no name was chosen
+        Show(result, "Ledger deleted. It can be restored from Recovery for 30 days.");
         await LoadAsync();
     }
 

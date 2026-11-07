@@ -152,7 +152,7 @@
                         <button class="btn btn-small" @onclick="() => EditAsync(v)">Edit</button>
                         @if (_confirmDeleteId == v.Id)
                         {
-                            <button class="btn btn-small btn-danger" @onclick="() => DeleteAsync(v.Id)">Confirm delete</button>
+                            <DeleteConfirm Id="v.Id" Admin="IsAdmin" OnConfirm="who => DeleteAsync(v.Id, who)" OnCancel="() => _confirmDeleteId = null" />
                         }
                         else
                         {
@@ -223,10 +223,14 @@
         finally { Busy = false; }
     }
 
-    private async Task DeleteAsync(long id)
+    private bool IsAdmin => Me?.Role == UserRole.Admin;
+
+    // who: the name chosen in "Deleted by" (Sales login).
+    private async Task DeleteAsync(long id, long? who)
     {
-        _confirmDeleteId = null;
-        Show(await Svc.DeleteAsync(id), "Vehicle deleted. It can be restored from Recovery for 30 days.");
+        var result = await Svc.DeleteAsync(id, who);
+        if (result.Ok) _confirmDeleteId = null;   // stay on the confirm step if no name was chosen
+        Show(result, "Vehicle deleted. It can be restored from Recovery for 30 days.");
         await LoadAsync();
     }
 }
