@@ -30,6 +30,7 @@ public class Supplier : IAuditedEntity, ISoftDeletable
     // Soft delete (see ISoftDeletable): set when deleted, cleared when restored.
     public DateTime? DeletedAtUtc { get; set; }
     public long? DeletedByUserId { get; set; }
+    public long? DeletedBySalesPersonId { get; set; }
 
     public DateTime CreatedAtUtc { get; set; }
     public DateTime UpdatedAtUtc { get; set; }

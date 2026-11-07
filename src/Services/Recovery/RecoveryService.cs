@@ -23,11 +23,23 @@ public class RecoveryService(IDbContextFactory<AppDbContext> dbFactory, ICurrent
     // How long a deleted record can still be restored.
     public const int KeepDays = 30;
 
+    // "Deleted by" on every delete: the Sales login must choose a name from the Admin's Sales Persons
+    // list; the Admin login is always recorded as "Admin". On success the value is the name.
+    public static async Task<Result<string>> DeletedByAsync(AppDbContext db, UserInfo me, long? salesPersonId)
+    {
+        if (me.Role == UserRole.Admin) return Result<string>.Success(Billing.InvoiceService.AdminName);
+        var name = await db.SalesPersons.Where(p => p.Id == salesPersonId && p.Status == RecordStatus.Active)
+            .Select(p => p.Name).SingleOrDefaultAsync();
+        return name is null ? Result<string>.Fail("Choose who is deleting this record (Deleted by).") : Result<string>.Success(name);
+    }
+
     // Used by every Delete: hide the record and note who deleted it and when.
-    public static void MarkDeleted(ISoftDeletable record, UserInfo me, DateTime nowUtc)
+    // salesPersonId is ignored on the Admin login (recorded as Admin).
+    public static void MarkDeleted(ISoftDeletable record, UserInfo me, DateTime nowUtc, long? salesPersonId = null)
     {
         record.DeletedAtUtc = nowUtc;
         record.DeletedByUserId = me.Id;
+        record.DeletedBySalesPersonId = me.Role == UserRole.Admin ? null : salesPersonId;
     }
 
     // Everything deleted in the last 30 days, newest first.
@@ -38,32 +50,36 @@ public class RecoveryService(IDbContextFactory<AppDbContext> dbFactory, ICurrent
         var since = Now.AddDays(-KeepDays);
 
         // (kind, id, name, details, deleted at, deleted by user id)
-        var items = new List<(RecoveryKind Kind, long Id, string Name, string Details, DateTime At, long? By)>();
+        var items = new List<(RecoveryKind Kind, long Id, string Name, string Details, DateTime At, long? By, long? Person)>();
         if (kind is null or RecoveryKind.Supplier)
             items.AddRange((await db.Suppliers.IgnoreQueryFilters().Where(x => x.DeletedAtUtc > since)
-                .Select(x => new { x.Id, x.Name, x.Phone, x.DeletedAtUtc, x.DeletedByUserId }).ToListAsync())
-                .Select(x => (RecoveryKind.Supplier, x.Id, x.Name, $"Phone {x.Phone}", x.DeletedAtUtc!.Value, x.DeletedByUserId)));
+                .Select(x => new { x.Id, x.Name, x.Phone, x.DeletedAtUtc, x.DeletedByUserId, x.DeletedBySalesPersonId }).ToListAsync())
+                .Select(x => (RecoveryKind.Supplier, x.Id, x.Name, $"Phone {x.Phone}", x.DeletedAtUtc!.Value, x.DeletedByUserId, x.DeletedBySalesPersonId)));
         if (kind is null or RecoveryKind.Customer)
             items.AddRange((await db.Customers.IgnoreQueryFilters().Where(x => x.DeletedAtUtc > since)
-                .Select(x => new { x.Id, x.Name, x.Phone, x.DeletedAtUtc, x.DeletedByUserId }).ToListAsync())
-                .Select(x => (RecoveryKind.Customer, x.Id, x.Name, $"Phone {x.Phone}", x.DeletedAtUtc!.Value, x.DeletedByUserId)));
+                .Select(x => new { x.Id, x.Name, x.Phone, x.DeletedAtUtc, x.DeletedByUserId, x.DeletedBySalesPersonId }).ToListAsync())
+                .Select(x => (RecoveryKind.Customer, x.Id, x.Name, $"Phone {x.Phone}", x.DeletedAtUtc!.Value, x.DeletedByUserId, x.DeletedBySalesPersonId)));
         if (kind is null or RecoveryKind.Vehicle)
             items.AddRange((await db.Vehicles.IgnoreQueryFilters().Where(x => x.IsDeleted && x.DeletedAtUtc > since)
-                .Select(x => new { x.Id, x.VehicleNo, x.Code, Supplier = x.Supplier!.Name, x.DeletedAtUtc, x.DeletedByUserId }).ToListAsync())
-                .Select(x => (RecoveryKind.Vehicle, x.Id, x.VehicleNo, $"Code {x.Code}, {x.Supplier}", x.DeletedAtUtc!.Value, x.DeletedByUserId)));
+                .Select(x => new { x.Id, x.VehicleNo, x.Code, Supplier = x.Supplier!.Name, x.DeletedAtUtc, x.DeletedByUserId, x.DeletedBySalesPersonId }).ToListAsync())
+                .Select(x => (RecoveryKind.Vehicle, x.Id, x.VehicleNo, $"Code {x.Code}, {x.Supplier}", x.DeletedAtUtc!.Value, x.DeletedByUserId, x.DeletedBySalesPersonId)));
         if (kind is null or RecoveryKind.Ledger)
             items.AddRange((await db.Accounts.IgnoreQueryFilters().Where(x => x.DeletedAtUtc > since)
-                .Select(x => new { x.Id, x.Name, x.DeletedAtUtc, x.DeletedByUserId }).ToListAsync())
-                .Select(x => (RecoveryKind.Ledger, x.Id, x.Name, "Expense ledger", x.DeletedAtUtc!.Value, x.DeletedByUserId)));
+                .Select(x => new { x.Id, x.Name, x.DeletedAtUtc, x.DeletedByUserId, x.DeletedBySalesPersonId }).ToListAsync())
+                .Select(x => (RecoveryKind.Ledger, x.Id, x.Name, "Expense ledger", x.DeletedAtUtc!.Value, x.DeletedByUserId, x.DeletedBySalesPersonId)));
         if (kind is null or RecoveryKind.SalesPerson)
             items.AddRange((await db.SalesPersons.IgnoreQueryFilters().Where(x => x.DeletedAtUtc > since)
-                .Select(x => new { x.Id, x.Name, x.DeletedAtUtc, x.DeletedByUserId }).ToListAsync())
-                .Select(x => (RecoveryKind.SalesPerson, x.Id, x.Name, "Invoice \"Created by\" name", x.DeletedAtUtc!.Value, x.DeletedByUserId)));
+                .Select(x => new { x.Id, x.Name, x.DeletedAtUtc, x.DeletedByUserId, x.DeletedBySalesPersonId }).ToListAsync())
+                .Select(x => (RecoveryKind.SalesPerson, x.Id, x.Name, "Invoice \"Created by\" name", x.DeletedAtUtc!.Value, x.DeletedByUserId, x.DeletedBySalesPersonId)));
 
-        var users = await db.Users.ToDictionaryAsync(u => u.Id, u => u.UserName);
+        // Deleted by: the chosen sales person; otherwise "Admin" (or the login name for older deletes).
+        var users = await db.Users.ToDictionaryAsync(u => u.Id, u => u.Role == UserRole.Admin ? Billing.InvoiceService.AdminName : u.UserName);
+        var people = await db.SalesPersons.IgnoreQueryFilters().ToDictionaryAsync(p => p.Id, p => p.Name);
         return items.OrderByDescending(i => i.At)
             .Select(i => new DeletedItemRow(i.Kind, i.Id, i.Name, i.Details, i.At,
-                i.By is { } by && users.TryGetValue(by, out var name) ? name : "-", i.At.AddDays(KeepDays)))
+                i.Person is { } pid && people.TryGetValue(pid, out var person) ? person
+                    : i.By is { } by && users.TryGetValue(by, out var name) ? name : "-",
+                i.At.AddDays(KeepDays)))
             .ToList();
     }
 
@@ -129,6 +145,7 @@ public class RecoveryService(IDbContextFactory<AppDbContext> dbFactory, ICurrent
         var deletedAt = record.DeletedAtUtc;
         record.DeletedAtUtc = null;
         record.DeletedByUserId = null;
+        record.DeletedBySalesPersonId = null;
         ActivityLogger.Add(db, Now, me, Category(kind), $"{Code(kind)}_RESTORED", EntityType(kind), id,
             before: new { Name = name, DeletedAtUtc = deletedAt }, after: new { Name = name });
         await db.SaveChangesAsync();

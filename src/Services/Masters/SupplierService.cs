@@ -136,17 +136,20 @@ public class SupplierService(IDbContextFactory<AppDbContext> dbFactory, ICurrent
 
     // FR-VM-08: delete only a supplier with no history; otherwise the screen offers Inactive.
     // Soft delete: the record is hidden, not removed. It can be restored from Recovery for 30 days.
-    public async Task<Result> DeleteAsync(long id)
+    // deletedBy: the sales person chosen in "Deleted by" (Sales login); ignored on the Admin login.
+    public async Task<Result> DeleteAsync(long id, long? deletedBy = null)
     {
         var me = await currentUser.RequireAsync(Permission.MastersEdit);
         await using var db = await dbFactory.CreateDbContextAsync();
+        var who = await RecoveryService.DeletedByAsync(db, me, deletedBy);
+        if (!who.Ok) return Result.Fail(who.Error!);
         var supplier = await db.Suppliers.FindAsync(id);
         if (supplier is null) return Result.Fail("Supplier not found.");
         if (await MasterHistory.SupplierHasHistoryAsync(db, id))
             return Result.Fail("This supplier has vehicles or transactions, so it cannot be deleted. Set it to Inactive instead.");
 
-        RecoveryService.MarkDeleted(supplier, me, Now);
-        ActivityLogger.Add(db, Now, me, ActivityCategory.Master, "SUPPLIER_DELETED", nameof(Supplier), id, before: Snapshot(supplier));
+        RecoveryService.MarkDeleted(supplier, me, Now, deletedBy);
+        ActivityLogger.Add(db, Now, me, ActivityCategory.Master, "SUPPLIER_DELETED", nameof(Supplier), id, before: Snapshot(supplier), reason: $"Deleted by {who.Value}");
         return await SaveAsync(db);
     }
 

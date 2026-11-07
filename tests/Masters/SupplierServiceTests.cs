@@ -9,11 +9,13 @@ public class SupplierServiceTests : IDisposable
 {
     private readonly TestDatabase _db = new();
     private readonly FakeCurrentUser _me;
+    private readonly long _seller;   // the "Deleted by" name on the Sales login
     private readonly SupplierService _svc;
 
     public SupplierServiceTests()
     {
         _me = new FakeCurrentUser(_db.AddUser(UserRole.SalesPerson));
+        _seller = _db.AddSalesPerson();
         _svc = new TestServices(_db, _me).Suppliers;
     }
 
@@ -155,7 +157,7 @@ public class SupplierServiceTests : IDisposable
     {
         var id = (await _svc.CreateAsync(Form())).Value;
 
-        Assert.True((await _svc.DeleteAsync(id)).Ok);
+        Assert.True((await _svc.DeleteAsync(id, _seller)).Ok);
         Assert.Empty(await _svc.SearchAsync(null, StatusFilter.All));
         using var ctx = _db.NewContext();
         Assert.Contains(ctx.ActivityLogs, l => l.Action == "SUPPLIER_DELETED");
@@ -171,7 +173,7 @@ public class SupplierServiceTests : IDisposable
             var form = (await _svc.GetAsync(id))!;
             form.ContactPerson = "Edited";
             Assert.True((await _svc.UpdateAsync(id, form)).Ok);
-            Assert.True((await _svc.DeleteAsync(id)).Ok);
+            Assert.True((await _svc.DeleteAsync(id, _seller)).Ok);
         }
     }
 

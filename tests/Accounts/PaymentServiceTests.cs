@@ -143,11 +143,11 @@ public class LedgerMasterServiceTests : BillingFixture
     {
         await Svc.Payments.CreateAsync(new PaymentForm { AccountId = 10, Amount = 1, ConfirmAboveCash = true });
 
-        var result = await Svc.Ledgers.DeleteAsync(10);
+        var result = await Svc.Ledgers.DeleteAsync(10, Seller);
 
         Assert.False(result.Ok);
         Assert.Contains("Inactive", result.Error);
-        Assert.True((await Svc.Ledgers.DeleteAsync(11)).Ok);   // Oil Change: no entries yet
+        Assert.True((await Svc.Ledgers.DeleteAsync(11, Seller)).Ok);   // Oil Change: no entries yet
     }
 
     [Fact]

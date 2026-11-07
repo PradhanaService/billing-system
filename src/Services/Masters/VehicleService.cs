@@ -182,20 +182,23 @@ public partial class VehicleService(IDbContextFactory<AppDbContext> dbFactory, I
 
     // FR-VM-08: only a vehicle with no history. It is hidden, not removed, so its code stays taken.
     // Soft delete: the record is hidden, not removed. It can be restored from Recovery for 30 days.
-    public async Task<Result> DeleteAsync(long id)
+    // deletedBy: the sales person chosen in "Deleted by" (Sales login); ignored on the Admin login.
+    public async Task<Result> DeleteAsync(long id, long? deletedBy = null)
     {
         var me = await currentUser.RequireAsync(Permission.MastersEdit);
         await using var db = await dbFactory.CreateDbContextAsync();
+        var who = await RecoveryService.DeletedByAsync(db, me, deletedBy);
+        if (!who.Ok) return Result.Fail(who.Error!);
         var vehicle = await db.Vehicles.SingleOrDefaultAsync(v => v.Id == id && !v.IsDeleted);
         if (vehicle is null) return Result.Fail("Vehicle not found.");
         if (await MasterHistory.VehicleHasHistoryAsync(db, id))
             return Result.Fail("This vehicle has transactions, so it cannot be deleted. Set it to Inactive instead.");
 
         vehicle.IsDeleted = true;
-        RecoveryService.MarkDeleted(vehicle, me, Now);
+        RecoveryService.MarkDeleted(vehicle, me, Now, deletedBy);
         // Free the number for a new vehicle; the code stays reserved.
         vehicle.NormalizedVehicleNo = $"#{vehicle.Id}";
-        ActivityLogger.Add(db, Now, me, ActivityCategory.Master, "VEHICLE_DELETED", nameof(Vehicle), id, before: Snapshot(vehicle));
+        ActivityLogger.Add(db, Now, me, ActivityCategory.Master, "VEHICLE_DELETED", nameof(Vehicle), id, before: Snapshot(vehicle), reason: $"Deleted by {who.Value}");
         await db.SaveChangesAsync();
         return Result.Success();
     }

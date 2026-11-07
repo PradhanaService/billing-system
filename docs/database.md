@@ -42,7 +42,8 @@ erDiagram
 | ActivityLogs | Who did what, before/after | **Append-only triggers** |
 
 ## Soft delete (Recovery)
-Suppliers, Customers, Vehicles, Accounts and SalesPersons have `DeletedAtUtc` and `DeletedByUserId`.
+Suppliers, Customers, Vehicles, Accounts and SalesPersons have `DeletedAtUtc`, `DeletedByUserId` and
+`DeletedBySalesPersonId` (the name chosen in "Deleted by" on the Sales login; empty = Admin).
 A delete fills them in; EF Core leaves those rows out of every query (a global query filter; Vehicles use
 `IsDeleted`). Recovery reads them with `IgnoreQueryFilters()` and can clear them again. Rows deleted more
 than 30 days ago are removed for good by `RecoveryCleanupJob` (every 6 hours, and at start-up).

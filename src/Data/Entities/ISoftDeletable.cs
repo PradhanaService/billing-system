@@ -7,4 +7,5 @@ public interface ISoftDeletable
 {
     DateTime? DeletedAtUtc { get; set; }    // null = not deleted
     long? DeletedByUserId { get; set; }     // the login that deleted it
+    long? DeletedBySalesPersonId { get; set; }   // Sales login: the person chosen in "Deleted by" (null = Admin)
 }

@@ -48,6 +48,16 @@ public sealed class TestDatabase : IDisposable, IDbContextFactory<AppDbContext>
         return new UserInfo(user.Id, user.UserName, role);
     }
 
+    // Adds a name to the Sales Persons list ("Created by" / "Deleted by") and returns its id.
+    public long AddSalesPerson(string name = "Ravi")
+    {
+        using var db = NewContext();
+        var person = new SalesPerson { Name = name, NormalizedName = Supplier.NormalizeName(name) };
+        db.SalesPersons.Add(person);
+        db.SaveChanges();
+        return person.Id;
+    }
+
     public void Dispose() => _connection.Dispose();
 }
 

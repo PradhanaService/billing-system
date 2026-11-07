@@ -90,3 +90,7 @@ table.data tr.muted td { color: var(--muted); }
 .quick .btn + .btn { margin-left: 0; }
 @media (max-width: 1000px) { .dash-grid { grid-template-columns: 1fr; } }
 .nowrap { white-space: nowrap; }
+
+/* Confirm step of a Delete, with the "Deleted by" choice (Components/DeleteConfirm.razor). */
+.delete-confirm { display: inline-flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; margin-left: 0.4rem; }
+.delete-confirm label { font-weight: 600; font-size: 0.85rem; }
