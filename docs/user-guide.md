@@ -1,7 +1,7 @@
 # User guide
 
 Open **Water Billing** from the desktop (it opens `http://localhost:5080`). Sign in with your user name and
-password. The first time, you must choose a new password (at least 8 characters, with a letter and a number).
+password. The first time, you must choose a new password (at least 4 characters: any letters, numbers or symbols, in any mix).
 You are signed out after 30 minutes without activity. The menu only shows what your role may use.
 
 The business day runs **6:00 PM to 6:00 PM**. Anything entered from 6 PM belongs to the next date.

@@ -83,9 +83,9 @@ public class AuthServiceTests : IDisposable
     }
 
     [Theory]
-    [InlineData("short1", "at least")]
-    [InlineData("onlyletters", "letter and one number")]
-    [InlineData("12345678", "letter and one number")]
+    [InlineData("abc", "at least 4")]
+    [InlineData("12", "at least 4")]
+    [InlineData("RAVI", "same as the user name")]
     public async Task Weak_New_Password_Is_Refused(string newPassword, string message)
     {
         var u = _db.AddUser(UserRole.SalesPerson, "ravi");
@@ -94,6 +94,22 @@ public class AuthServiceTests : IDisposable
 
         Assert.False(result.Ok);
         Assert.Contains(message, result.Error);
+    }
+
+    // Client decision: any kind of characters, in any mix, from 4 characters up.
+    [Theory]
+    [InlineData("1234")]          // numbers only
+    [InlineData("abcd")]          // letters only
+    [InlineData("@#$%")]          // symbols only
+    [InlineData("a1@ Bc")]        // a mix, with a space
+    public async Task Any_Password_Of_Four_Or_More_Characters_Is_Accepted(string newPassword)
+    {
+        var u = _db.AddUser(UserRole.SalesPerson, "ravi");
+
+        var result = await _auth.ChangePasswordAsync(u.Id, "Passw0rd!", newPassword);
+
+        Assert.True(result.Ok, result.Error);
+        Assert.True((await _auth.LoginAsync("ravi", newPassword)).Ok);
     }
 
     [Fact]

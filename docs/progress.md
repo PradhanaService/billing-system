@@ -92,3 +92,7 @@
 - Done: removed the unused "IsReady" menu flag; every source file (99 of 99) opens with a plain-English
   explanation; new docs/code-guide.md (which file holds which business area). Complete test: 309 tests,
   66-step browser day, headers, packages, Windows publish all pass (docs/test-report.md).
+
+## Fix 26: Free choice of passwords
+- Done (client request): passwords may be any letters, numbers or symbols in any mix; only rules left are
+  at least 4 characters and not the same as the user name. 313 tests passing; checked in the browser.
