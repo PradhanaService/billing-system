@@ -35,6 +35,7 @@ Every source file opens with a short explanation in plain English. This page tel
 | Reports and PDFs | `Pages/Reports/Reports.razor` | `Services/Reports/ReportService.cs`, `Components/Pdf/ReportPdf.cs` | |
 | Activity Log | `Pages/Admin/ActivityLog.razor` | `Services/ActivityLogger.cs`, `Services/Admin/ActivityLogService.cs` | `ActivityLog` |
 | Backup | `Pages/Admin/Backup.razor` | `Services/Admin/BackupService.cs` | (copies the database file) |
+| Recovery (deleted items, 30 days) | `Pages/Recovery/Recovery.razor` | `Services/Recovery/RecoveryService.cs`, `RecoveryCleanupJob.cs` | `DeletedAtUtc` on the five master tables, `RetiredVehicleCode` |
 | Start-up, security, PDF downloads | none | `src/Program.cs` | |
 | Money, volume, Indian dates | none | `Services/Common/Money.cs`, `Volume.cs`, `IndianTime.cs` | |
 
@@ -44,5 +45,6 @@ Every source file opens with a short explanation in plain English. This page tel
 - **Each save is all-or-nothing**: an invoice and its accounts entries are saved together or not at all.
 - **Permissions are checked on the server**: every service method starts with `RequireAsync(Permission....)`.
 - **Every change leaves a record**: who, when, before and after, and the reason (`ActivityLogger.cs`).
+- **Delete is soft**: a deleted record is only hidden (`ISoftDeletable`) and can be restored for 30 days.
 
 More detail: `architecture.md` (how the parts fit), `ledger-design.md` (accounting rules), `database.md` (tables).

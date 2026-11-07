@@ -249,7 +249,7 @@ public class InvoiceService(IDbContextFactory<AppDbContext> dbFactory, ICurrentU
             from c in cj.DefaultIfEmpty()
             join r in db.Vouchers on i.ReversalVoucherId equals r.Id into rj
             from r in rj.DefaultIfEmpty()
-            join p in db.SalesPersons on i.SalesPersonId equals p.Id into pj
+            join p in db.SalesPersons.IgnoreQueryFilters() on i.SalesPersonId equals p.Id into pj   // removed names still show
             from p in pj.DefaultIfEmpty()
             where i.Id == id
             // No sales person: made on the Admin login ("Admin"), or made before the "Created by" list (login's name).

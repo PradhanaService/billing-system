@@ -4,6 +4,7 @@ using WaterBilling.Data;
 using WaterBilling.Data.Entities;
 using WaterBilling.Services.Common;
 using WaterBilling.Services.Ledger;
+using WaterBilling.Services.Recovery;
 using WaterBilling.Services.Security;
 
 namespace WaterBilling.Services.Masters;
@@ -134,6 +135,7 @@ public class SupplierService(IDbContextFactory<AppDbContext> dbFactory, ICurrent
     }
 
     // FR-VM-08: delete only a supplier with no history; otherwise the screen offers Inactive.
+    // Soft delete: the record is hidden, not removed. It can be restored from Recovery for 30 days.
     public async Task<Result> DeleteAsync(long id)
     {
         var me = await currentUser.RequireAsync(Permission.MastersEdit);
@@ -143,7 +145,7 @@ public class SupplierService(IDbContextFactory<AppDbContext> dbFactory, ICurrent
         if (await MasterHistory.SupplierHasHistoryAsync(db, id))
             return Result.Fail("This supplier has vehicles or transactions, so it cannot be deleted. Set it to Inactive instead.");
 
-        db.Suppliers.Remove(supplier);
+        RecoveryService.MarkDeleted(supplier, me, Now);
         ActivityLogger.Add(db, Now, me, ActivityCategory.Master, "SUPPLIER_DELETED", nameof(Supplier), id, before: Snapshot(supplier));
         return await SaveAsync(db);
     }

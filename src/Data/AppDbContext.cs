@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using WaterBilling.Data.Entities;
 
@@ -15,6 +16,11 @@ public class AppDbContext : DbContext
         _clock = clock;
     }
 
+    // EF warns that a vehicle could point at a deleted (hidden) supplier. That cannot happen here:
+    // a supplier with any vehicle, even a deleted one, cannot be deleted (MasterHistory).
+    protected override void OnConfiguring(DbContextOptionsBuilder options) =>
+        options.ConfigureWarnings(w => w.Ignore(CoreEventId.PossibleIncorrectRequiredNavigationWithQueryFilterInteractionWarning));
+
     public DbSet<Supplier> Suppliers => Set<Supplier>();
     public DbSet<Customer> Customers => Set<Customer>();
     public DbSet<Vehicle> Vehicles => Set<Vehicle>();
@@ -28,6 +34,7 @@ public class AppDbContext : DbContext
     public DbSet<SalesPerson> SalesPersons => Set<SalesPerson>();
     public DbSet<User> Users => Set<User>();
     public DbSet<ActivityLog> ActivityLogs => Set<ActivityLog>();
+    public DbSet<RetiredVehicleCode> RetiredVehicleCodes => Set<RetiredVehicleCode>();
 
     // Rules that apply to every column of a given C# type.
     protected override void ConfigureConventions(ModelConfigurationBuilder builder)
@@ -77,7 +84,10 @@ public class AppDbContext : DbContext
             e.Property(s => s.Version).IsConcurrencyToken();
 
             // Spec: "Indexes: unique on lower-case name; status."
-            e.HasIndex(s => s.NormalizedName).IsUnique();
+            // Soft delete: deleted rows are left out of every query (Recovery uses IgnoreQueryFilters),
+            // and the name is unique only among rows that are not deleted.
+            e.HasQueryFilter(x => x.DeletedAtUtc == null);
+            e.HasIndex(x => x.NormalizedName).IsUnique().HasFilter("DeletedAtUtc IS NULL");
             e.HasIndex(s => s.Status);
         });
 
@@ -94,7 +104,10 @@ public class AppDbContext : DbContext
             e.Property(c => c.Phone).HasMaxLength(15).IsRequired();
             e.Property(c => c.Address).HasMaxLength(500);
             e.Property(c => c.Version).IsConcurrencyToken();
-            e.HasIndex(c => c.NormalizedName).IsUnique();
+            // Soft delete: deleted rows are left out of every query (Recovery uses IgnoreQueryFilters),
+            // and the name is unique only among rows that are not deleted.
+            e.HasQueryFilter(x => x.DeletedAtUtc == null);
+            e.HasIndex(x => x.NormalizedName).IsUnique().HasFilter("DeletedAtUtc IS NULL");
         });
 
         model.Entity<Vehicle>(e =>
@@ -122,6 +135,12 @@ public class AppDbContext : DbContext
             e.HasIndex(v => v.Code).IsUnique();
             e.HasIndex(v => v.NormalizedVehicleNo).IsUnique();
             e.HasIndex(v => new { v.SupplierId, v.Status });
+        });
+
+        model.Entity<RetiredVehicleCode>(e =>
+        {
+            e.HasKey(r => r.Code);
+            e.Property(r => r.Code).HasMaxLength(10);
         });
 
         ConfigureLedger(model);
@@ -165,7 +184,10 @@ public class AppDbContext : DbContext
             e.Property(p => p.Name).HasMaxLength(80).IsRequired();
             e.Property(p => p.NormalizedName).HasMaxLength(80).IsRequired();
             e.Property(p => p.Version).IsConcurrencyToken();
-            e.HasIndex(p => p.NormalizedName).IsUnique();
+            // Soft delete: deleted rows are left out of every query (Recovery uses IgnoreQueryFilters),
+            // and the name is unique only among rows that are not deleted.
+            e.HasQueryFilter(x => x.DeletedAtUtc == null);
+            e.HasIndex(x => x.NormalizedName).IsUnique().HasFilter("DeletedAtUtc IS NULL");
         });
 
         model.Entity<ReceiptAllocation>(e =>
@@ -216,7 +238,10 @@ public class AppDbContext : DbContext
             e.Property(a => a.NormalizedName).HasMaxLength(80).IsRequired();
             e.Property(a => a.SystemCode).HasMaxLength(20);
             e.Property(a => a.Version).IsConcurrencyToken();
-            e.HasIndex(a => a.NormalizedName).IsUnique();
+            // Soft delete: deleted rows are left out of every query (Recovery uses IgnoreQueryFilters),
+            // and the name is unique only among rows that are not deleted.
+            e.HasQueryFilter(x => x.DeletedAtUtc == null);
+            e.HasIndex(x => x.NormalizedName).IsUnique().HasFilter("DeletedAtUtc IS NULL");
             e.HasIndex(a => a.SystemCode).IsUnique();
             // Starting data (Database Schema section 5).
             e.HasData(

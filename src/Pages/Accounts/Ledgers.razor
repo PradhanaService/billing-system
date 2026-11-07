@@ -135,7 +135,7 @@
 
     private async Task DeleteAsync(long id)
     {
-        Show(await Svc.DeleteAsync(id), "Ledger deleted.");
+        Show(await Svc.DeleteAsync(id), "Ledger deleted. It can be restored from Recovery for 30 days.");
         await LoadAsync();
     }
 

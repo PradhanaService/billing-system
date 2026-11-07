@@ -1,7 +1,7 @@
 namespace WaterBilling.Data.Entities;
 
 // One tanker (Database Schema page 5). A vehicle belongs to one supplier.
-public class Vehicle : IAuditedEntity
+public class Vehicle : IAuditedEntity, ISoftDeletable
 {
     public long Id { get; set; }
 
@@ -34,6 +34,10 @@ public class Vehicle : IAuditedEntity
 
     // "Deleted" vehicles are hidden but kept, so the code is never reused (FR-VM-03, FR-VM-08).
     public bool IsDeleted { get; set; }
+
+    // Soft delete (see ISoftDeletable): set when deleted, cleared when restored.
+    public DateTime? DeletedAtUtc { get; set; }
+    public long? DeletedByUserId { get; set; }
 
     public DateTime CreatedAtUtc { get; set; }
     public DateTime UpdatedAtUtc { get; set; }

@@ -5,6 +5,7 @@ using WaterBilling.Data.Entities;
 using WaterBilling.Services.Billing;
 using WaterBilling.Services.Common;
 using WaterBilling.Services.Masters;
+using WaterBilling.Services.Recovery;
 using WaterBilling.Services.Security;
 
 namespace WaterBilling.Services.Admin;
@@ -55,14 +56,18 @@ public class SalesPersonService(IDbContextFactory<AppDbContext> dbFactory, ICurr
 
         await using var db = await dbFactory.CreateDbContextAsync();
         await using var tx = await db.Database.BeginTransactionAsync();
-        var existing = await db.SalesPersons.SingleOrDefaultAsync(p => p.NormalizedName == key);
+        // Includes deleted names, so adding a removed name again brings the same person back.
+        var existing = await db.SalesPersons.IgnoreQueryFilters()
+            .Where(p => p.NormalizedName == key).OrderByDescending(p => p.Id).FirstOrDefaultAsync();
         if (existing is { Status: RecordStatus.Active }) return Result.Fail($"{existing.Name} is already in the list.");
 
         if (existing is not null)
         {
-            // Removed earlier but kept for old invoices: put the same person back on the list.
+            // Removed earlier (soft deleted): put the same person back on the list.
             existing.Status = RecordStatus.Active;
             existing.Name = name;
+            existing.DeletedAtUtc = null;
+            existing.DeletedByUserId = null;
         }
         else
         {
@@ -77,8 +82,8 @@ public class SalesPersonService(IDbContextFactory<AppDbContext> dbFactory, ICurr
         return Result.Success();
     }
 
-    // Takes the name off the dropdown. If invoices already name this person it is kept (Inactive)
-    // so those invoices still show who made them; otherwise it is deleted.
+    // Takes the name off the dropdown (soft delete: it can be restored from Recovery for 30 days).
+    // A name used on invoices is never removed for good, so those invoices still show who made them.
     public async Task<Result> RemoveAsync(long id)
     {
         var me = await currentUser.RequireAsync(Permission.SalesPersonsManage);
@@ -86,8 +91,8 @@ public class SalesPersonService(IDbContextFactory<AppDbContext> dbFactory, ICurr
         var person = await db.SalesPersons.SingleOrDefaultAsync(p => p.Id == id && p.Status == RecordStatus.Active);
         if (person is null) return Result.Fail("Sales person not found.");
 
-        if (await db.Invoices.AnyAsync(i => i.SalesPersonId == id)) person.Status = RecordStatus.Inactive;
-        else db.SalesPersons.Remove(person);
+        person.Status = RecordStatus.Inactive;
+        RecoveryService.MarkDeleted(person, me, Now);
 
         ActivityLogger.Add(db, Now, me, ActivityCategory.Admin, "SALES_PERSON_REMOVED", nameof(SalesPerson), id,
             before: new { person.Name });

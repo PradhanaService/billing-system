@@ -28,6 +28,7 @@ public enum Permission
     ActivityLogView,
     BackupRun,
     SalesPersonsManage,  // add / remove names in the invoice "Created by" list (Admin)
+    RecoveryManage,      // see and restore deleted records (Admin and Sales)
 }
 
 // Which role can do what. Two roles, one login each (client decision, Nov 2026):

@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using WaterBilling.Data;
 using WaterBilling.Data.Entities;
 using WaterBilling.Services.Common;
+using WaterBilling.Services.Recovery;
 using WaterBilling.Services.Security;
 
 namespace WaterBilling.Services.Masters;
@@ -135,7 +136,7 @@ public partial class VehicleService(IDbContextFactory<AppDbContext> dbFactory, I
             ? form.Code.Trim().ToUpperInvariant()
             : await NextCodeAsync(db);
         if (!CodePattern().IsMatch(code)) return Result<long>.Fail("Vehicle code must be one letter and 1 to 4 digits, e.g. A13.");
-        if (await db.Vehicles.AnyAsync(v => v.Code == code)) return Result<long>.Fail($"Vehicle code {code} is already used (codes are never reused).");
+        if (await CodesEverUsed(db).AnyAsync(c => c == code)) return Result<long>.Fail($"Vehicle code {code} is already used (codes are never reused).");
 
         var vehicle = new Vehicle { Code = code, SupplierId = supplier.Id };
         Apply(vehicle, form, supplier.ShortName);
@@ -180,6 +181,7 @@ public partial class VehicleService(IDbContextFactory<AppDbContext> dbFactory, I
     }
 
     // FR-VM-08: only a vehicle with no history. It is hidden, not removed, so its code stays taken.
+    // Soft delete: the record is hidden, not removed. It can be restored from Recovery for 30 days.
     public async Task<Result> DeleteAsync(long id)
     {
         var me = await currentUser.RequireAsync(Permission.MastersEdit);
@@ -190,7 +192,7 @@ public partial class VehicleService(IDbContextFactory<AppDbContext> dbFactory, I
             return Result.Fail("This vehicle has transactions, so it cannot be deleted. Set it to Inactive instead.");
 
         vehicle.IsDeleted = true;
-        vehicle.Status = VehicleStatus.Inactive;
+        RecoveryService.MarkDeleted(vehicle, me, Now);
         // Free the number for a new vehicle; the code stays reserved.
         vehicle.NormalizedVehicleNo = $"#{vehicle.Id}";
         ActivityLogger.Add(db, Now, me, ActivityCategory.Master, "VEHICLE_DELETED", nameof(Vehicle), id, before: Snapshot(vehicle));
@@ -200,6 +202,9 @@ public partial class VehicleService(IDbContextFactory<AppDbContext> dbFactory, I
 
     private DateTime Now => clock.GetUtcNow().UtcDateTime;
 
+    private static IQueryable<string> CodesEverUsed(AppDbContext db) =>
+        db.Vehicles.Select(v => v.Code).Concat(db.RetiredVehicleCodes.Select(r => r.Code));
+
     private static string? Check(VehicleForm form)
     {
         if (FormValidator.FirstError(form) is { } error) return error;
@@ -208,10 +213,11 @@ public partial class VehicleService(IDbContextFactory<AppDbContext> dbFactory, I
         return null;
     }
 
-    // Next free "A" code: A1, A2 ... A9999, then B1. Counts hidden vehicles too, so codes are never reused.
+    // Next free "A" code: A1, A2 ... A9999, then B1. Counts hidden vehicles and the codes of vehicles
+    // removed for good (RetiredVehicleCodes) too, so codes are never reused.
     private static async Task<string> NextCodeAsync(AppDbContext db)
     {
-        var codes = await db.Vehicles.Select(v => v.Code).ToListAsync();
+        var codes = await CodesEverUsed(db).ToListAsync();
         for (var letter = 'A'; letter <= 'Z'; letter++)
         {
             var max = codes.Where(c => c.Length > 1 && c[0] == letter && int.TryParse(c[1..], out _))
