@@ -96,3 +96,8 @@
 ## Fix 26: Free choice of passwords
 - Done (client request): passwords may be any letters, numbers or symbols in any mix; only rules left are
   at least 4 characters and not the same as the user name. 313 tests passing; checked in the browser.
+
+## Module 27: "Created by" follows the login
+- Done (client request): on the Sales login the Created by dropdown lists only the names the Admin added; on
+  the Admin login it is fixed to "Admin" (no sales person stored; view, PDF and log show Admin). "Admin"
+  cannot be added as a sales person. 315 tests passing; both logins checked in the browser.
