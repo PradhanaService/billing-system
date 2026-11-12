@@ -488,3 +488,6 @@ App_Data/
 *.db
 *.db-shm
 *.db-wal
+
+# Installer build output (WaterBillingSetup.exe and published files)
+installer/output/

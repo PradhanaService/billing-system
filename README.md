@@ -21,7 +21,9 @@ dotnet test
 309 tests (unit, service, HTTP). See `docs/test-report.md` and `docs/requirement-test-matrix.md`.
 
 ## Install on the shop PC
-See `docs/install-guide.md`: run `installer\build-installer.ps1` on Windows, then `WaterBillingSetup.exe`.
+See `docs/install-guide.md`: run `installer\build-installer.ps1` on Windows to make `WaterBillingSetup.exe`.
+The client double-clicks it once; afterwards the **Water Billing** desktop icon opens the app window
+(`desktop/WaterBilling.Desktop`, a WebView2 window over the local service).
 
 ## Folders
 | Folder | What lives there |
@@ -31,6 +33,7 @@ See `docs/install-guide.md`: run `installer\build-installer.ps1` on Windows, the
 | `src/Pages` | Screens (Blazor pages) |
 | `src/Components` | Layout, menu, shared UI, PDF layouts |
 | `tests` | xUnit tests, named by requirement ID |
+| `desktop` | The Water Billing app window (Windows Forms + WebView2) |
 | `installer` | Inno Setup script and build script |
 | `docs` | Spec, design notes, guides, handover pack |
 

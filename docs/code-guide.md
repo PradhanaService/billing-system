@@ -37,6 +37,7 @@ Every source file opens with a short explanation in plain English. This page tel
 | Backup | `Pages/Admin/Backup.razor` | `Services/Admin/BackupService.cs` | (copies the database file) |
 | Recovery (deleted items, 30 days) | `Pages/Recovery/Recovery.razor` | `Services/Recovery/RecoveryService.cs`, `RecoveryCleanupJob.cs` | `DeletedAtUtc` on the five master tables, `RetiredVehicleCode` |
 | Start-up, security, PDF downloads | none | `src/Program.cs` | |
+| App window (desktop icon), installer | the window itself | `desktop/WaterBilling.Desktop/MainForm.cs`, `installer/WaterBilling.iss` | |
 | Money, volume, Indian dates | none | `Services/Common/Money.cs`, `Volume.cs`, `IndianTime.cs` | |
 
 ## Rules that hold everywhere

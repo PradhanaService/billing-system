@@ -1,0 +1,44 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- The desktop window of Water Billing. It shows the installed Water Billing service
+       (which holds all screens, rules and data) inside an app window, without a browser. -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>WaterBillingApp</AssemblyName>
+    <RootNamespace>WaterBilling.Desktop</RootNamespace>
+    <ApplicationIcon>app.ico</ApplicationIcon>
+    <Product>Water Billing</Product>
+    <Company>Shree Karunambika Traders</Company>
+    <Version>1.0.0</Version>
+    <!-- Lets this Windows-only project build on any machine (the installer is still built on Windows). -->
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+  </PropertyGroup>
+
+  <!-- Windows Forms is referenced directly (instead of UseWindowsForms) so the project also builds with
+       SDKs that do not include the Windows Desktop build targets. It behaves the same on Windows. -->
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.WindowsDesktop.App.WindowsForms" />
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4129.50" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="System.Drawing" />
+    <Using Include="System.Windows.Forms" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="app.ico" />
+  </ItemGroup>
+
+  <!-- The WebView2 package always adds its WPF part too. This app uses Windows Forms only, so the WPF
+       part is dropped (it would otherwise cause a version-conflict warning and ship an unused file). -->
+  <Target Name="DropWebView2Wpf" BeforeTargets="ResolveAssemblyReferences">
+    <ItemGroup>
+      <Reference Remove="@(Reference->WithMetadataValue('Filename', 'Microsoft.Web.WebView2.Wpf'))" />
+    </ItemGroup>
+  </Target>
+
+</Project>

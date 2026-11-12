@@ -7,6 +7,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WaterBilling", "src\WaterBi
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WaterBilling.Tests", "tests\WaterBilling.Tests.csproj", "{3C734E12-E59C-447E-BFD8-A57055D81343}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "desktop", "desktop", "{9C9469EB-B696-4A19-8665-F1195AB47010}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WaterBilling.Desktop", "desktop\WaterBilling.Desktop\WaterBilling.Desktop.csproj", "{AC40EB18-6DDA-49AD-B87D-E442AC87D3E4}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -24,5 +28,12 @@ Global
 		{3C734E12-E59C-447E-BFD8-A57055D81343}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{3C734E12-E59C-447E-BFD8-A57055D81343}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{3C734E12-E59C-447E-BFD8-A57055D81343}.Release|Any CPU.Build.0 = Release|Any CPU
+		{AC40EB18-6DDA-49AD-B87D-E442AC87D3E4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{AC40EB18-6DDA-49AD-B87D-E442AC87D3E4}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{AC40EB18-6DDA-49AD-B87D-E442AC87D3E4}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{AC40EB18-6DDA-49AD-B87D-E442AC87D3E4}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{AC40EB18-6DDA-49AD-B87D-E442AC87D3E4} = {9C9469EB-B696-4A19-8665-F1195AB47010}
 	EndGlobalSection
 EndGlobal
