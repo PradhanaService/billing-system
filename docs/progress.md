@@ -113,3 +113,9 @@
 - Done (client request): deleting a supplier, customer, vehicle or ledger asks "Deleted by". Sales login:
   dropdown of the Admin's sales persons (required, server-checked); Admin login: fixed to "Admin". Shown on
   Recovery and in the activity log ("Deleted by Ravi"). 328 tests passing; both logins checked in the browser.
+
+## Module 31: Desktop app window and installer
+- Done (client request): new `desktop/WaterBilling.Desktop` (Windows Forms + WebView2): one Water Billing
+  window, own icon, single instance, waits for the service, PDFs in their own app window, no browser UI.
+  Installer (Inno Setup) now installs it, adds one desktop/Start icon for it, installs the WebView2 Runtime
+  when missing and opens the window at the end. Built and checked here; first real install to be done on Windows.
