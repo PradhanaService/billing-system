@@ -119,3 +119,8 @@
   window, own icon, single instance, waits for the service, PDFs in their own app window, no browser UI.
   Installer (Inno Setup) now installs it, adds one desktop/Start icon for it, installs the WebView2 Runtime
   when missing and opens the window at the end. Built and checked here; first real install to be done on Windows.
+
+## Chore 32: Client colour theme
+- Done: palette Deep Space #1B262C (top bar, text), Royal Blue #0F4C75 (selection, primary buttons, links),
+  Sky Focus #3282B8 (focus outlines, hover borders, chart bars), Soft Cloud #BBE1FA (side menu, table headers,
+  sign-in background). Messages keep red/green/amber. App icon re-coloured. Styles only; 328 tests passing.

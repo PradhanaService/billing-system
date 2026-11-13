@@ -1,11 +1,16 @@
-/* Colours used across the app. Black and white with one accent (contrast with white above 7:1). */
+/* Colours used across the app (client palette, Nov 2026):
+   Deep Space #1B262C (top bar, text), Royal Blue #0F4C75 (accent: selected menu, primary buttons, links),
+   Sky Focus #3282B8 (focus outlines, hover borders, chart bars: never behind text, too light for white text),
+   Soft Cloud #BBE1FA (side menu, table headers, sign-in background). Red/green/amber stay for messages. */
 :root {
-    --ink: #111111;
+    --ink: #1B262C;
     --paper: #ffffff;
     --panel: #f5f5f5;
     --line: #dddddd;
     --muted: #595959;   /* 7:1 on white, still readable for greyed-out items */
-    --accent: #1a4f8b;
+    --accent: #0F4C75;
+    --focus: #3282B8;
+    --cloud: #BBE1FA;
     --danger: #b00020;
 }
 
@@ -39,18 +44,19 @@ a { color: var(--accent); }
 }
 .btn:hover { background: var(--panel); }
 .btn-primary { background: var(--accent); border-color: var(--accent); color: var(--paper); }
-.btn-primary:hover { background: #143e6e; }
+.btn-primary:hover { background: var(--ink); border-color: var(--ink); }
 .btn-danger { border-color: var(--danger); color: var(--danger); }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .btn-small { padding: 0.2rem 0.6rem; font-size: 0.85rem; }
 .link-button { background: none; border: none; padding: 0; font: inherit; text-decoration: underline; cursor: pointer; color: var(--accent); }
-:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 
 .field { display: flex; flex-direction: column; gap: 0.25rem; margin-bottom: 0.9rem; }
 .field label { font-weight: 600; font-size: 0.9rem; }
 .field small { color: var(--muted); }
 input, select, textarea { font: inherit; padding: 0.4rem 0.5rem; border: 1px solid #8a8a8a; background: var(--paper); color: var(--ink); }
 input[readonly] { background: var(--panel); }
+input:hover, select:hover, textarea:hover { border-color: var(--focus); }
 .form-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 0 1.25rem; }
 .form-actions { display: flex; gap: 0.75rem; margin-top: 0.5rem; }
 
@@ -61,7 +67,7 @@ input[readonly] { background: var(--panel); }
 
 table.data { border-collapse: collapse; width: 100%; }
 table.data th, table.data td { border-bottom: 1px solid var(--line); padding: 0.45rem 0.6rem; text-align: left; vertical-align: top; }
-table.data th { background: var(--panel); font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.03em; }
+table.data th { background: var(--cloud); font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.03em; }
 table.data td.num, table.data th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 table.data tfoot td { font-weight: 700; border-top: 2px solid var(--ink); }
 table.data tr.muted td { color: var(--muted); }
@@ -83,7 +89,7 @@ table.data tr.muted td { color: var(--muted); }
 .stat-label { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.03em; color: var(--muted); }
 .stat-value { font-size: 1.3rem; font-weight: 700; margin-top: 0.2rem; font-variant-numeric: tabular-nums; }
 .stat-link { display: block; color: inherit; text-decoration: none; }
-.stat-link:hover { border-color: var(--accent); }
+.stat-link:hover { border-color: var(--focus); }
 .stat-more { font-size: 0.8rem; color: var(--accent); margin-top: 0.2rem; text-decoration: underline; }
 .dash-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 1.25rem; align-items: start; }
 .quick { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
