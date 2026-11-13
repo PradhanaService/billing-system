@@ -1,42 +1,125 @@
 /* Styles here apply only to MainLayout (Blazor "CSS isolation"). */
 .shell {
     display: grid;
-    grid-template-columns: 220px 1fr;
-    grid-template-rows: 56px 1fr;
+    grid-template-columns: 236px 1fr;
+    grid-template-rows: 64px 1fr;
     grid-template-areas:
         "top  top"
         "side main";
     min-height: 100vh;
 }
 
+/* Top bar: Deep Space to Royal Blue. */
 .topbar {
     grid-area: top;
+    position: sticky;
+    top: 0;
+    z-index: 20;
     display: flex;
-    align-items: baseline;
-    gap: 1rem;
+    align-items: center;
+    gap: 0.75rem;
     padding: 0 1.25rem;
-    line-height: 56px;
-    background: var(--ink);
-    color: var(--paper);
+    background: linear-gradient(90deg, var(--ink) 0%, var(--accent) 100%);
+    color: #ffffff;
+    box-shadow: 0 2px 10px rgba(27, 38, 44, 0.25);
 }
 
-.brand { font-weight: 700; font-size: 1.1rem; }
-.user { margin-left: auto; font-size: 0.9rem; display: flex; gap: 0.75rem; align-items: baseline; }
-.user a, .user ::deep .link-button { color: var(--paper); }
-.inline { display: inline; }
-.subtitle { opacity: 0.8; font-size: 0.9rem; }
+.brand-mark {
+    display: grid;
+    place-items: center;
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+    background: var(--cloud);
+    color: var(--accent);
+    flex: none;
+}
+.brand-text { display: flex; flex-direction: column; line-height: 1.2; }
+.brand { font-weight: 700; font-size: 1.08rem; letter-spacing: 0.01em; }
+.subtitle { color: var(--cloud); font-size: 0.8rem; }
 
+/* User menu (a <details>: opens on click or Enter, no script). */
+.user-menu { margin-left: auto; position: relative; }
+.user-menu summary {
+    list-style: none;
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.3rem 0.6rem 0.3rem 0.3rem;
+    border-radius: 999px;
+    cursor: pointer;
+}
+.user-menu summary::-webkit-details-marker { display: none; }
+.user-menu summary:hover, .user-menu[open] summary { background: rgba(187, 225, 250, 0.16); }
+.user-menu summary:focus-visible { outline: 3px solid var(--cloud); outline-offset: 2px; }
+
+.avatar {
+    display: grid;
+    place-items: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: var(--cloud);
+    color: var(--ink);
+    font-weight: 700;
+}
+.user-name { display: flex; flex-direction: column; line-height: 1.15; font-size: 0.9rem; }
+.user-name small { color: var(--cloud); font-size: 0.75rem; }
+
+.user-drop {
+    position: absolute;
+    right: 0;
+    top: calc(100% + 8px);
+    min-width: 210px;
+    padding: 0.4rem;
+    background: var(--paper);
+    color: var(--ink);
+    border-radius: 12px;
+    box-shadow: 0 10px 30px rgba(27, 38, 44, 0.22);
+}
+.user-drop a, .user-drop button {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    width: 100%;
+    padding: 0.55rem 0.7rem;
+    border: 0;
+    border-radius: 8px;
+    background: none;
+    color: var(--ink);
+    font: inherit;
+    font-size: 0.92rem;
+    text-decoration: none;
+    text-align: left;
+    cursor: pointer;
+}
+.user-drop a:hover, .user-drop button:hover { background: var(--tint); }
+.user-drop form { margin: 0; }
+
+/* Side menu: dark Deep Space. */
 .sidebar {
     grid-area: side;
-    border-right: 1px solid var(--line);
-    background: var(--cloud);
-    padding: 0.75rem 0;
+    position: sticky;
+    top: 64px;
+    height: calc(100vh - 64px);
+    background: var(--ink);
+    padding: 1rem 0;
     overflow-y: auto;
 }
 
 .content {
     grid-area: main;
-    padding: 1.5rem 2rem;
+    padding: 1.5rem 2rem 2.5rem;
+    min-width: 0;
+}
+
+/* Narrow windows: the menu goes above the page. */
+@media (max-width: 760px) {
+    .shell { grid-template-columns: 1fr; grid-template-rows: auto auto 1fr; grid-template-areas: "top" "side" "main"; }
+    .topbar { position: static; flex-wrap: wrap; padding: 0.6rem 1rem; }
+    .subtitle, .user-name { display: none; }
+    .sidebar { position: static; height: auto; max-height: 50vh; }
+    .content { padding: 1rem; }
 }
 
 #blazor-error-ui {

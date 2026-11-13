@@ -8,7 +8,7 @@
             @foreach (var item in group)
             {
                 @* NavLink adds the "active" class when the URL matches, so the current page is highlighted. *@
-                <NavLink class="nav-link" href="@item.Href" Match="NavLinkMatch.All">@item.Title</NavLink>
+                <NavLink class="nav-link" href="@item.Href" Match="NavLinkMatch.All"><Icon Name="@item.Icon" Size="18" /><span>@item.Title</span></NavLink>
             }
         </div>
     }

@@ -1,27 +1,39 @@
-.nav-group { margin-bottom: 0.75rem; }
+/* Dark side menu (Deep Space) with Soft Cloud headings; the current page is a Soft Cloud pill. */
+.nav { padding: 0 0.75rem; }
+.nav-group { margin-bottom: 1rem; }
 
 .nav-heading {
-    padding: 0.25rem 1.25rem;
-    font-size: 0.75rem;
+    padding: 0.35rem 0.75rem;
+    font-size: 0.7rem;
     font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.05em;
-    color: var(--muted);
+    letter-spacing: 0.08em;
+    color: var(--cloud);
+    opacity: 0.85;
 }
 
 /* ::deep reaches into the <a> that NavLink renders. */
 ::deep .nav-link {
-    display: block;
-    padding: 0.4rem 1.25rem;
-    color: var(--ink);
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    padding: 0.5rem 0.75rem;
+    margin: 2px 0;
+    border-radius: 8px;
+    color: #ffffff;
     text-decoration: none;
+    font-size: 0.92rem;
+    transition: background 0.15s ease;
 }
 
-::deep a.nav-link:hover { background: var(--paper); }
+::deep .nav-link .icon { flex: none; opacity: 0.9; }
+::deep a.nav-link:hover { background: rgba(187, 225, 250, 0.14); }
+::deep a.nav-link:focus-visible { outline: 3px solid var(--cloud); outline-offset: 1px; }
 
 ::deep a.nav-link.active {
-    background: var(--accent);
-    color: var(--paper);
+    background: var(--cloud);
+    color: var(--ink);
     font-weight: 600;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
 }
-
+::deep a.nav-link.active .icon { opacity: 1; }
