@@ -1,0 +1,17 @@
+@* The header card at the top of every screen: an icon tile, the page title, one line about the page,
+   and (optionally) the page's own controls on the right, e.g. the Dashboard's month picker. *@
+<header class="page-head">
+    <span class="page-icon"><Icon Name="@IconName" Size="26" /></span>
+    <div class="page-titles">
+        <h1>@Title</h1>
+        @if (Subtitle is not null) { <p>@Subtitle</p> }
+    </div>
+    @if (ChildContent is not null) { <div class="page-tools">@ChildContent</div> }
+</header>
+
+@code {
+    [Parameter, EditorRequired] public string Title { get; set; } = "";
+    [Parameter] public string? Subtitle { get; set; }
+    [Parameter] public string IconName { get; set; } = "home";
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+}
