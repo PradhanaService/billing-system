@@ -11,7 +11,7 @@
 
 <PageTitle>Vehicle Master</PageTitle>
 
-<PageHeader IconName="truck" Title="Vehicle Master" Subtitle="Tankers, their supplier, billing basis and rate." />
+<PageHeader IconName="truck" Title="Vehicle Master" Subtitle="Tankers, their supplier and rate per trip." />
 
 <PageMessage Text="@MessageText" Ok="@MessageOk" />
 
@@ -23,9 +23,10 @@
             <DataAnnotationsValidator />
             <div class="form-grid">
                 <div class="field">
-                    <label for="code">Vehicle Code</label>
-                    <InputText id="code" @bind-Value="_form.Code" readonly="@(_editingId is not null || !Can(Permission.VehicleCodeOverride))" />
-                    <small>@(_editingId is null ? "Proposed by the system. Never reused." : "Fixed after creation.")</small>
+                    <label for="code">Vehicle Code*</label>
+                    <InputText id="code" @bind-Value="_form.Code" readonly="@(_editingId is not null)" placeholder="A13" maxlength="10" />
+                    <small>@(_editingId is null ? "Letters and numbers. Must be new: a code is never reused." : "Fixed after creation.")</small>
+                    <ValidationMessage For="() => _form.Code" />
                 </div>
                 <div class="field">
                     <label for="vno">Vehicle No.*</label>
@@ -61,14 +62,7 @@
                     <ValidationMessage For="() => _form.TankCapacityLitres" />
                 </div>
                 <div class="field">
-                    <label for="basis">Billing basis</label>
-                    <InputSelect id="basis" @bind-Value="_form.BillingBasis">
-                        <option value="@BillingBasis.Trip">Per trip</option>
-                        <option value="@BillingBasis.Volume">Per kL (volume)</option>
-                    </InputSelect>
-                </div>
-                <div class="field">
-                    <label for="rate">Rate (₹ per @(_form.BillingBasis == BillingBasis.Trip ? "trip" : "kL"))*</label>
+                    <label for="rate">Rate (₹ per trip)*</label>
                     <InputNumber id="rate" @bind-Value="_form.Rate" step="0.01" min="0" />
                     <ValidationMessage For="() => _form.Rate" />
                 </div>
@@ -144,7 +138,7 @@
                 <td>@v.Nickname</td>
                 <td>@v.SupplierName @if (!v.SupplierActive) { <span class="badge badge-off">supplier inactive</span> }</td>
                 <td class="num">@v.TankCapacityLitres.ToString("N0", System.Globalization.CultureInfo.GetCultureInfo("en-IN"))</td>
-                <td class="num">@Money.Format(v.RatePaise) / @(v.BillingBasis == BillingBasis.Trip ? "trip" : "kL")</td>
+                <td class="num">@Money.Format(v.RatePaise) / trip</td>
                 <td><span class="badge @(v.Status != VehicleStatus.Active ? "badge-off" : "")">@v.Status</span></td>
                 <td>
                     @if (Can(Permission.MastersEdit))
@@ -185,8 +179,8 @@
 
     private async Task StartNewAsync()
     {
-        _suppliers = await SupplierSvc.ListActiveAsync();
-        _form = new VehicleForm { Code = await Svc.ProposeCodeAsync(), TankCapacityLitres = 12000 };
+        _suppliers = await SupplierSvc.ListActiveAsync();   // the code is typed in by the user
+        _form = new VehicleForm { TankCapacityLitres = 12000 };
         _editingId = null;
         MessageText = null;
     }

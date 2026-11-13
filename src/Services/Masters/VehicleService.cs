@@ -23,8 +23,9 @@ public sealed record VehicleForBilling(long Id, string Code, string VehicleNo, s
 // Vehicle Master form (FR-VM-02).
 public sealed class VehicleForm
 {
-    // Proposed by the system; only an Admin may type another (FR-VM-03).
-    [StringLength(10)] public string? Code { get; set; }
+    // Typed in by the user (client change, Nov 2026: no longer proposed by the system).
+    // Letters and/or numbers, unique, and never reused once taken.
+    [Required(ErrorMessage = "Vehicle Code is required."), StringLength(10)] public string? Code { get; set; }
 
     [Required(ErrorMessage = "Vehicle No. is required."), StringLength(20)]
     public string VehicleNo { get; set; } = "";
@@ -36,8 +37,6 @@ public sealed class VehicleForm
 
     [Range(1, 1_000_000, ErrorMessage = "Capacity must be between 1 and 10,00,000 litres.")]
     public int TankCapacityLitres { get; set; }
-
-    public BillingBasis BillingBasis { get; set; } = BillingBasis.Trip;
 
     [Rupees] public decimal TripCost { get; set; }
 
@@ -56,7 +55,7 @@ public partial class VehicleService(IDbContextFactory<AppDbContext> dbFactory, I
 {
     // "TN 38 M 3", "TN 67 C", "TN01AB1234". Short forms are allowed (FR-VM-04).
     [GeneratedRegex(@"^[A-Z]{2} ?[0-9]{1,2}( ?[A-Z]{1,3})?( ?[0-9]{1,4})?$")] private static partial Regex VehicleNoPattern();
-    [GeneratedRegex(@"^[A-Z][0-9]{1,4}$")] private static partial Regex CodePattern();
+    [GeneratedRegex(@"^[A-Z0-9]{1,10}$")] private static partial Regex CodePattern();
 
     public static string TidyVehicleNo(string? text) => PartyRules.Tidy(text).ToUpperInvariant();
     public static string NormalizeVehicleNo(string text) => TidyVehicleNo(text).Replace(" ", "");
@@ -97,13 +96,6 @@ public partial class VehicleService(IDbContextFactory<AppDbContext> dbFactory, I
     public static IQueryable<Vehicle> Billable(AppDbContext db) =>
         db.Vehicles.Where(v => !v.IsDeleted && v.Status == VehicleStatus.Active && v.Supplier!.Status == RecordStatus.Active);
 
-    public async Task<string> ProposeCodeAsync()
-    {
-        await currentUser.RequireAsync(Permission.MastersView);
-        await using var db = await dbFactory.CreateDbContextAsync();
-        return await NextCodeAsync(db);
-    }
-
     public async Task<VehicleForm?> GetAsync(long id)
     {
         await currentUser.RequireAsync(Permission.MastersView);
@@ -112,7 +104,7 @@ public partial class VehicleService(IDbContextFactory<AppDbContext> dbFactory, I
         return v is null ? null : new VehicleForm
         {
             Code = v.Code, VehicleNo = v.VehicleNo, Nickname = v.Nickname, SupplierId = v.SupplierId,
-            TankCapacityLitres = v.TankCapacityLitres, BillingBasis = v.BillingBasis,
+            TankCapacityLitres = v.TankCapacityLitres,
             TripCost = Money.ToRupees(v.TripCostPaise), Rate = Money.ToRupees(v.RatePaise),
             WaterDetails = v.WaterDetails, DriverName = v.DriverName, DriverPhone = v.DriverPhone,
             DriverLicenceNo = v.DriverLicenceNo, Status = v.Status, Version = v.Version,
@@ -131,11 +123,9 @@ public partial class VehicleService(IDbContextFactory<AppDbContext> dbFactory, I
         if (supplier is null) return Result<long>.Fail("Supplier not found.");
         if (supplier.Status != RecordStatus.Active) return Result<long>.Fail("The supplier is inactive. Activate it first.");
 
-        // Only an Admin may choose the code; everyone else gets the proposal.
-        var code = me.Has(Permission.VehicleCodeOverride) && !string.IsNullOrWhiteSpace(form.Code)
-            ? form.Code.Trim().ToUpperInvariant()
-            : await NextCodeAsync(db);
-        if (!CodePattern().IsMatch(code)) return Result<long>.Fail("Vehicle code must be one letter and 1 to 4 digits, e.g. A13.");
+        // The code is typed in by the user, stored in capitals.
+        var code = form.Code!.Trim().ToUpperInvariant();
+        if (!CodePattern().IsMatch(code)) return Result<long>.Fail("Vehicle code can have only letters and numbers (no spaces), up to 10, e.g. A13.");
         if (await CodesEverUsed(db).AnyAsync(c => c == code)) return Result<long>.Fail($"Vehicle code {code} is already used (codes are never reused).");
 
         var vehicle = new Vehicle { Code = code, SupplierId = supplier.Id };
@@ -216,20 +206,6 @@ public partial class VehicleService(IDbContextFactory<AppDbContext> dbFactory, I
         return null;
     }
 
-    // Next free "A" code: A1, A2 ... A9999, then B1. Counts hidden vehicles and the codes of vehicles
-    // removed for good (RetiredVehicleCodes) too, so codes are never reused.
-    private static async Task<string> NextCodeAsync(AppDbContext db)
-    {
-        var codes = await CodesEverUsed(db).ToListAsync();
-        for (var letter = 'A'; letter <= 'Z'; letter++)
-        {
-            var max = codes.Where(c => c.Length > 1 && c[0] == letter && int.TryParse(c[1..], out _))
-                .Select(c => int.Parse(c[1..])).DefaultIfEmpty(0).Max();
-            if (max < 9999) return $"{letter}{max + 1}";
-        }
-        throw new InvalidOperationException("All vehicle codes are used.");
-    }
-
     private static Task<bool> NumberTakenAsync(AppDbContext db, string normalized, long? exceptId) =>
         db.Vehicles.AnyAsync(v => v.NormalizedVehicleNo == normalized && v.Id != exceptId);
 
@@ -240,7 +216,7 @@ public partial class VehicleService(IDbContextFactory<AppDbContext> dbFactory, I
         // FR-VM-05: nickname defaults to supplier short name + plate.
         v.Nickname = string.IsNullOrWhiteSpace(f.Nickname) ? $"{supplierShortName} {v.VehicleNo}" : PartyRules.Tidy(f.Nickname);
         v.TankCapacityLitres = f.TankCapacityLitres;
-        v.BillingBasis = f.BillingBasis;
+        v.BillingBasis = BillingBasis.Trip;   // client change, Nov 2026: every vehicle is billed per trip
         v.TripCostPaise = Money.FromRupees(f.TripCost);
         v.RatePaise = Money.FromRupees(f.Rate);
         v.WaterDetails = PartyRules.TidyOrNull(f.WaterDetails);

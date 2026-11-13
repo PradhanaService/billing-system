@@ -6,7 +6,7 @@ public class Invoice
 {
     public long Id { get; set; }
     public long InvoiceNo { get; set; }              // gapless (FR-INV-01) = Sales voucher number
-    public string DisplayNo { get; set; } = "";      // "INV-7232"
+    public string DisplayNo { get; set; } = "";      // "7232" (numbers only; invoices saved before Nov 2026 show "INV-7232")
     public DateOnly InvoiceDate { get; set; }        // business date
 
     public long VehicleId { get; set; }

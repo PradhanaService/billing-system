@@ -6,12 +6,13 @@
 @inject TimeProvider Clock
 
 @* Receipt voucher: money received from a supplier or customer. While typing, the screen shows the
-   balance before and after, and which unpaid invoices the money will pay (oldest first).
+   balance before and after. The money still pays the unpaid invoices oldest first, behind the scenes
+   (the list of those invoices was taken off the screen at the client's request, Nov 2026).
    Bank and UPI need a reference number. A saved receipt is never edited: it is cancelled with a reason. *@
 
 <PageTitle>Receipt</PageTitle>
 
-<PageHeader IconName="download" Title="Receipt Voucher" Subtitle="Money received; pays the oldest invoices first." />
+<PageHeader IconName="download" Title="Receipt Voucher" Subtitle="Money received from a supplier or customer." />
 
 <PageMessage Text="@MessageText" Ok="@MessageOk" />
 
@@ -54,23 +55,6 @@
             Balance now: <BalanceText Paise="_balance" /> &nbsp;·&nbsp;
             After this receipt: <BalanceText Paise="@(_balance - AmountPaise)" />
         </p>
-        @if (_preview.Count > 0)
-        {
-            <table class="data">
-                <thead><tr><th>Pays invoice</th><th>Date</th><th>Vehicle</th><th class="num">Outstanding</th><th class="num">This receipt</th></tr></thead>
-                <tbody>
-                    @foreach (var a in _preview)
-                    {
-                        <tr><td>@a.InvoiceNo</td><td>@IndianTime.FormatDate(a.InvoiceDate)</td><td>@a.VehicleNo</td>
-                            <td class="num">@Money.Format(a.OutstandingBeforePaise)</td><td class="num">@Money.Format(a.AllocatedPaise)</td></tr>
-                    }
-                </tbody>
-            </table>
-        }
-        @if (AmountPaise - _preview.Sum(a => a.AllocatedPaise) is var rest && rest > 0)
-        {
-            <p class="muted">₹@Money.Format(rest) will stay unallocated (on account).</p>
-        }
     }
 
     <div class="form-actions">
@@ -130,7 +114,6 @@
     private ReceiptForm _form = new();
     private string _nextNo = "";
     private long _balance;
-    private IReadOnlyList<AllocationLine> _preview = [];
     private IReadOnlyList<ReceiptRow> _history = [];
     private DateOnly _from, _to;
     private string _filterMode = "", _filterStatus = "";
@@ -150,9 +133,8 @@
 
     private async Task RefreshAsync()
     {
-        if (_form.PartyId <= 0) { _balance = 0; _preview = []; return; }
+        if (_form.PartyId <= 0) { _balance = 0; return; }
         _balance = await Svc.PartyBalanceAsync(_form.PartyType, _form.PartyId);
-        _preview = AmountPaise > 0 ? await Svc.PreviewAllocationAsync(_form.PartyType, _form.PartyId, AmountPaise) : [];
     }
 
     private async Task LoadHistoryAsync() =>

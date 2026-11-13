@@ -22,10 +22,11 @@ public class BillingFixture : IDisposable
         Me = new FakeCurrentUser(Db.AddUser(UserRole.Admin));
         Svc = new TestServices(Db, Me);
         Supplier = Svc.Suppliers.CreateAsync(new SupplierForm { Name = "Sangeetha Water Supply", ShortName = "Sangeetha", Phone = "9876543210" }).Result.Value;
-        TripVehicle = Svc.Vehicles.CreateAsync(new VehicleForm { VehicleNo = "TN 38 M 3", SupplierId = Supplier, TankCapacityLitres = 12000, Rate = 150 }).Result.Value;
+        TripVehicle = Svc.Vehicles.CreateAsync(new VehicleForm { Code = "A1", VehicleNo = "TN 38 M 3", SupplierId = Supplier, TankCapacityLitres = 12000, Rate = 150 }).Result.Value;
         VolumeVehicle = Svc.Vehicles.CreateAsync(new VehicleForm
         {
-            VehicleNo = "TN 67 C", SupplierId = Supplier, TankCapacityLitres = 24000, Rate = 12.35m, BillingBasis = BillingBasis.Volume,
+            // Was billed by volume (10.5 kL x 12.35); every vehicle is billed per trip since Nov 2026.
+            Code = "A2", VehicleNo = "TN 67 C", SupplierId = Supplier, TankCapacityLitres = 24000, Rate = 129.68m,
         }).Result.Value;
         Customer = Svc.Customers.CreateAsync(new CustomerForm { Name = "Meena Constructions", Phone = "9000000001" }).Result.Value;
         Svc.SalesPersons.AddAsync(new WaterBilling.Services.Admin.SalesPersonForm { Name = "Ravi" }).Wait();

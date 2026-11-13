@@ -672,7 +672,7 @@ namespace WaterBilling.Data.Migrations
                         {
                             Code = "INVOICE",
                             NextNo = 1L,
-                            Prefix = "INV-"
+                            Prefix = ""
                         },
                         new
                         {

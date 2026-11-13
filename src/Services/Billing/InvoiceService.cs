@@ -27,9 +27,6 @@ public sealed class InvoiceForm
     [Range(1, 99, ErrorMessage = "Trip must be between 1 and 99.")]
     public int Trips { get; set; } = 1;
 
-    [Range(typeof(decimal), "0", "99999.9", ErrorMessage = "Volume must be between 0 and 99,999.9 kL.")]
-    public decimal VolumeKl { get; set; }
-
     [Rupees(AllowZero = false)] public decimal Rate { get; set; }
 
     [StringLength(200)] public string? RateReason { get; set; }
@@ -70,7 +67,6 @@ public class InvoiceService(IDbContextFactory<AppDbContext> dbFactory, ICurrentU
     {
         var me = await currentUser.RequireAsync(Permission.InvoiceCreate);
         if (FormValidator.FirstError(form) is { } error) return Result<long>.Fail(error);
-        if (form.VolumeKl * 10 != decimal.Truncate(form.VolumeKl * 10)) return Result<long>.Fail("Volume can have only one decimal place.");
 
         await using var db = await dbFactory.CreateDbContextAsync();
         await using var tx = await db.Database.BeginTransactionAsync();
@@ -98,10 +94,8 @@ public class InvoiceService(IDbContextFactory<AppDbContext> dbFactory, ICurrentU
             if (string.IsNullOrWhiteSpace(form.RateReason)) return Result<long>.Fail("Give a reason for changing the rate.");
         }
 
-        var volumeTenths = Volume.FromKilolitres(form.VolumeKl);
-        if (vehicle.BillingBasis == BillingBasis.Volume && volumeTenths <= 0)
-            return Result<long>.Fail("Enter the volume (kL) for this vehicle, which is billed by volume.");
-        var amount = InvoiceMath.Amount(vehicle.BillingBasis, form.Trips, volumeTenths, ratePaise);
+        // Client change, Nov 2026: every invoice is Trip x Rate (no volume billing).
+        var amount = InvoiceMath.Amount(form.Trips, ratePaise);
         if (amount <= 0) return Result<long>.Fail("The invoice amount must be above zero.");
 
         // Bill To: the vehicle's supplier, or a chosen active customer (FR-INV-08).
@@ -117,8 +111,7 @@ public class InvoiceService(IDbContextFactory<AppDbContext> dbFactory, ICurrentU
         long? supplierTag = form.BillToType == PartyType.Supplier ? vehicle.SupplierId : null;
         var partyAccount = SystemAccounts.ForParty(form.BillToType);
 
-        var qty = InvoiceMath.Quantity(vehicle.BillingBasis, form.Trips, volumeTenths);
-        var text = $"Water sales - {vehicle.VehicleNo} ({qty} {vehicle.UnitOfMeasure})";
+        var text = $"Water sales - {vehicle.VehicleNo} ({form.Trips} {(form.Trips == 1 ? "trip" : "trips")})";
         var lines = new List<LineDraft>
         {
             // P1: Dr party (tagged with vehicle), Cr Water Sales.
@@ -165,8 +158,8 @@ public class InvoiceService(IDbContextFactory<AppDbContext> dbFactory, ICurrentU
             CustomerId = customerId,
             PaymentMode = form.PaymentMode,
             Trips = form.Trips,
-            VolumeTenths = volumeTenths,
-            BillingBasis = vehicle.BillingBasis,
+            VolumeTenths = 0,
+            BillingBasis = BillingBasis.Trip,
             RatePaise = ratePaise,
             RateSource = overridden ? RateSource.Overridden : RateSource.Master,
             AmountPaise = amount,

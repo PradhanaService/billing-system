@@ -25,7 +25,6 @@ public static class MenuItems
         new("Transactions", "Payment",           "/payments",            Permission.PaymentCreate, "upload"),
 
         new("Accounts",     "Ledger Statement",  "/statements",          Permission.StatementsView, "book"),
-        new("Accounts",     "Day Sales",         "/day-sales",           Permission.DaySalesView, "calendar"),
         new("Accounts",     "Reports",           "/reports",             Permission.ReportsView, "chart"),
 
         // Admin only: the Sales login does not see these, and their addresses answer "Page not found".

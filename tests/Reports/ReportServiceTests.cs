@@ -24,10 +24,10 @@ public class ReportServiceTests : BillingFixture
     private async Task TradeAsync()
     {
         _kaveri = (await Svc.Suppliers.CreateAsync(new SupplierForm { Name = "Kaveri Tankers", ShortName = "Kaveri", Phone = "9123456780", OpeningBalance = 1000 })).Value;
-        _kaveriVehicle = (await Svc.Vehicles.CreateAsync(new VehicleForm { VehicleNo = "TN 01 AB 1234", SupplierId = _kaveri, TankCapacityLitres = 9000, Rate = 120 })).Value;
+        _kaveriVehicle = (await Svc.Vehicles.CreateAsync(new VehicleForm { Code = "A3", VehicleNo = "TN 01 AB 1234", SupplierId = _kaveri, TankCapacityLitres = 9000, Rate = 120 })).Value;
 
         await Svc.Invoices.CreateAsync(new InvoiceForm { SalesPersonId = Seller, VehicleId = TripVehicle, Rate = 150, PaymentMode = InvoicePaymentMode.Cash });   // 150 cash
-        await Svc.Invoices.CreateAsync(new InvoiceForm { SalesPersonId = Seller, VehicleId = VolumeVehicle, Rate = 12.35m, VolumeKl = 10 });                      // 123.50 credit
+        await Svc.Invoices.CreateAsync(new InvoiceForm { SalesPersonId = Seller, VehicleId = VolumeVehicle, Rate = 129.68m });                                    // 129.68 credit
         var wrong = (await Svc.Invoices.CreateAsync(new InvoiceForm { SalesPersonId = Seller, VehicleId = _kaveriVehicle, Rate = 120 })).Value;
         await Svc.Invoices.CancelAsync(wrong, "wrong vehicle", 1);
         Db.Clock.Advance(TimeSpan.FromDays(1));
@@ -54,7 +54,7 @@ public class ReportServiceTests : BillingFixture
         // Water Sales credits net of reversals, by value date in the period.
         var ledgerSales = -ctx.LedgerEntries.Where(e => e.AccountId == SystemAccounts.WaterSales && e.ValueDate >= Day1 && e.ValueDate <= Day2)
             .Sum(e => e.DebitPaise - e.CreditPaise);
-        Assert.Equal(66350, ledgerSales);
+        Assert.Equal(66968, ledgerSales);
         Assert.Equal(ledgerSales, Paise(daily.FooterRows[^1][^1]));
         Assert.Equal(ledgerSales, Paise(dateWise.FooterRows[0][^1]));
         Assert.Equal(ledgerSales, Paise(supplierWise.FooterRows[0][^1]));
@@ -67,7 +67,7 @@ public class ReportServiceTests : BillingFixture
         await TradeAsync();
         var table = await Build(ReportKind.DateWiseSales);
         Assert.Equal(["05/11/2026", "06/11/2026"], table.Rows.Select(r => r[0]));
-        Assert.Equal(["273.50", "390.00"], table.Rows.Select(r => r[5]));   // 150 + 123.50 ; 240 + 150
+        Assert.Equal(["279.68", "390.00"], table.Rows.Select(r => r[5]));   // 150 + 129.68 ; 240 + 150
     }
 
     [Fact]
@@ -79,9 +79,9 @@ public class ReportServiceTests : BillingFixture
         var table = await Build(ReportKind.VehicleOperational);
 
         Assert.Contains(table.Rows, r => r[0] == "Subtotal - Kaveri Tankers" && r[4] == "240.00" && r[5] == "100.00" && r[6] == "140.00");
-        Assert.Contains(table.Rows, r => r[0] == "Subtotal - Sangeetha Water Supply" && r[4] == "423.50");
-        Assert.Contains(table.Rows, r => r[1] == "TN 67 C" && r[2] == "10.0" && r[3] == "12.35/kL");
-        Assert.Equal(["Grand total", "", "10.0", "", "663.50", "350.00", "313.50"], table.FooterRows[0]);
+        Assert.Contains(table.Rows, r => r[0] == "Subtotal - Sangeetha Water Supply" && r[4] == "429.68");
+        Assert.Contains(table.Rows, r => r[1] == "TN 67 C" && r[2] == "1" && r[3] == "129.68/trip");
+        Assert.Equal(["Grand total", "", "5", "", "669.68", "350.00", "319.68"], table.FooterRows[0]);
     }
 
     [Fact]

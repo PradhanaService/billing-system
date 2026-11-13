@@ -157,10 +157,10 @@ public class LedgerMasterServiceTests : BillingFixture
 
         Me.User = Db.AddUser(UserRole.Admin);
         Assert.True((await Svc.Ledgers.SetSeriesStartAsync("INVOICE", 7232)).Ok);
-        Assert.Equal("INV-7232", await Svc.Invoices.PeekNextNumberAsync());
+        Assert.Equal("7232", await Svc.Invoices.PeekNextNumberAsync());
 
         await Svc.Invoices.CreateAsync(new WaterBilling.Services.Billing.InvoiceForm { SalesPersonId = Seller, VehicleId = TripVehicle, Rate = 150 });
         Assert.False((await Svc.Ledgers.SetSeriesStartAsync("INVOICE", 1)).Ok);
-        Assert.Equal("INV-7233", await Svc.Invoices.PeekNextNumberAsync());
+        Assert.Equal("7233", await Svc.Invoices.PeekNextNumberAsync());
     }
 }

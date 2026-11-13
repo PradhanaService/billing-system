@@ -266,7 +266,7 @@ public class AppDbContext : DbContext
             e.Property(n => n.Prefix).HasMaxLength(6).IsRequired();
             e.ToTable(t => t.HasCheckConstraint("CK_NumberSeries_NextNo", "NextNo >= 1"));
             e.HasData(
-                new NumberSeries { Code = "INVOICE", Prefix = "INV-", NextNo = 1 },
+                new NumberSeries { Code = "INVOICE", Prefix = "", NextNo = 1 },   // numbers only (client change, Nov 2026)
                 new NumberSeries { Code = "RECEIPT", Prefix = "RV-", NextNo = 1 },
                 new NumberSeries { Code = "PAYMENT", Prefix = "PV-", NextNo = 1 },
                 new NumberSeries { Code = "JOURNAL", Prefix = "JV-", NextNo = 1 },

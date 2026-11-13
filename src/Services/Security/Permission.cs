@@ -9,7 +9,7 @@ public enum Permission
     DashboardView,
     MastersView,
     MastersEdit,
-    VehicleCodeOverride, // type a vehicle code instead of the proposed one (Admin)
+    VehicleCodeOverride, // no longer used: every user types the vehicle code (client change, Nov 2026)
     InvoiceView,
     InvoiceCreate,
     InvoiceCancel,
