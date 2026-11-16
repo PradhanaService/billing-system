@@ -5,14 +5,18 @@
 @inject ReceiptService Svc
 @inject TimeProvider Clock
 
-@* Receipt voucher: money received from a supplier or customer. While typing, the screen shows the
-   balance before and after. The money still pays the unpaid invoices oldest first, behind the scenes
-   (the list of those invoices was taken off the screen at the client's request, Nov 2026).
-   Bank and UPI need a reference number. A saved receipt is never edited: it is cancelled with a reason. *@
+@* Receipt voucher: money received from a supplier or customer. The money pays the unpaid invoices
+   oldest first, behind the scenes. Client changes (Nov 2026): no Reference No. box and no balance line
+   on this screen; the history opens in a pop-up from the "Receipt History" button.
+   Note: the server still requires a Reference No. for Bank and UPI receipts (FR-TXN-03), so with the box
+   removed only Cash receipts can be saved until that rule is changed. A saved receipt is never edited:
+   it is cancelled with a reason, from the history pop-up. *@
 
 <PageTitle>Receipt</PageTitle>
 
-<PageHeader IconName="download" Title="Receipt Voucher" Subtitle="Money received from a supplier or customer." />
+<PageHeader IconName="download" Title="Receipt Voucher" Subtitle="Money received from a supplier or customer.">
+    <button class="btn" @onclick="OpenHistoryAsync"><Icon Name="table" Size="18" /> Receipt History</button>
+</PageHeader>
 
 <PageMessage Text="@MessageText" Ok="@MessageOk" />
 
@@ -23,7 +27,7 @@
             <input value="@_nextNo" readonly />
             <small>Expected. Assigned when you save.</small>
         </div>
-        <PartyPicker Id="rcp" @bind-Type="_form.PartyType" @bind-PartyId="_form.PartyId" OnPicked="RefreshAsync" />
+        <PartyPicker Id="rcp" @bind-Type="_form.PartyType" @bind-PartyId="_form.PartyId" />
         <div class="field">
             <label for="mode">Mode of Receipt*</label>
             <select id="mode" @bind="_form.Mode">
@@ -37,11 +41,7 @@
         </div>
         <div class="field">
             <label for="amount">Amount (₹)*</label>
-            <input id="amount" type="number" min="0" step="0.01" @bind="_form.Amount" @bind:event="oninput" @bind:after="RefreshAsync" />
-        </div>
-        <div class="field">
-            <label for="ref">Reference No@(_form.Mode != PaymentMode.Cash ? "*" : "")</label>
-            <input id="ref" @bind="_form.ReferenceNo" maxlength="40" />
+            <input id="amount" type="number" min="0" step="0.01" @bind="_form.Amount" />
         </div>
     </div>
     <div class="field">
@@ -49,78 +49,92 @@
         <input id="narr" @bind="_form.Narration" maxlength="300" />
     </div>
 
-    @if (_form.PartyId > 0)
-    {
-        <p>
-            Balance now: <BalanceText Paise="_balance" /> &nbsp;·&nbsp;
-            After this receipt: <BalanceText Paise="@(_balance - AmountPaise)" />
-        </p>
-    }
-
     <div class="form-actions">
         <button class="btn btn-primary" @onclick="SaveAsync" disabled="@Busy">Save receipt</button>
     </div>
 </div>
 
-<h2>Receipt History</h2>
-<div class="toolbar">
-    <div class="field"><label for="from">From</label><input id="from" type="date" @bind="_from" @bind:after="LoadHistoryAsync" /></div>
-    <div class="field"><label for="to">To</label><input id="to" type="date" @bind="_to" @bind:after="LoadHistoryAsync" /></div>
-    <div class="field">
-        <label for="fmode">Mode</label>
-        <select id="fmode" @bind="_filterMode" @bind:after="LoadHistoryAsync">
-            <option value="">All</option>
-            <option value="Cash">Cash</option><option value="Bank">Bank</option><option value="Upi">UPI</option>
-        </select>
+@* ---------- Receipt History pop-up ---------- *@
+<Modal Open="_historyOpen" Title="Receipt History" Wide ShowClose OnClose="() => _historyOpen = false">
+    <PageMessage Text="@_historyMessage" Ok="@_historyMessageOk" />
+    <div class="toolbar">
+        <div class="field"><label for="from">From</label><input id="from" type="date" @bind="_from" @bind:after="LoadHistoryAsync" /></div>
+        <div class="field"><label for="to">To</label><input id="to" type="date" @bind="_to" @bind:after="LoadHistoryAsync" /></div>
+        <div class="field">
+            <label for="fmode">Mode</label>
+            <select id="fmode" @bind="_filterMode" @bind:after="LoadHistoryAsync">
+                <option value="">All</option>
+                <option value="Cash">Cash</option><option value="Bank">Bank</option><option value="Upi">UPI</option>
+            </select>
+        </div>
+        <div class="field">
+            <label for="fstatus">Status</label>
+            <select id="fstatus" @bind="_filterStatus" @bind:after="LoadHistoryAsync">
+                <option value="">All</option><option value="Posted">Posted</option><option value="Cancelled">Cancelled</option>
+            </select>
+        </div>
     </div>
-    <div class="field">
-        <label for="fstatus">Status</label>
-        <select id="fstatus" @bind="_filterStatus" @bind:after="LoadHistoryAsync">
-            <option value="">All</option><option value="Posted">Posted</option><option value="Cancelled">Cancelled</option>
-        </select>
-    </div>
-</div>
 
-<table class="data">
-    <thead><tr><th>Receipt</th><th>Date</th><th>Party</th><th>Mode</th><th>Reference</th><th class="num">Amount</th><th class="num">Allocated</th><th>Status</th><th></th></tr></thead>
-    <tbody>
-        @foreach (var r in _history)
-        {
-            <tr class="@(r.Status == VoucherStatus.Cancelled ? "muted" : "")">
-                <td>@r.DisplayNo</td><td>@IndianTime.FormatDate(r.Date)</td><td>@r.PartyName</td><td>@r.Mode</td><td>@r.ReferenceNo</td>
-                <td class="num">@Money.Format(r.AmountPaise)</td><td class="num">@Money.Format(r.AllocatedPaise)</td>
-                <td>@r.Status @if (r.CancelReason is not null) { <small>(@r.CancelReason)</small> }</td>
-                <td>
-                    @if (r.Status == VoucherStatus.Posted && Can(Permission.ReceiptCancel))
+    <div class="table-scroll">
+        <table class="data">
+            <thead><tr><th>Receipt</th><th>Date</th><th>Party</th><th>Mode</th><th>Reference</th><th class="num">Amount</th><th class="num">Allocated</th><th>Status</th><th></th></tr></thead>
+            <tbody>
+                @if (_historyLoading)
+                {
+                    <tr><td colspan="9" class="muted">Loading receipts…</td></tr>
+                }
+                else if (_historyError is not null)
+                {
+                    <tr><td colspan="9"><div class="alert alert-error" role="alert" style="margin: 0">@_historyError</div></td></tr>
+                }
+                else if (_history.Count == 0)
+                {
+                    <tr><td colspan="9" class="muted">No receipts yet in this period.</td></tr>
+                }
+                else
+                {
+                    @foreach (var r in _history)
                     {
-                        @if (_cancelId == r.VoucherId)
-                        {
-                            <input placeholder="Reason" @bind="_cancelReason" />
-                            <button class="btn btn-small btn-danger" @onclick="() => CancelAsync(r)">Confirm cancel</button>
-                        }
-                        else
-                        {
-                            <button class="btn btn-small btn-danger" @onclick="() => { _cancelId = r.VoucherId; _cancelReason = string.Empty; }">Cancel</button>
-                        }
+                        <tr class="@(r.Status == VoucherStatus.Cancelled ? "muted" : "")">
+                            <td>@r.DisplayNo</td><td class="nowrap">@IndianTime.FormatDate(r.Date)</td><td>@r.PartyName</td><td>@r.Mode</td><td>@r.ReferenceNo</td>
+                            <td class="num">@Money.Format(r.AmountPaise)</td><td class="num">@Money.Format(r.AllocatedPaise)</td>
+                            <td>@r.Status @if (r.CancelReason is not null) { <small>(@r.CancelReason)</small> }</td>
+                            <td class="nowrap">
+                                @if (r.Status == VoucherStatus.Posted && Can(Permission.ReceiptCancel))
+                                {
+                                    @if (_cancelId == r.VoucherId)
+                                    {
+                                        <input placeholder="Reason" aria-label="Reason for cancelling" @bind="_cancelReason" />
+                                        <button class="btn btn-small btn-danger" @onclick="() => CancelAsync(r)">Confirm cancel</button>
+                                    }
+                                    else
+                                    {
+                                        <button class="btn btn-small btn-danger" @onclick="() => { _cancelId = r.VoucherId; _cancelReason = string.Empty; }">Cancel</button>
+                                    }
+                                }
+                            </td>
+                        </tr>
                     }
-                </td>
-            </tr>
-        }
-        @if (_history.Count == 0) { <tr><td colspan="9" class="muted">No receipts in this period.</td></tr> }
-    </tbody>
-</table>
+                }
+            </tbody>
+        </table>
+    </div>
+</Modal>
 
 @code {
     private ReceiptForm _form = new();
     private string _nextNo = "";
-    private long _balance;
+
+    private bool _historyOpen;
+    private bool _historyLoading;
+    private string? _historyError;
+    private string? _historyMessage;
+    private bool _historyMessageOk;
     private IReadOnlyList<ReceiptRow> _history = [];
     private DateOnly _from, _to;
     private string _filterMode = "", _filterStatus = "";
     private long? _cancelId;
     private string _cancelReason = "";
-
-    private long AmountPaise => _form.Amount > 0 ? Money.RoundHalfUp(_form.Amount) : 0;
 
     protected override async Task OnUserReadyAsync()
     {
@@ -128,19 +142,34 @@
         _from = today.AddDays(-30);
         _to = today.AddDays(1);
         _nextNo = await Svc.PeekNextNumberAsync();
+    }
+
+    // "Receipt History" button: open the pop-up and load the list.
+    private async Task OpenHistoryAsync()
+    {
+        _historyOpen = true;
+        _historyMessage = null;
+        _cancelId = null;
         await LoadHistoryAsync();
     }
 
-    private async Task RefreshAsync()
+    private async Task LoadHistoryAsync()
     {
-        if (_form.PartyId <= 0) { _balance = 0; return; }
-        _balance = await Svc.PartyBalanceAsync(_form.PartyType, _form.PartyId);
+        _historyLoading = true;
+        _historyError = null;
+        try
+        {
+            _history = await Svc.HistoryAsync(new ReceiptFilter(_from, _to,
+                Mode: _filterMode == "" ? null : Enum.Parse<PaymentMode>(_filterMode),
+                Status: _filterStatus == "" ? null : Enum.Parse<VoucherStatus>(_filterStatus)));
+        }
+        catch (Exception)
+        {
+            _history = [];
+            _historyError = "The receipts could not be loaded. Please try again.";
+        }
+        finally { _historyLoading = false; }
     }
-
-    private async Task LoadHistoryAsync() =>
-        _history = await Svc.HistoryAsync(new ReceiptFilter(_from, _to,
-            Mode: _filterMode == "" ? null : Enum.Parse<PaymentMode>(_filterMode),
-            Status: _filterStatus == "" ? null : Enum.Parse<VoucherStatus>(_filterStatus)));
 
     private async Task SaveAsync()
     {
@@ -154,8 +183,6 @@
                 ShowOk($"Receipt {_nextNo} saved.");
                 _form = new ReceiptForm { PartyType = _form.PartyType, PartyId = _form.PartyId };
                 _nextNo = await Svc.PeekNextNumberAsync();
-                await RefreshAsync();
-                await LoadHistoryAsync();
             }
             else ShowError(result.Error!);
         }
@@ -165,9 +192,9 @@
     private async Task CancelAsync(ReceiptRow r)
     {
         var result = await Svc.CancelAsync(r.VoucherId, _cancelReason, r.Version);
-        Show(result, $"Receipt {r.DisplayNo} cancelled.");
+        _historyMessageOk = result.Ok;
+        _historyMessage = result.Ok ? $"Receipt {r.DisplayNo} cancelled." : result.Error;
         _cancelId = null;
         await LoadHistoryAsync();
-        await RefreshAsync();
     }
 }

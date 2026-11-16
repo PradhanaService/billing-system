@@ -174,6 +174,10 @@ table.data tr.muted td { color: var(--muted); }
     padding: 1.4rem 1.5rem; background: var(--paper); border-radius: var(--radius); box-shadow: var(--shadow-lg);
 }
 .modal-narrow { width: min(460px, calc(100vw - 32px)); }
+.modal-wide { width: min(1120px, calc(100vw - 32px)); }
+.modal-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; }
+.modal-head h2 { margin: 0 0 1rem; }
+.table-scroll { overflow-x: auto; }
 .modal h2 { margin: 0 0 1rem; font-size: 1.15rem; }
 .modal:focus { outline: none; }
 .modal .form-actions { justify-content: flex-end; margin-top: 1rem; }

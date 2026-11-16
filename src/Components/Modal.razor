@@ -6,9 +6,19 @@
 @if (Open)
 {
     <div class="modal-backdrop" @onclick="CloseAsync"></div>
-    <div class="modal @(Narrow ? "modal-narrow" : "")" role="dialog" aria-modal="true" aria-labelledby="@_titleId"
+    <div class="modal @(Narrow ? "modal-narrow" : "") @(Wide ? "modal-wide" : "")" role="dialog" aria-modal="true" aria-labelledby="@_titleId"
          tabindex="-1" @ref="_panel" @onkeydown="OnKeyDownAsync">
-        <h2 id="@_titleId">@Title</h2>
+        @if (ShowClose)
+        {
+            <div class="modal-head">
+                <h2 id="@_titleId">@Title</h2>
+                <button type="button" class="btn btn-small" aria-label="Close" @onclick="CloseAsync"><Icon Name="x" Size="16" /> Close</button>
+            </div>
+        }
+        else
+        {
+            <h2 id="@_titleId">@Title</h2>
+        }
         @ChildContent
     </div>
 }
@@ -17,6 +27,8 @@
     [Parameter] public bool Open { get; set; }
     [Parameter, EditorRequired] public string Title { get; set; } = "";
     [Parameter] public bool Narrow { get; set; }                   // smaller window, e.g. a confirm question
+    [Parameter] public bool Wide { get; set; }                     // larger window, e.g. a history list
+    [Parameter] public bool ShowClose { get; set; }                // a Close button in the title row
     [Parameter] public EventCallback OnClose { get; set; }         // Esc, click outside (the page clears its form here)
     [Parameter] public RenderFragment? ChildContent { get; set; }
 
