@@ -165,3 +165,17 @@ table.data tr.muted td { color: var(--muted); }
 /* Confirm step of a Delete, with the "Deleted by" choice (Components/DeleteConfirm.razor). */
 .delete-confirm { display: inline-flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; margin-left: 0.4rem; }
 .delete-confirm label { font-weight: 600; font-size: 0.85rem; }
+
+/* Pop-up window (Components/Modal.razor): dimmed page behind, window in the middle. */
+.modal-backdrop { position: fixed; inset: 0; z-index: 100; background: rgba(27, 38, 44, 0.45); }
+.modal {
+    position: fixed; z-index: 101; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    width: min(720px, calc(100vw - 32px)); max-height: calc(100vh - 48px); overflow: auto; box-sizing: border-box;
+    padding: 1.4rem 1.5rem; background: var(--paper); border-radius: var(--radius); box-shadow: var(--shadow-lg);
+}
+.modal-narrow { width: min(460px, calc(100vw - 32px)); }
+.modal h2 { margin: 0 0 1rem; font-size: 1.15rem; }
+.modal:focus { outline: none; }
+.modal .form-actions { justify-content: flex-end; margin-top: 1rem; }
+.btn-danger-solid { background: var(--danger); border-color: var(--danger); color: var(--paper); }
+.btn-danger-solid:hover { background: #8a0019; border-color: #8a0019; }
