@@ -1,0 +1,201 @@
+@page "/invoices/{Id:long}/edit"
+@attribute [Authorize(Policy = nameof(Permission.InvoiceCancel))]
+@inherits UserContextBase
+@using WaterBilling.Services.Billing
+@inject InvoiceService Svc
+@inject WaterBilling.Services.Admin.SalesPersonService SalesPersons
+@inject NavigationManager Nav
+
+@* Edit invoice (final design, Nov 2026). Opened from Invoice Display (after "Which salesperson is
+   editing?") or from the Sales Invoice toolbar (the question is asked here).
+   Only Capacity, Rate, In Time and Out Time can be changed; the amount updates from them.
+   Saving keeps the ledger permanent: the old invoice is cancelled with a reversal and a corrected copy
+   is issued with the next number (receipts move to the copy). The change, who made it and the old and
+   new values are written to the Activity Log. *@
+
+<PageTitle>Edit invoice @_inv?.DisplayNo</PageTitle>
+
+@if (_inv is null)
+{
+    <PageHeader IconName="edit" Title="Edit invoice" Subtitle="">
+        <a class="btn" href="/invoices"><Icon Name="chevron-left" Size="18" /> Back to Invoice Display</a>
+    </PageHeader>
+    <div class="alert alert-error" role="alert">@(_loaded ? "Invoice not found." : "Loading…")</div>
+}
+else
+{
+    <PageHeader IconName="edit" Title="@($"Edit invoice {_inv.DisplayNo}")" Subtitle="@($"{_inv.SupplierName} · created {IndianTime.FormatDateTime(_inv.CreatedAtUtc)} by {_inv.CreatedBy}")">
+        <a class="btn" href="/invoices"><Icon Name="chevron-left" Size="18" /> Back to Invoice Display</a>
+    </PageHeader>
+
+    <PageMessage Text="@MessageText" Ok="@MessageOk" />
+
+    @if (_inv.Status == InvoiceStatus.Cancelled)
+    {
+        <div class="alert alert-warn">Invoice @_inv.DisplayNo is cancelled@(_inv.ReplacedByNo is { } n ? $" (corrected copy: {n})" : "") and cannot be edited.</div>
+    }
+    else
+    {
+        <div class="alert edit-banner"><Icon Name="user" Size="18" />
+            <span>Editing as <b>@EditorName</b>@(IsAdmin ? " (Admin)" : " (Sales person)"). Only <b>Capacity</b>, <b>Rate</b>, <b>In Time</b> and <b>Out Time</b> can be changed; the amount updates from them. Saving issues a corrected copy with a new number and keeps @_inv.DisplayNo as Cancelled.</span>
+        </div>
+
+        <section class="card edit-sec">
+            <h2><span class="sec-no">1</span> Invoice</h2>
+            <div class="grid3">
+                <div class="field"><label>Invoice No.</label><input value="@_inv.DisplayNo" readonly /></div>
+                <div class="field"><label>Invoice Date</label><input value="@IndianTime.FormatDate(_inv.InvoiceDate)" readonly /></div>
+                <div class="field"><label>Payment Mode</label><input value="@_inv.PaymentMode" readonly /></div>
+            </div>
+        </section>
+
+        <section class="card edit-sec">
+            <h2><span class="sec-no">2</span> Vehicle</h2>
+            <div class="grid3">
+                <div class="field"><label>Vehicle Code</label><input value="@_inv.VehicleCode" readonly /><small>Cannot be changed here.</small></div>
+                <div class="field"><label>Vehicle No.</label><input value="@_inv.VehicleNo" readonly /></div>
+                <div class="field"><label>Vehicle Name</label><input value="@_inv.VehicleName" readonly /></div>
+                <div class="field"><label>Supplier</label><input value="@_inv.SupplierName" readonly /></div>
+                <div class="field editable">
+                    <label for="ecap">Capacity (L)*</label>
+                    <input id="ecap" type="number" min="1" @bind="_rev.CapacityLitres" @bind:event="oninput" />
+                    <small><Icon Name="edit" Size="13" /> Editable</small>
+                </div>
+                <div class="field editable">
+                    <label for="erate">Rate (₹/Trip)*</label>
+                    <input id="erate" type="number" min="0" step="0.01" @bind="_rev.Rate" @bind:event="oninput" />
+                    <small><Icon Name="edit" Size="13" /> Editable</small>
+                </div>
+            </div>
+        </section>
+
+        <section class="card edit-sec">
+            <h2><span class="sec-no">3</span> Trip timing</h2>
+            <div class="grid3">
+                <div class="field editable">
+                    <label for="eindate">In Time*</label>
+                    <span class="date-time"><input id="eindate" type="date" @bind="_rev.InDate" /><input id="eintime" class="time-input" placeholder="hh:mm AM" @bind="_rev.InTime" /></span>
+                    <small>Editable: pick the date, type the time.</small>
+                </div>
+                <div class="field editable">
+                    <label for="eoutdate">Out Time*</label>
+                    <span class="date-time"><input id="eoutdate" type="date" @bind="_rev.OutDate" /><input id="eouttime" class="time-input" placeholder="hh:mm AM" @bind="_rev.OutTime" /></span>
+                    <small>Editable: pick the date, type the time.</small>
+                </div>
+            </div>
+        </section>
+
+        <section class="card edit-sec">
+            <h2><span class="sec-no">4</span> Amount</h2>
+            <table class="data">
+                <thead><tr><th>S.No</th><th>Material</th><th class="num">Capacity (L)</th><th>Measurement</th><th class="num">Rate (₹)</th><th class="num">Total Amount (₹)</th></tr></thead>
+                <tbody><tr><td>1</td><td>@_inv.VehicleName</td><td class="num">@_rev.CapacityLitres.ToString("N0", System.Globalization.CultureInfo.GetCultureInfo("en-IN"))</td><td>TRIP</td><td class="num">@RateText</td><td class="num">@AmountText</td></tr></tbody>
+                <tfoot><tr><td colspan="5" class="num">Total</td><td class="num">@AmountText</td></tr></tfoot>
+            </table>
+            @if (_inv.AllocatedPaise > 0 && _inv.PaymentMode == InvoicePaymentMode.Credit)
+            {
+                <p class="muted" style="margin: 0.75rem 0 0">₹@Money.Format(_inv.AllocatedPaise) already received against this invoice moves to the corrected copy.</p>
+            }
+        </section>
+
+        <div class="form-actions edit-actions">
+            <a class="btn" href="/invoices">Cancel</a>
+            <button class="btn btn-primary" @onclick="SaveAsync" disabled="@(Busy || !CanSave)">Save</button>
+        </div>
+    }
+}
+
+@* ---------- Which salesperson is editing? (Sales login, when not chosen yet) ---------- *@
+<Modal Open="@(_askWho)" Title="Which salesperson is editing?" Narrow OnClose="BackToList">
+    <p style="margin-top: 0">You are about to edit invoice <b>@_inv?.DisplayNo</b>. Choose who is making the change.</p>
+    <div class="field">
+        <label for="ewho2">Salesperson*</label>
+        <select id="ewho2" @bind="_pick">
+            <option value="">Choose your name</option>
+            @foreach (var p in _people) { <option value="@p.Id">@p.Name</option> }
+        </select>
+        <small>Names from the Sales Persons list. The name is recorded with the change.</small>
+    </div>
+    <div class="form-actions">
+        <a class="btn" href="/invoices">Cancel</a>
+        <button type="button" class="btn btn-primary" disabled="@(_pick is null)" @onclick="ChooseEditor">Continue</button>
+    </div>
+</Modal>
+
+@code {
+    [Parameter] public long Id { get; set; }
+    [SupplyParameterFromQuery(Name = "by")] public long? By { get; set; }
+
+    private InvoiceDetail? _inv;
+    private InvoiceRevision _rev = new();
+    private bool _loaded;
+    private bool _askWho;
+    private long? _pick;
+    private IReadOnlyList<(long Id, string Name)> _people = [];
+
+    private bool IsAdmin => Me?.Role == UserRole.Admin;
+    private string EditorName => IsAdmin ? "Admin" : _people.FirstOrDefault(p => p.Id == _rev.EditedBySalesPersonId).Name ?? "?";
+    private bool CanSave => IsAdmin || _rev.EditedBySalesPersonId is not null;
+    private string RateText => _rev.Rate > 0 ? Money.Format(Money.RoundHalfUp(_rev.Rate)) : "-";
+    private string AmountText
+    {
+        get
+        {
+            try { return _inv is null || _rev.Rate <= 0 ? "-" : Money.Format(InvoiceMath.Amount(_inv.Trips, Money.RoundHalfUp(_rev.Rate))); }
+            catch (Exception) { return "-"; }   // half-typed input
+        }
+    }
+
+    protected override async Task OnUserReadyAsync()
+    {
+        _inv = await Svc.GetAsync(Id);
+        _loaded = true;
+        if (_inv is null) return;
+        _people = IsAdmin ? [] : await SalesPersons.ListActiveAsync();
+        Fill();
+        if (!IsAdmin && _inv.Status != InvoiceStatus.Cancelled)
+        {
+            if (By is { } by && _people.Any(p => p.Id == by)) _rev.EditedBySalesPersonId = by;
+            else _askWho = true;
+        }
+    }
+
+    private void Fill()
+    {
+        var who = _rev.EditedBySalesPersonId;
+        _rev = new InvoiceRevision
+        {
+            EditedBySalesPersonId = who,
+            CapacityLitres = _inv!.CapacityLitres,
+            Rate = Money.ToRupees(_inv.RatePaise),
+            InDate = _inv.InTimeUtc is { } a ? DateOnly.FromDateTime(IndianTime.ToIst(a)) : _inv.InvoiceDate,
+            InTime = _inv.InTimeUtc is { } a2 ? IndianTime.FormatTime(a2) : null,
+            OutDate = _inv.OutTimeUtc is { } b ? DateOnly.FromDateTime(IndianTime.ToIst(b)) : _inv.InvoiceDate,
+            OutTime = _inv.OutTimeUtc is { } b2 ? IndianTime.FormatTime(b2) : null,
+            Version = _inv.Version,
+        };
+    }
+
+    private void BackToList() => Nav.NavigateTo("/invoices");
+
+    private void ChooseEditor()
+    {
+        _rev.EditedBySalesPersonId = _pick;
+        _askWho = false;
+    }
+
+    private async Task SaveAsync()
+    {
+        if (Busy || _inv is null) return;   // a click that arrives while saving does nothing (NFR-CON-06)
+        Busy = true;
+        try
+        {
+            var result = await Svc.ReviseAsync(Id, _rev);
+            if (!result.Ok) { ShowError(result.Error!); return; }
+            var copy = await Svc.GetAsync(result.Value);
+            ShowOk($"Saved. Invoice {_inv.DisplayNo} is now cancelled and its corrected copy is invoice {copy?.DisplayNo} (₹{Money.Format(copy?.AmountPaise ?? 0)}).");
+            _inv = await Svc.GetAsync(Id);
+        }
+        finally { Busy = false; }
+    }
+}

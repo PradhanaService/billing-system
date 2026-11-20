@@ -105,6 +105,7 @@ builder.Services.AddScoped<WaterBilling.Services.Masters.SupplierService>();
 builder.Services.AddScoped<WaterBilling.Services.Masters.CustomerService>();
 builder.Services.AddScoped<WaterBilling.Services.Masters.VehicleService>();
 builder.Services.AddScoped<WaterBilling.Services.Billing.InvoiceService>();
+builder.Services.AddScoped<WaterBilling.Services.Billing.InvoiceSearchService>();
 builder.Services.AddScoped<WaterBilling.Services.Accounts.ReceiptService>();
 builder.Services.AddScoped<WaterBilling.Services.Accounts.PaymentService>();
 builder.Services.AddScoped<WaterBilling.Services.Accounts.LedgerMasterService>();

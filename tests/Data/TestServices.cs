@@ -14,6 +14,7 @@ public sealed class TestServices(TestDatabase db, FakeCurrentUser me)
     public CustomerService Customers => new(db, me, db.Clock, Poster);
     public VehicleService Vehicles => new(db, me, db.Clock);
     public InvoiceService Invoices => new(db, me, db.Clock, Poster, Calendar);
+    public InvoiceSearchService InvoiceSearch => new(db, me);
     public ReceiptService Receipts => new(db, me, db.Clock, Poster);
     public PaymentService Payments => new(db, me, db.Clock, Poster);
     public LedgerMasterService Ledgers => new(db, me, db.Clock);

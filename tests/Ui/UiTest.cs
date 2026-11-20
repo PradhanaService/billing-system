@@ -37,6 +37,7 @@ public abstract class UiTest : TestContext
         Services.AddTransient<CustomerService>();
         Services.AddTransient<VehicleService>();
         Services.AddTransient<InvoiceService>();
+        Services.AddTransient<InvoiceSearchService>();
         Services.AddTransient<ReceiptService>();
         Services.AddTransient<PaymentService>();
         Services.AddTransient<LedgerMasterService>();

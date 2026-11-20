@@ -31,6 +31,14 @@ else
         @if (Can(Permission.InvoiceCreate)) { <a class="btn" href="/invoices/new">New invoice</a> }
     </div>
 
+    @if (_inv.ReplacedByNo is not null)
+    {
+        <div class="alert alert-warn">This invoice was edited: the corrected copy is invoice <b>@_inv.ReplacedByNo</b>.</div>
+    }
+    @if (_inv.ReplacesNo is not null)
+    {
+        <div class="alert alert-ok">Corrected copy of invoice <b>@_inv.ReplacesNo</b> (edited).</div>
+    }
     @if (_inv.Status == InvoiceStatus.Cancelled)
     {
         <div class="alert alert-warn">Cancelled on @IndianTime.FormatDateTime(_inv.CancelledAtUtc!.Value): @_inv.CancelReason (reversal @_inv.ReversalNo)</div>
@@ -43,6 +51,8 @@ else
                 <tr><th>Vehicle</th><td>@_inv.VehicleCode / @_inv.VehicleNo (@_inv.VehicleName)</td><th>Supplier</th><td>@_inv.SupplierName</td></tr>
                 <tr><th>Bill To</th><td>@_inv.BillToName (@_inv.BillToType)</td><th>Created by</th><td>@_inv.CreatedBy, @IndianTime.FormatDateTime(_inv.CreatedAtUtc)</td></tr>
                 <tr><th>Rate source</th><td>@(_inv.RateSource == RateSource.Master ? "Vehicle Master" : "Changed at billing")</td><th>Paid so far</th><td>₹@Money.Format(_inv.AllocatedPaise)</td></tr>
+                <tr><th>Capacity</th><td>@(_inv.CapacityLitres > 0 ? _inv.CapacityLitres.ToString("N0", System.Globalization.CultureInfo.GetCultureInfo("en-IN")) + " L" : "-")</td>
+                    <th>Trip time</th><td>@(_inv.InTimeUtc is { } a ? IndianTime.FormatDateTime(a) : "-") to @(_inv.OutTimeUtc is { } b ? IndianTime.FormatDateTime(b) : "-")</td></tr>
                 @if (_inv.Narration is not null) { <tr><th>Narration</th><td colspan="3">@_inv.Narration</td></tr> }
             </tbody>
         </table>
