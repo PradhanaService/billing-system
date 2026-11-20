@@ -2,19 +2,21 @@
 @attribute [Authorize(Policy = nameof(Permission.ReceiptCreate))]
 @inherits UserContextBase
 @using WaterBilling.Services.Accounts
+@using WaterBilling.Services.Masters
 @inject ReceiptService Svc
+@inject SupplierService Suppliers
 @inject TimeProvider Clock
 
-@* Receipt voucher: money received from a supplier or customer. The money pays the unpaid invoices
-   oldest first, behind the scenes. Client changes (Nov 2026): no Reference No. box and no balance line
-   on this screen; the history opens in a pop-up from the "Receipt History" button.
-   Note: the server still requires a Reference No. for Bank and UPI receipts (FR-TXN-03), so with the box
-   removed only Cash receipts can be saved until that rule is changed. A saved receipt is never edited:
-   it is cancelled with a reason, from the history pop-up. *@
+@* Receipt (final design, Nov 2026): money received from a supplier, set against the supplier's
+   pending invoices. The user ticks one or more invoices in "Pending invoices" (a supplier often pays
+   several at once); the Amount is their total and cannot be typed over. A supplier with nothing
+   pending can still pay an advance: then the amount is typed and kept on account.
+   No Reference No. box (client decision). A saved receipt is never edited: it is cancelled with a
+   reason, from the Receipt History pop-up, which also shows which invoices each receipt paid. *@
 
 <PageTitle>Receipt</PageTitle>
 
-<PageHeader IconName="download" Title="Receipt Voucher" Subtitle="Money received from a supplier or customer.">
+<PageHeader IconName="download" Title="Receipt" Subtitle="Money received from a supplier.">
     <button class="btn" @onclick="OpenHistoryAsync"><Icon Name="table" Size="18" /> Receipt History</button>
 </PageHeader>
 
@@ -23,34 +25,118 @@
 <div class="card">
     <div class="form-grid">
         <div class="field">
-            <label>Receipt No.</label>
-            <input value="@_nextNo" readonly />
+            <label for="rno">Receipt No.</label>
+            <input id="rno" value="@VoucherNumbers.Plain(_nextNo)" readonly />
             <small>Expected. Assigned when you save.</small>
         </div>
-        <PartyPicker Id="rcp" @bind-Type="_form.PartyType" @bind-PartyId="_form.PartyId" />
         <div class="field">
-            <label for="mode">Mode of Receipt*</label>
-            <select id="mode" @bind="_form.Mode">
-                <option value="@PaymentMode.Cash">Cash</option>
-                @if (Can(Permission.ReceiptBankUpi))
-                {
-                    <option value="@PaymentMode.Bank">Bank</option>
-                    <option value="@PaymentMode.Upi">UPI</option>
-                }
+            <label for="rdate">Date</label>
+            <input id="rdate" value="@IndianTime.FormatDate(_today)" readonly />
+        </div>
+        <div class="field">
+            <label for="rsup">Supplier*</label>
+            <select id="rsup" @bind="_supplierId" @bind:after="OnSupplierChangedAsync">
+                <option value="0">Choose supplier</option>
+                @foreach (var s in _suppliers) { <option value="@s.Id">@s.Name</option> }
             </select>
         </div>
         <div class="field">
-            <label for="amount">Amount (₹)*</label>
-            <input id="amount" type="number" min="0" step="0.01" @bind="_form.Amount" />
+            <label for="mode">Mode of Receipt*</label>
+            <select id="mode" @bind="_mode">
+                <option value="@PaymentMode.Cash">Cash</option>
+                <option value="@PaymentMode.Bank">Bank</option>
+                <option value="@PaymentMode.Upi">UPI</option>
+            </select>
         </div>
     </div>
-    <div class="field">
-        <label for="narr">Narration</label>
-        <input id="narr" @bind="_form.Narration" maxlength="300" />
+
+    @* ---------- Pending invoices: a drop-down list with tick boxes ---------- *@
+    @if (_supplierId != 0)
+    {
+        <div class="field pending">
+            <label id="plabel">Pending invoices@(_pending.Count > 0 ? "*" : "")</label>
+            @if (_pending.Count == 0)
+            {
+                <div class="ms-box ms-empty">No pending invoices for this supplier. You can still record an advance: type the amount below.</div>
+            }
+            else
+            {
+                <button type="button" class="ms-box @(_open ? "open" : "")" aria-haspopup="listbox" aria-expanded="@_open" aria-labelledby="plabel" @onclick="() => _open = !_open">
+                    @foreach (var p in Chosen)
+                    {
+                        <span class="chip">Invoice @p.DisplayNo<span class="chip-x" role="button" aria-label="Remove invoice @p.DisplayNo" @onclick="() => Toggle(p.Id)" @onclick:stopPropagation="true"><Icon Name="x" Size="12" /></span></span>
+                    }
+                    @if (_chosen.Count == 0) { <span class="muted">Tick the invoices this receipt pays</span> }
+                    <span class="ms-count">@_chosen.Count of @_pending.Count selected <Icon Name="chevron-down" Size="16" /></span>
+                </button>
+                @if (_open)
+                {
+                    <div class="ms-panel" role="listbox" aria-multiselectable="true">
+                        <div class="ms-tools">
+                            <span class="search-box"><Icon Name="search" Size="16" /><input aria-label="Find a pending invoice" placeholder="Invoice no. or vehicle" @bind="_find" @bind:event="oninput" /></span>
+                            <label class="ms-all"><input type="checkbox" checked="@AllChosen" @onchange="ToggleAll" /> Select all</label>
+                        </div>
+                        <div class="ms-head"><span></span><span>Invoice</span><span>Date</span><span>Vehicle</span><span class="num">Due</span></div>
+                        @foreach (var p in Visible)
+                        {
+                            <label class="ms-row @(_chosen.Contains(p.Id) ? "on" : "")">
+                                <input type="checkbox" checked="@_chosen.Contains(p.Id)" @onchange="() => Toggle(p.Id)" aria-label="Invoice @p.DisplayNo" />
+                                <b>@p.DisplayNo</b><span>@IndianTime.FormatDate(p.Date)</span><span class="muted">@p.VehicleCode · @p.VehicleNo</span>
+                                <span class="num">₹@Money.Format(p.DuePaise)</span>
+                            </label>
+                        }
+                        <div class="ms-foot">
+                            <span><b>@_chosen.Count selected</b> · Total <b>₹@Money.Format(ChosenTotal)</b></span>
+                            <span class="muted">Only unpaid invoices of this supplier are listed, newest first.</span>
+                            <button type="button" class="btn btn-small btn-primary" @onclick="() => _open = false">Done</button>
+                        </div>
+                    </div>
+                }
+                @if (!_open) { <small>Tick one or more unpaid invoices of this supplier. A supplier can pay several invoices at once.</small> }
+            }
+        </div>
+
+        @if (_chosen.Count > 0)
+        {
+            <div class="field">
+                <label>Selected invoices</label>
+                <table class="data">
+                    <thead><tr><th>Invoice</th><th>Date</th><th>Vehicle</th><th class="num">Due (₹)</th><th></th></tr></thead>
+                    <tbody>
+                        @foreach (var p in Chosen)
+                        {
+                            <tr><td>Invoice @p.DisplayNo</td><td>@IndianTime.FormatDate(p.Date)</td><td>@p.VehicleCode · @p.VehicleNo</td><td class="num">@Money.Format(p.DuePaise)</td>
+                                <td class="right"><button class="icon-btn" aria-label="Remove invoice @p.DisplayNo" @onclick="() => Toggle(p.Id)"><Icon Name="x" Size="14" /></button></td></tr>
+                        }
+                    </tbody>
+                    <tfoot><tr><td colspan="3">Total</td><td class="num">@Money.Format(ChosenTotal)</td><td></td></tr></tfoot>
+                </table>
+            </div>
+        }
+    }
+
+    <div class="form-grid">
+        <div class="field">
+            <label for="amount">Amount (₹)*</label>
+            @if (_pending.Count > 0)
+            {
+                <input id="amount" value="@Money.Format(ChosenTotal)" readonly class="strong" />
+                <small>Filled in from the selected invoices.</small>
+            }
+            else
+            {
+                <input id="amount" type="number" min="0" step="0.01" @bind="_advance" />
+                <small>Advance: kept on the supplier's account.</small>
+            }
+        </div>
+        <div class="field">
+            <label for="narr">Narration</label>
+            <input id="narr" @bind="_narration" maxlength="300" placeholder="@(_chosen.Count > 0 ? "Invoices " + string.Join(", ", Chosen.Select(c => c.DisplayNo)) : "")" />
+        </div>
     </div>
 
     <div class="form-actions">
-        <button class="btn btn-primary" @onclick="SaveAsync" disabled="@Busy">Save receipt</button>
+        <button class="btn btn-primary" @onclick="SaveAsync" disabled="@(Busy || !CanSave)">Save receipt</button>
     </div>
 </div>
 
@@ -77,7 +163,7 @@
 
     <div class="table-scroll">
         <table class="data">
-            <thead><tr><th>Receipt</th><th>Date</th><th>Party</th><th>Mode</th><th>Reference</th><th class="num">Amount</th><th class="num">Allocated</th><th>Status</th><th></th></tr></thead>
+            <thead><tr><th>Receipt</th><th>Date</th><th>Party</th><th>Mode</th><th>Reference</th><th>Invoices paid</th><th class="num">Amount</th><th>Status</th><th></th></tr></thead>
             <tbody>
                 @if (_historyLoading)
                 {
@@ -96,9 +182,10 @@
                     @foreach (var r in _history)
                     {
                         <tr class="@(r.Status == VoucherStatus.Cancelled ? "muted" : "")">
-                            <td>@r.DisplayNo</td><td class="nowrap">@IndianTime.FormatDate(r.Date)</td><td>@r.PartyName</td><td>@r.Mode</td><td>@r.ReferenceNo</td>
-                            <td class="num">@Money.Format(r.AmountPaise)</td><td class="num">@Money.Format(r.AllocatedPaise)</td>
-                            <td>@r.Status @if (r.CancelReason is not null) { <small>(@r.CancelReason)</small> }</td>
+                            <td>@VoucherNumbers.Plain(r.DisplayNo)</td><td class="nowrap">@IndianTime.FormatDate(r.Date)</td><td>@r.PartyName</td><td>@r.Mode</td><td>@r.ReferenceNo</td>
+                            <td>@(r.InvoicesPaid.Count == 0 ? "On account" : string.Join(", ", r.InvoicesPaid))</td>
+                            <td class="num">@Money.Format(r.AmountPaise)</td>
+                            <td><span class="badge @(r.Status == VoucherStatus.Cancelled ? "badge-bad" : "")">@r.Status</span> @if (r.CancelReason is not null) { <small>(@r.CancelReason)</small> }</td>
                             <td class="nowrap">
                                 @if (r.Status == VoucherStatus.Posted && Can(Permission.ReceiptCancel))
                                 {
@@ -122,26 +209,87 @@
 </Modal>
 
 @code {
-    private ReceiptForm _form = new();
+    private IReadOnlyList<(long Id, string Name)> _suppliers = [];
+    private long _supplierId;
+    private PaymentMode _mode = PaymentMode.Cash;
+    private IReadOnlyList<PendingInvoice> _pending = [];
+    private readonly HashSet<long> _chosen = [];
+    private bool _open;
+    private string? _find;
+    private decimal _advance;
+    private string? _narration;
     private string _nextNo = "";
+    private DateOnly _today;
 
-    private bool _historyOpen;
-    private bool _historyLoading;
-    private string? _historyError;
-    private string? _historyMessage;
-    private bool _historyMessageOk;
+    private bool _historyOpen, _historyLoading, _historyMessageOk;
+    private string? _historyError, _historyMessage;
     private IReadOnlyList<ReceiptRow> _history = [];
     private DateOnly _from, _to;
     private string _filterMode = "", _filterStatus = "";
     private long? _cancelId;
     private string _cancelReason = "";
 
+    private IEnumerable<PendingInvoice> Chosen => _pending.Where(p => _chosen.Contains(p.Id));
+    private long ChosenTotal => Chosen.Sum(p => p.DuePaise);
+    private bool AllChosen => _pending.Count > 0 && _chosen.Count == _pending.Count;
+    private bool CanSave => _supplierId != 0 && (_pending.Count > 0 ? _chosen.Count > 0 : _advance > 0);
+    private IEnumerable<PendingInvoice> Visible => string.IsNullOrWhiteSpace(_find) ? _pending
+        : _pending.Where(p => p.DisplayNo.Contains(_find.Trim(), StringComparison.OrdinalIgnoreCase)
+                           || p.VehicleCode.Contains(_find.Trim(), StringComparison.OrdinalIgnoreCase)
+                           || p.VehicleNo.Replace(" ", "").Contains(_find.Replace(" ", ""), StringComparison.OrdinalIgnoreCase));
+
     protected override async Task OnUserReadyAsync()
     {
-        var today = DateOnly.FromDateTime(IndianTime.ToIst(Clock.GetUtcNow().UtcDateTime));
-        _from = today.AddDays(-30);
-        _to = today.AddDays(1);
+        _today = DateOnly.FromDateTime(IndianTime.ToIst(Clock.GetUtcNow().UtcDateTime));
+        _from = _today.AddDays(-30);
+        _to = _today.AddDays(1);
+        _suppliers = await Suppliers.ListActiveAsync();
         _nextNo = await Svc.PeekNextNumberAsync();
+    }
+
+    private async Task OnSupplierChangedAsync()
+    {
+        _chosen.Clear();
+        _open = false;
+        _find = null;
+        _pending = _supplierId == 0 ? [] : await Svc.PendingInvoicesAsync(PartyType.Supplier, _supplierId);
+    }
+
+    private void Toggle(long id) { if (!_chosen.Remove(id)) _chosen.Add(id); }
+
+    private void ToggleAll()
+    {
+        if (AllChosen) _chosen.Clear();
+        else foreach (var p in _pending) _chosen.Add(p.Id);
+    }
+
+    private async Task SaveAsync()
+    {
+        if (Busy || !CanSave) return;   // a click that arrives while saving does nothing (NFR-CON-06)
+        Busy = true;
+        try
+        {
+            var form = new ReceiptForm
+            {
+                PartyType = PartyType.Supplier,
+                PartyId = _supplierId,
+                Mode = _mode,
+                Amount = _pending.Count > 0 ? Money.ToRupees(ChosenTotal) : _advance,
+                Narration = string.IsNullOrWhiteSpace(_narration) && _chosen.Count > 0 ? "Invoices " + string.Join(", ", Chosen.Select(c => c.DisplayNo)) : _narration,
+                InvoiceIds = _chosen.ToList(),
+            };
+            var result = await Svc.CreateAsync(form);
+            if (result.Ok)
+            {
+                ShowOk($"Receipt {VoucherNumbers.Plain(_nextNo)} saved for ₹{Money.Format(Money.FromRupees(form.Amount))}.");
+                _advance = 0;
+                _narration = null;
+                _nextNo = await Svc.PeekNextNumberAsync();
+                await OnSupplierChangedAsync();
+            }
+            else ShowError(result.Error!);
+        }
+        finally { Busy = false; }
     }
 
     // "Receipt History" button: open the pop-up and load the list.
@@ -171,30 +319,13 @@
         finally { _historyLoading = false; }
     }
 
-    private async Task SaveAsync()
-    {
-        if (Busy) return;   // a click that arrives while saving does nothing (NFR-CON-06)
-        Busy = true;
-        try
-        {
-            var result = await Svc.CreateAsync(_form);
-            if (result.Ok)
-            {
-                ShowOk($"Receipt {_nextNo} saved.");
-                _form = new ReceiptForm { PartyType = _form.PartyType, PartyId = _form.PartyId };
-                _nextNo = await Svc.PeekNextNumberAsync();
-            }
-            else ShowError(result.Error!);
-        }
-        finally { Busy = false; }
-    }
-
     private async Task CancelAsync(ReceiptRow r)
     {
         var result = await Svc.CancelAsync(r.VoucherId, _cancelReason, r.Version);
         _historyMessageOk = result.Ok;
-        _historyMessage = result.Ok ? $"Receipt {r.DisplayNo} cancelled." : result.Error;
+        _historyMessage = result.Ok ? $"Receipt {VoucherNumbers.Plain(r.DisplayNo)} cancelled." : result.Error;
         _cancelId = null;
         await LoadHistoryAsync();
+        if (result.Ok && _supplierId != 0) await OnSupplierChangedAsync();
     }
 }

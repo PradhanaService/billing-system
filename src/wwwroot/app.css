@@ -294,3 +294,25 @@ button.pill-ok:hover { border-color: var(--focus); }
 .date-time input[type=date] { flex: 1; }
 .date-time .time-input { flex: 0 0 110px; width: 110px; }
 .edit-actions { justify-content: flex-end; }
+/* ---------- Receipt: pending invoices (multi-select drop-down) ---------- */
+.pending { position: relative; }
+.ms-box { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; width: 100%; min-height: 42px; box-sizing: border-box; padding: 0.3rem 0.6rem; text-align: left;
+          border: 1px solid var(--input); border-radius: var(--radius-sm); background: var(--paper); color: var(--ink); font: inherit; cursor: pointer; }
+.ms-box.open, .ms-box:focus-visible { border-color: var(--focus); box-shadow: 0 0 0 3px rgba(74, 134, 189, 0.28); }
+.ms-empty { cursor: default; color: var(--muted); }
+.chip { display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.15rem 0.35rem 0.15rem 0.65rem; border-radius: 999px; background: var(--cloud); font-size: 0.85rem; font-weight: 600; }
+.chip-x { display: grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; background: var(--paper); cursor: pointer; }
+.ms-count { margin-left: auto; display: inline-flex; align-items: center; gap: 0.35rem; color: var(--muted); font-size: 0.85rem; }
+.ms-panel { position: absolute; z-index: 20; left: 0; right: 0; top: calc(100% - 0.4rem); background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: 0 12px 32px rgba(23, 40, 58, 0.22); overflow: hidden; }
+.ms-tools { display: flex; gap: 0.75rem; align-items: center; padding: 0.6rem 0.75rem; }
+.ms-tools .search-box { flex: 1; }
+.ms-all { display: inline-flex; align-items: center; gap: 0.4rem; font-weight: 600; font-size: 0.85rem; white-space: nowrap; }
+.ms-head, .ms-row { display: grid; grid-template-columns: 24px 80px 110px 1fr auto; gap: 0.6rem; align-items: center; padding: 0.45rem 0.75rem; }
+.ms-head { background: var(--cloud); font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; }
+.ms-row { border-top: 1px solid var(--line-soft); cursor: pointer; font-size: 0.9rem; }
+.ms-row.on { background: var(--badge); }
+.ms-row .num, .ms-head .num { font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; }
+.ms-foot { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; padding: 0.6rem 0.75rem; border-top: 1px solid var(--line-soft); background: var(--badge); font-size: 0.88rem; }
+.ms-foot .btn { margin-left: auto; }
+input.strong { font-weight: 700; }
+.right { text-align: right; }

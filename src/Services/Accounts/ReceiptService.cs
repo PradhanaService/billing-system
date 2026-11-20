@@ -23,6 +23,10 @@ public sealed class ReceiptForm
 
     [StringLength(40)] public string? ReferenceNo { get; set; }
     [StringLength(300)] public string? Narration { get; set; }
+
+    // Final design: the pending invoices this receipt pays (one or more). The amount must equal their
+    // total. Left empty (e.g. an advance from a supplier with nothing pending): oldest invoice first.
+    public List<long> InvoiceIds { get; set; } = [];
 }
 
 // One invoice a receipt pays (or would pay).
@@ -30,7 +34,13 @@ public sealed record AllocationLine(long InvoiceId, string InvoiceNo, DateOnly I
     long OutstandingBeforePaise, long AllocatedPaise);
 
 public sealed record ReceiptRow(long VoucherId, string DisplayNo, DateOnly Date, PartyType PartyType, string PartyName,
-    PaymentMode Mode, string? ReferenceNo, long AmountPaise, long AllocatedPaise, VoucherStatus Status, string? CancelReason, int Version);
+    PaymentMode Mode, string? ReferenceNo, long AmountPaise, long AllocatedPaise, VoucherStatus Status, string? CancelReason, int Version)
+{
+    public IReadOnlyList<string> InvoicesPaid { get; init; } = [];   // "Invoices paid" column
+}
+
+// One unpaid invoice offered in the Receipt's "Pending invoices" list.
+public sealed record PendingInvoice(long Id, string DisplayNo, DateOnly Date, string VehicleCode, string VehicleNo, long DuePaise);
 
 public sealed record ReceiptFilter(DateOnly From, DateOnly To, PartyType? PartyType = null, long? PartyId = null,
     PaymentMode? Mode = null, VoucherStatus? Status = null);
@@ -67,8 +77,8 @@ public class ReceiptService(IDbContextFactory<AppDbContext> dbFactory, ICurrentU
         if (FormValidator.FirstError(form) is { } error) return Result<long>.Fail(error);
         if (form.Mode != PaymentMode.Cash && !me.Has(Permission.ReceiptBankUpi))
             return Result<long>.Fail("Your role can record cash receipts only.");
-        if (form.Mode != PaymentMode.Cash && string.IsNullOrWhiteSpace(form.ReferenceNo))
-            return Result<long>.Fail("Reference No. is required for Bank and UPI receipts.");   // FR-TXN-03
+        // Client decision (Nov 2026, final design): no Reference No. box, so it is optional for every mode
+        // (was required for Bank and UPI, FR-TXN-03). A reference sent by older screens is still stored.
 
         var amount = Money.FromRupees(form.Amount);
         await using var db = await dbFactory.CreateDbContextAsync();
@@ -77,8 +87,20 @@ public class ReceiptService(IDbContextFactory<AppDbContext> dbFactory, ICurrentU
         var partyName = await PartyNameAsync(db, form.PartyType, form.PartyId);
         if (partyName is null) return Result<long>.Fail("Party not found.");
 
-        // FR-TXN-09: oldest open invoice first. Anything left over stays unallocated.
+        // Final design: the receipt pays the invoices the user ticked, in full; the amount is their total.
+        // Nothing ticked: FR-TXN-09, oldest open invoice first, anything left over stays unallocated.
         var open = await OpenInvoicesAsync(db, form.PartyType, form.PartyId);
+        if (form.InvoiceIds.Count > 0)
+        {
+            var wanted = form.InvoiceIds.ToHashSet();
+            var chosen = open.Where(o => wanted.Contains(o.Invoice.Id)).ToList();
+            if (chosen.Count != wanted.Count)
+                return Result<long>.Fail("One of the chosen invoices is no longer pending for this party. Choose the invoices again.");
+            var total = chosen.Sum(o => o.Invoice.AmountPaise - o.Invoice.AllocatedPaise);
+            if (amount != total)
+                return Result<long>.Fail($"The amount must equal the total of the selected invoices (₹{Money.Format(total)}).");
+            open = chosen;
+        }
         var allocations = Allocate(open, amount);
 
         long? supplier = form.PartyType == PartyType.Supplier ? form.PartyId : null;
@@ -200,11 +222,32 @@ public class ReceiptService(IDbContextFactory<AppDbContext> dbFactory, ICurrentU
 
         var rows = await query.OrderByDescending(x => x.v.Number).ToListAsync();
         var ids = rows.Select(r => r.v.Id).ToList();
-        var allocated = await db.ReceiptAllocations.Where(a => ids.Contains(a.VoucherId) && a.IsActive)
-            .GroupBy(a => a.VoucherId).Select(g => new { g.Key, Sum = g.Sum(a => a.AmountPaise) })
-            .ToDictionaryAsync(x => x.Key, x => x.Sum);
+        // Cancelled receipts keep showing what they had paid (their allocations are inactive).
+        var paid = await (from a in db.ReceiptAllocations
+                          join i in db.Invoices on a.InvoiceId equals i.Id
+                          where ids.Contains(a.VoucherId)
+                          select new { a.VoucherId, a.IsActive, a.AmountPaise, i.InvoiceNo, i.DisplayNo }).ToListAsync();
+        var allocated = paid.Where(p => p.IsActive).GroupBy(p => p.VoucherId).ToDictionary(g => g.Key, g => g.Sum(p => p.AmountPaise));
+        var numbers = paid.GroupBy(p => p.VoucherId)
+            .ToDictionary(g => g.Key, g => (IReadOnlyList<string>)g.OrderByDescending(p => p.InvoiceNo).Select(p => p.DisplayNo).Distinct().ToList());
         return rows.Select(r => new ReceiptRow(r.v.Id, r.v.DisplayNo, r.v.VoucherDate, r.v.PartyType!.Value, r.PartyName,
-            r.v.Mode!.Value, r.v.ReferenceNo, r.v.AmountPaise, allocated.GetValueOrDefault(r.v.Id), r.v.Status, r.v.CancelReason, r.v.Version)).ToList();
+            r.v.Mode!.Value, r.v.ReferenceNo, r.v.AmountPaise, allocated.GetValueOrDefault(r.v.Id), r.v.Status, r.v.CancelReason, r.v.Version)
+            { InvoicesPaid = numbers.GetValueOrDefault(r.v.Id, []) }).ToList();
+    }
+
+    // The supplier's (or customer's) unpaid invoices for the "Pending invoices" list, newest first.
+    public async Task<IReadOnlyList<PendingInvoice>> PendingInvoicesAsync(PartyType type, long partyId)
+    {
+        await currentUser.RequireAsync(Permission.ReceiptCreate);
+        await using var db = await dbFactory.CreateDbContextAsync();
+        var query = from i in db.Invoices
+                    join v in db.Vehicles.IgnoreQueryFilters() on i.VehicleId equals v.Id
+                    where (i.Status == InvoiceStatus.Posted || i.Status == InvoiceStatus.PartPaid) && i.BillToType == type
+                        && (type == PartyType.Supplier ? i.SupplierId == partyId : i.CustomerId == partyId)
+                        && i.AmountPaise > i.AllocatedPaise
+                    orderby i.InvoiceNo descending
+                    select new PendingInvoice(i.Id, i.DisplayNo, i.InvoiceDate, v.Code, v.VehicleNo, i.AmountPaise - i.AllocatedPaise);
+        return await query.ToListAsync();
     }
 
     public async Task<IReadOnlyList<AllocationLine>> AllocationsOfAsync(long voucherId)

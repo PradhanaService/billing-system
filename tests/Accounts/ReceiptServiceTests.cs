@@ -36,13 +36,16 @@ public class ReceiptServiceTests : BillingFixture
     [Theory]
     [InlineData(PaymentMode.Bank)]
     [InlineData(PaymentMode.Upi)]
-    public async Task FR_TXN_03_Reference_Required_For_Bank_And_Upi(PaymentMode mode)
+    // Client decision (Nov 2026, final design): no Reference No. box; Bank and UPI receipts save without one.
+    // A reference that is given is still stored.
+    public async Task FR_TXN_03_Reference_Is_Optional_For_Bank_And_Upi(PaymentMode mode)
     {
-        Assert.False((await Rcp.CreateAsync(Form(100, mode))).Ok);
-        Assert.True((await Rcp.CreateAsync(Form(100, mode, "UTR123"))).Ok);
+        Assert.True((await Rcp.CreateAsync(Form(100, mode))).Ok);
+        var withRef = (await Rcp.CreateAsync(Form(100, mode, "UTR123"))).Value;
 
         using var ctx = Db.NewContext();
-        Assert.Equal(10000, await LedgerQueries.AccountBalanceAsync(ctx, SystemAccounts.ForMode(mode)));
+        Assert.Equal(20000, await LedgerQueries.AccountBalanceAsync(ctx, SystemAccounts.ForMode(mode)));
+        Assert.Equal("UTR123", ctx.Vouchers.Single(v => v.Id == withRef).ReferenceNo);
     }
 
     [Theory]

@@ -333,7 +333,8 @@ public class InvoiceService(IDbContextFactory<AppDbContext> dbFactory, ICurrentU
             Meter3StartTenths = old.Meter3StartTenths, Meter3EndTenths = old.Meter3EndTenths,
             ReplacesInvoiceId = old.Id,
         };
-        copy.Status = copy.PaymentMode == InvoicePaymentMode.Cash || copy.AllocatedPaise >= amount ? InvoiceStatus.Paid : InvoiceStatus.Posted;
+        copy.Status = copy.PaymentMode == InvoicePaymentMode.Cash || copy.AllocatedPaise >= amount ? InvoiceStatus.Paid
+            : copy.AllocatedPaise > 0 ? InvoiceStatus.PartPaid : InvoiceStatus.Posted;
         db.Invoices.Add(copy);
         await db.SaveChangesAsync();
 
