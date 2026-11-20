@@ -60,7 +60,7 @@
                 @foreach (var s in _rows)
                 {
                     <tr class="@(s.Status == RecordStatus.Inactive ? "muted" : "")">
-                        <td>@s.Name</td>
+                        <td><a class="strong-link" href="/suppliers/@s.Id/vehicles" title="See this supplier&apos;s vehicles">@s.Name</a></td>
                         <td>@s.ShortName</td>
                         <td>@s.ContactPerson</td>
                         <td>@s.Phone</td>

@@ -189,3 +189,7 @@ table.data tr.muted td { color: var(--muted); }
 .btn-danger-solid { background: var(--danger); border-color: var(--danger); color: var(--paper); }
 .btn-danger-solid:hover { background: #8a0019; border-color: #8a0019; }
 .dash-recent { margin-top: 1.25rem; }
+.strong-link { font-weight: 600; }
+/* Supplier details strip on "Vehicles of supplier". */
+.supplier-facts { display: flex; gap: 1.75rem; flex-wrap: wrap; padding: 1rem 1.25rem; }
+.supplier-facts span { display: flex; flex-direction: column; gap: 0.1rem; font-size: 0.92rem; }
