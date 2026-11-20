@@ -188,3 +188,4 @@ table.data tr.muted td { color: var(--muted); }
 .modal .form-actions { justify-content: flex-end; margin-top: 1rem; }
 .btn-danger-solid { background: var(--danger); border-color: var(--danger); color: var(--paper); }
 .btn-danger-solid:hover { background: #8a0019; border-color: #8a0019; }
+.dash-recent { margin-top: 1.25rem; }
