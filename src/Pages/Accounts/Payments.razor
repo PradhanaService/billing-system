@@ -8,13 +8,13 @@
 @inject TimeProvider Clock
 
 @* Payment voucher: money paid out, either an expense (Fuel, Maintenance ...) or a refund to a
-   supplier or customer. Bank and UPI need a reference number. Paying more cash than is in hand needs
+   supplier or customer. No reference number (client decision, Nov 2026). Paying more cash than is in hand needs
    a tick to confirm. A saved payment is never edited: it is cancelled with a reason (a reversal is posted).
    The history opens in a pop-up from the "Payment History" button (client change, Nov 2026). *@
 
 <PageTitle>Payment</PageTitle>
 
-<PageHeader IconName="upload" Title="Payment Voucher" Subtitle="Expenses and refunds paid out.">
+<PageHeader IconName="upload" Title="Payment" Subtitle="Expenses and refunds paid out.">
     <button class="btn" @onclick="OpenHistoryAsync"><Icon Name="table" Size="18" /> Payment History</button>
 </PageHeader>
 
@@ -23,8 +23,8 @@
 <div class="card">
     <div class="form-grid">
         <div class="field">
-            <label>Voucher No.</label>
-            <input value="@_nextNo" readonly />
+            <label for="pno">Payment No.</label>
+            <input id="pno" value="@VoucherNumbers.Plain(_nextNo)" readonly />
             <small>Expected. Assigned when you save.</small>
         </div>
         <div class="field">
@@ -69,10 +69,6 @@
         <div class="field">
             <label for="amount">Amount (₹)*</label>
             <input id="amount" type="number" min="0" step="0.01" @bind="_form.Amount" @bind:event="oninput" />
-        </div>
-        <div class="field">
-            <label for="ref">Reference Number@(_form.Mode != PaymentMode.Cash ? "*" : "")</label>
-            <input id="ref" @bind="_form.ReferenceNo" maxlength="40" />
         </div>
     </div>
     <div class="field">
@@ -124,27 +120,27 @@
 
     <div class="table-scroll">
         <table class="data">
-            <thead><tr><th>Voucher</th><th>Date</th><th>Ledger</th><th>Pay To</th><th>Vehicle</th><th>Mode</th><th>Reference</th><th class="num">Amount</th><th>Status</th><th></th></tr></thead>
+            <thead><tr><th>Payment</th><th>Date</th><th>Ledger</th><th>Pay To</th><th>Vehicle</th><th>Mode</th><th class="num">Amount</th><th>Status</th><th></th></tr></thead>
             <tbody>
                 @if (_historyLoading)
                 {
-                    <tr><td colspan="10" class="muted">Loading payments…</td></tr>
+                    <tr><td colspan="9" class="muted">Loading payments…</td></tr>
                 }
                 else if (_historyError is not null)
                 {
-                    <tr><td colspan="10"><div class="alert alert-error" role="alert" style="margin: 0">@_historyError</div></td></tr>
+                    <tr><td colspan="9"><div class="alert alert-error" role="alert" style="margin: 0">@_historyError</div></td></tr>
                 }
                 else if (_history.Count == 0)
                 {
-                    <tr><td colspan="10" class="muted">No payments yet in this period.</td></tr>
+                    <tr><td colspan="9" class="muted">No payments yet in this period.</td></tr>
                 }
                 else
                 {
                     @foreach (var r in _history)
                     {
                         <tr class="@(r.Status == VoucherStatus.Cancelled ? "muted" : "")">
-                            <td>@r.DisplayNo</td><td class="nowrap">@IndianTime.FormatDate(r.Date)</td><td>@r.Ledger</td><td>@r.PayTo</td><td>@r.VehicleNo</td>
-                            <td>@r.Mode</td><td>@r.ReferenceNo</td><td class="num">@Money.Format(r.AmountPaise)</td>
+                            <td>@VoucherNumbers.Plain(r.DisplayNo)</td><td class="nowrap">@IndianTime.FormatDate(r.Date)</td><td>@r.Ledger</td><td>@r.PayTo</td><td>@r.VehicleNo</td>
+                            <td>@r.Mode</td><td class="num">@Money.Format(r.AmountPaise)</td>
                             <td>@r.Status @if (r.CancelReason is not null) { <small>(@r.CancelReason)</small> }</td>
                             <td class="nowrap">
                                 @if (r.Status == VoucherStatus.Posted && Can(Permission.PaymentCancel))
@@ -253,7 +249,7 @@
             var result = await Svc.CreateAsync(_form);
             if (result.Ok)
             {
-                ShowOk($"Payment {_nextNo} saved.");
+                ShowOk($"Payment {VoucherNumbers.Plain(_nextNo)} saved.");
                 _form = new PaymentForm();
                 _nextNo = await Svc.PeekNextNumberAsync();
                 _balance = 0;
@@ -268,7 +264,7 @@
     {
         var result = await Svc.CancelAsync(r.VoucherId, _cancelReason, r.Version);
         _historyMessageOk = result.Ok;
-        _historyMessage = result.Ok ? $"Payment {r.DisplayNo} cancelled." : result.Error;
+        _historyMessage = result.Ok ? $"Payment {VoucherNumbers.Plain(r.DisplayNo)} cancelled." : result.Error;
         _cancelId = null;
         _cash = await Svc.CashInHandAsync();
         await LoadHistoryAsync();

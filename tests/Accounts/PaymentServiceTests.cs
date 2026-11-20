@@ -65,11 +65,10 @@ public class PaymentServiceTests : BillingFixture
     }
 
     [Fact]
-    public async Task Bank_Payment_Needs_Reference_But_No_Cash_Check()
+    public async Task FR_TXN_03_Bank_Payment_Needs_No_Reference_And_No_Cash_Check()
     {
+        // Client decision, Nov 2026: Reference No. is removed from payments.
         var form = new PaymentForm { AccountId = FuelExpense, Amount = 99999, Mode = PaymentMode.Bank };
-        Assert.False((await Pay.CreateAsync(form)).Ok);
-        form.ReferenceNo = "NEFT-1";
         Assert.True((await Pay.CreateAsync(form)).Ok);
     }
 
