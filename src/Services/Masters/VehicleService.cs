@@ -188,7 +188,7 @@ public partial class VehicleService(IDbContextFactory<AppDbContext> dbFactory, I
         RecoveryService.MarkDeleted(vehicle, me, Now, deletedBy);
         // Free the number for a new vehicle; the code stays reserved.
         vehicle.NormalizedVehicleNo = $"#{vehicle.Id}";
-        ActivityLogger.Add(db, Now, me, ActivityCategory.Master, "VEHICLE_DELETED", nameof(Vehicle), id, before: Snapshot(vehicle), reason: $"Deleted by {who.Value}");
+        ActivityLogger.Add(db, Now, me, ActivityCategory.Master, "VEHICLE_DELETED", nameof(Vehicle), id, before: Snapshot(vehicle), reason: $"Deleted by {who.Value}", doneBy: who.Value);
         await db.SaveChangesAsync();
         return Result.Success();
     }

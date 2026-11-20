@@ -196,7 +196,7 @@ public class InvoiceService(IDbContextFactory<AppDbContext> dbFactory, ICurrentU
         await db.SaveChangesAsync();
 
         ActivityLogger.Add(db, Now, me, ActivityCategory.Billing, "INVOICE_CREATED", nameof(Invoice), invoice.Id,
-            after: new { invoice.DisplayNo, CreatedBy = createdBy, vehicle.VehicleNo, BillTo = billToName, Mode = form.PaymentMode.ToString(), invoice.AmountPaise });
+            after: new { invoice.DisplayNo, CreatedBy = createdBy, vehicle.VehicleNo, BillTo = billToName, Mode = form.PaymentMode.ToString(), invoice.AmountPaise }, doneBy: createdBy);
         if (overridden)
         {
             ActivityLogger.Add(db, Now, me, ActivityCategory.Billing, "INVOICE_RATE_OVERRIDDEN", nameof(Invoice), invoice.Id,
@@ -354,7 +354,7 @@ public class InvoiceService(IDbContextFactory<AppDbContext> dbFactory, ICurrentU
 
         ActivityLogger.Add(db, Now, me, ActivityCategory.Billing, "INVOICE_EDITED", nameof(Invoice), copy.Id, before,
             new { copy.DisplayNo, copy.CapacityLitres, copy.RatePaise, copy.AmountPaise, InTime = Show(inUtc), OutTime = Show(outUtc), EditedBy = editor },
-            reason);
+            reason, doneBy: editor);
         try
         {
             await db.SaveChangesAsync();

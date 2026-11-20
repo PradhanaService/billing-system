@@ -12,6 +12,11 @@
 
 <h1>Sign in</h1>
 
+@if (Restored == "1")
+{
+    <div class="alert alert-ok" role="status">The database was restored from a backup. Everyone was signed out: please sign in again.</div>
+}
+
 @if (_error is not null)
 {
     <div class="alert alert-error" role="alert">@_error</div>
@@ -38,6 +43,7 @@
     [SupplyParameterFromForm] private LoginModel Input { get; set; } = new();
 
     [SupplyParameterFromQuery] private string? ReturnUrl { get; set; }
+    [SupplyParameterFromQuery] private string? Restored { get; set; }
 
     private string? _error;
 

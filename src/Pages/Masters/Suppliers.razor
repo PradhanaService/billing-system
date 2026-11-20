@@ -10,7 +10,7 @@
 @* Supplier Master: water suppliers who own the tankers.
    The list loads as soon as the page opens. Add and Edit open the form in a pop-up; Delete asks for
    confirmation and "Deleted by" in a pop-up. Delete is allowed only for a supplier with no vehicles
-   or transactions (otherwise set it Inactive); a deleted supplier goes to Recovery for 30 days.
+   or transactions (otherwise set it Inactive); a deleted supplier goes to the Recycle Bin for 30 days.
    An opening balance can be given only when adding, and is posted to the accounts once. *@
 
 <PageTitle>Supplier Master</PageTitle>
@@ -151,7 +151,7 @@
 <Modal Open="@(_deleting is not null)" Title="Delete supplier?" Narrow OnClose="CloseDelete">
     @if (_deleting is not null)
     {
-        <p style="margin-top: 0">Are you sure you want to delete supplier <b>@_deleting.Name</b>? It moves to Recovery and can be restored for 30 days.</p>
+        <p style="margin-top: 0">Are you sure you want to delete supplier <b>@_deleting.Name</b>? It moves to the Recycle Bin and can be restored for 30 days.</p>
         @if (_deleteError is not null) { <div class="alert alert-error" role="alert">@_deleteError</div> }
         <div class="field">
             <label for="deletedby">Deleted by*</label>
@@ -292,7 +292,7 @@
             var name = _deleting.Name;
             var result = await Svc.DeleteAsync(_deleting.Id, _deletedBy);   // the server checks "Deleted by" again
             if (!result.Ok) { _deleteError = result.Error; return; }
-            ShowOk($"Supplier {name} deleted. It can be restored from Recovery for 30 days.");
+            ShowOk($"Supplier {name} deleted. It can be restored from the Recycle Bin for 30 days.");
             CloseDelete();
             await LoadAsync();
         }

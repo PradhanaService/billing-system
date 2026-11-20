@@ -333,3 +333,28 @@ input.strong { font-weight: 700; }
 .rpt-totals .val { font-size: 1.3rem; font-weight: 700; }
 .rpt-totals .val.accent { color: var(--accent); }
 .small { font-size: 0.85rem; }
+/* ---------- Backup & Restore ---------- */
+.folder-row { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
+.folder-row .field { flex: 1 1 360px; margin: 0; }
+.folder-row .btn { margin-bottom: 1.4rem; }
+.danger-card { border-color: var(--danger); }
+.danger-card h2 { color: var(--danger); }
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 20px; margin: 0 0 0.75rem; padding-left: 20px; }
+.check-card { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; margin-bottom: 0.75rem; border: 1px solid var(--line); border-radius: var(--radius-sm); }
+.check-card input { margin-top: 3px; }
+/* ---------- Password Management ---------- */
+.login-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 20px; }
+.login-head { display: flex; align-items: center; gap: 14px; margin-bottom: 16px; }
+.login-head .badge { margin-left: auto; }
+.login-tile { display: grid; place-items: center; width: 48px; height: 48px; border-radius: 12px; background: var(--cloud); color: var(--accent); }
+.login-tile.dark { background: var(--accent); color: #fff; }
+.login-role { font-weight: 700; font-size: 1.1rem; }
+.login-facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 16px; margin-bottom: 16px; font-size: 0.9rem; }
+.pw-box { display: flex; align-items: center; gap: 6px; border: 1px solid var(--input); border-radius: var(--radius-sm); background: var(--paper); padding-right: 6px; }
+.pw-box:focus-within { border-color: var(--focus); box-shadow: 0 0 0 3px rgba(74, 134, 189, 0.28); }
+.pw-box input { border: 0 !important; box-shadow: none !important; flex: 1; min-width: 0; background: transparent; }
+/* ---------- Activity Log ---------- */
+.al-filters { display: grid; grid-template-columns: 150px 150px 140px 170px minmax(0, 1fr) auto; gap: 12px; align-items: end; }
+.al-filters .field { margin: 0; min-width: 0; }
+.al-filters input, .al-filters select, .al-filters .btn { height: 40px; box-sizing: border-box; width: 100%; }
+@media (max-width: 900px) { .al-filters { grid-template-columns: 1fr 1fr; } }

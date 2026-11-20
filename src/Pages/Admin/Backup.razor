@@ -4,48 +4,144 @@
 @using WaterBilling.Services.Admin
 @inject BackupService Svc
 @inject StoragePaths Paths
+@inject NavigationManager Nav
 
-@* Backup (Admin only): take a complete, checked copy of the database now, see the list of copies,
-   and read how to restore one. A copy is also taken automatically once a day when the app starts. *@
+@* Backup & Restore (Admin only, final design Nov 2026).
+   - Backup now: a complete, checked copy of the database in the backup folder.
+   - Backup folder: chosen by the Admin (a pen drive or a second disk is best). The app checks it can
+     write there before keeping the choice.
+   - Restore database: put back a backup from the list, or Browse for a backup file. A safety copy of
+     the current database is taken first, and everyone is signed out.
+   - Delete all data: clears every record (keeps the two logins and the backup files), after a safety
+     backup, the Admin password and typing DELETE ALL DATA. *@
 
 <PageTitle>Backup &amp; Restore</PageTitle>
 
-<PageHeader IconName="database" Title="Backup" Subtitle="Copies of the database." />
+<PageHeader IconName="database" Title="Backup &amp; Restore" Subtitle="Take a copy of the database, or put an earlier copy back.">
+    <button class="btn btn-primary" @onclick="RunAsync" disabled="@Busy"><Icon Name="download" Size="18" /> Backup now</button>
+    <button class="btn" @onclick="() => OpenRestore(null)"><Icon Name="restore" Size="18" /> Restore database</button>
+</PageHeader>
 
 <PageMessage Text="@MessageText" Ok="@MessageOk" />
 
+<p class="muted">One backup is taken automatically each day when the app starts. The newest @Paths.KeepBackups copies are kept in the chosen folder.</p>
+
 <div class="card">
-    <p>A backup is a complete copy of the database. One is taken automatically each day when the app starts.
-       Take one now before any big change, and copy the backup folder to a USB drive or another computer regularly.</p>
-    <p class="muted">Backup folder: <code>@Paths.BackupFolder</code> · keeps the newest @Paths.KeepBackups copies.</p>
-    <button class="btn btn-primary" @onclick="RunAsync" disabled="@Busy">Backup now</button>
+    <h2>Backup folder</h2>
+    <div class="folder-row">
+        <div class="field grow">
+            <label for="bkdir">Backup folder*</label>
+            <input id="bkdir" value="@_folder" readonly />
+            <small>Chosen by the Admin. Use a pen drive or a second disk so a copy survives if this computer fails.</small>
+        </div>
+        <button class="btn" @onclick="OpenFolder"><Icon Name="folder" Size="18" /> Choose folder…</button>
+    </div>
 </div>
 
-<table class="data">
-    <thead><tr><th>File</th><th>Taken</th><th class="num">Size</th></tr></thead>
-    <tbody>
-        @foreach (var f in _files)
+<div class="card">
+    <h2>Backups in @_folder</h2>
+    <table class="data">
+        <thead><tr><th>File</th><th>Taken</th><th>How</th><th class="num">Size</th><th></th></tr></thead>
+        <tbody>
+            @foreach (var f in _files)
+            {
+                <tr>
+                    <td>@f.Name</td><td class="nowrap">@IndianTime.FormatDateTime(DateTime.SpecifyKind(f.CreatedUtc, DateTimeKind.Utc))</td><td>@f.HowText</td>
+                    <td class="num">@((f.SizeBytes / 1024.0).ToString("N0")) KB</td>
+                    <td class="right"><button class="btn btn-small" @onclick="() => OpenRestore(f.Name)"><Icon Name="restore" Size="14" /> Restore</button></td>
+                </tr>
+            }
+            @if (_files.Count == 0) { <tr><td colspan="5" class="muted">No backups yet.</td></tr> }
+        </tbody>
+    </table>
+</div>
+
+<section class="card danger-card">
+    <h2>Delete all data</h2>
+    <p>Clears every record from this computer and starts the app from zero. Only the Admin can do this. It cannot be undone, except by restoring a backup.</p>
+    <button class="btn btn-danger" @onclick="OpenReset"><Icon Name="trash" Size="18" /> Delete all data…</button>
+</section>
+
+@* ---------- Choose folder ---------- *@
+<Modal Open="_folderOpen" Title="Choose backup folder" OnClose="() => _folderOpen = false">
+    <PageMessage Text="@_popError" Ok="false" />
+    <div class="field">
+        <label for="bksel">Folder*</label>
+        <input id="bksel" @bind="_folderInput" placeholder="D:\SKT-Backups" />
+        <small>Type the full path, for example D:\SKT-Backups or E:\Backups on a pen drive. A new folder is made if it does not exist.</small>
+    </div>
+    <p class="muted small">The app checks it can write to this folder before saving the choice. New backups go here from now on.</p>
+    <div class="form-actions">
+        <button class="btn" @onclick="() => _folderOpen = false">Cancel</button>
+        <button class="btn btn-primary" @onclick="SaveFolderAsync" disabled="@Busy">Use this folder</button>
+    </div>
+</Modal>
+
+@* ---------- Restore database ---------- *@
+<Modal Open="_restoreOpen" Title="Restore database" OnClose="CloseRestore">
+    <PageMessage Text="@_popError" Ok="false" />
+    <p>Choose the backup file to put back. Everything entered after that backup was taken will be replaced.</p>
+    <div class="field">
+        <label for="rbfile">Backup file*</label>
+        @if (_restoreName is not null)
         {
-            <tr><td>@f.Name</td><td>@IndianTime.FormatDateTime(DateTime.SpecifyKind(f.CreatedUtc, DateTimeKind.Utc))</td><td class="num">@((f.SizeBytes / 1024.0).ToString("N0")) KB</td></tr>
+            <input id="rbfile" value="@_restoreName" readonly />
+            <small>From the backup list.</small>
         }
-        @if (_files.Count == 0) { <tr><td colspan="3" class="muted">No backups yet.</td></tr> }
-    </tbody>
-</table>
+        else
+        {
+            <InputFile id="rbfile" accept=".db" OnChange="OnFileChosen" />
+            <small>Opens the file explorer. Pick a backup (.db) file, for example from the backup folder or a pen drive.</small>
+        }
+    </div>
+    <div class="alert alert-error">Before restoring, the app takes a safety copy of the current database into the backup folder. Everyone is signed out while the database is restored.</div>
+    <div class="field">
+        <label for="rbconf">Type RESTORE to confirm*</label>
+        <input id="rbconf" @bind="_restoreConfirm" @bind:event="oninput" placeholder="RESTORE" />
+    </div>
+    <div class="form-actions">
+        <button class="btn" @onclick="CloseRestore">Cancel</button>
+        <button class="btn btn-danger" @onclick="RestoreAsync" disabled="@(Busy || !CanRestore)">Restore</button>
+    </div>
+</Modal>
 
-<div class="card" style="margin-top: 1.25rem">
-    <h2>Restoring a backup</h2>
-    <ol>
-        <li>Close the app (stop the Water Billing service or window).</li>
-        <li>In the data folder, rename <code>waterbilling.db</code> to keep it, and delete <code>waterbilling.db-wal</code> and <code>waterbilling.db-shm</code> if present.</li>
-        <li>Copy the chosen backup file into the data folder and rename it to <code>waterbilling.db</code>.</li>
-        <li>Start the app and check the last invoice and the cash book.</li>
-    </ol>
-</div>
+@* ---------- Delete all data ---------- *@
+<Modal Open="_resetOpen" Title="Delete all data?" OnClose="() => _resetOpen = false">
+    <PageMessage Text="@_popError" Ok="false" />
+    <p>This removes <b>everything</b> entered in the app:</p>
+    <ul class="two-col">
+        <li>Invoices</li><li>Receipts and payments</li><li>Ledgers and statements</li><li>Suppliers and vehicles</li>
+        <li>Sales persons</li><li>Activity log and Recycle Bin</li>
+    </ul>
+    <p>Kept: the Admin and Sales logins and their passwords, and the backup files in the backup folder.</p>
+    <label class="check-card"><input type="checkbox" checked disabled /> <span><b>Take a backup first</b><br /><small class="muted">Always on. A full copy is saved in @_folder before anything is deleted.</small></span></label>
+    <div class="form-grid">
+        <div class="field"><label for="rsp">Admin password*</label><input id="rsp" type="password" @bind="_resetPassword" @bind:event="oninput" placeholder="Enter the Admin password" autocomplete="current-password" /></div>
+        <div class="field"><label for="rsc">Type DELETE ALL DATA to confirm*</label><input id="rsc" @bind="_resetConfirm" @bind:event="oninput" placeholder="DELETE ALL DATA" /></div>
+    </div>
+    <div class="form-actions">
+        <button class="btn" @onclick="() => _resetOpen = false">Cancel</button>
+        <button class="btn btn-danger" @onclick="DeleteAllAsync" disabled="@(Busy || _resetConfirm?.Trim() != BackupService.DeleteAllWords || string.IsNullOrEmpty(_resetPassword))">Delete all data</button>
+    </div>
+</Modal>
 
 @code {
+    private const long MaxUpload = 1024L * 1024 * 1024;   // 1 GB
     private IReadOnlyList<BackupFile> _files = [];
+    private string _folder = "";
+    private bool _folderOpen, _restoreOpen, _resetOpen;
+    private string? _popError, _folderInput, _restoreName, _restoreConfirm, _resetPassword, _resetConfirm;
+    private IBrowserFile? _upload;
 
-    protected override async Task OnUserReadyAsync() => _files = await Svc.ListAsync();
+    private bool CanRestore => _restoreConfirm?.Trim() == BackupService.RestoreWord && (_restoreName is not null || _upload is not null);
+
+    protected override async Task OnUserReadyAsync() => await ReloadAsync();
+
+    private async Task ReloadAsync()
+    {
+        _folder = Svc.Folder;
+        _files = await Svc.ListAsync();
+    }
 
     private async Task RunAsync()
     {
@@ -54,8 +150,75 @@
         try
         {
             var result = await Svc.RunAsync();
-            if (result.Ok) ShowOk($"Backup {result.Value!.Name} saved and checked."); else ShowError(result.Error!);
-            _files = await Svc.ListAsync();
+            if (result.Ok) ShowOk($"Backup taken: {result.Value!.Name} saved in {Svc.Folder}."); else ShowError(result.Error!);
+            await ReloadAsync();
+        }
+        finally { Busy = false; }
+    }
+
+    private void OpenFolder() { _popError = null; _folderInput = _folder; _folderOpen = true; }
+
+    private async Task SaveFolderAsync()
+    {
+        Busy = true;
+        try
+        {
+            var result = await Svc.SetFolderAsync(_folderInput);
+            if (!result.Ok) { _popError = result.Error; return; }
+            _folderOpen = false;
+            await ReloadAsync();
+            ShowOk($"Backups now go to {_folder}.");
+        }
+        finally { Busy = false; }
+    }
+
+    private void OpenRestore(string? name)
+    {
+        _popError = null;
+        _restoreName = name;
+        _upload = null;
+        _restoreConfirm = null;
+        _restoreOpen = true;
+    }
+
+    private void CloseRestore() { _restoreOpen = false; _upload = null; }
+
+    private void OnFileChosen(InputFileChangeEventArgs e) { _upload = e.File; _popError = null; }
+
+    private async Task RestoreAsync()
+    {
+        if (Busy || !CanRestore) return;
+        Busy = true;
+        try
+        {
+            Result result;
+            if (_restoreName is not null) result = await Svc.RestoreFromListAsync(_restoreName, _restoreConfirm);
+            else
+            {
+                await using var stream = _upload!.OpenReadStream(MaxUpload);
+                result = await Svc.RestoreFromUploadAsync(stream, _upload.Name, _restoreConfirm);
+            }
+            if (!result.Ok) { _popError = result.Error; return; }
+            // Everyone is signed out: go to the sign-in page.
+            Nav.NavigateTo("/account/login?restored=1", forceLoad: true);
+        }
+        catch (IOException) { _popError = "The file could not be read. It may be larger than 1 GB."; }
+        finally { Busy = false; }
+    }
+
+    private void OpenReset() { _popError = null; _resetPassword = null; _resetConfirm = null; _resetOpen = true; }
+
+    private async Task DeleteAllAsync()
+    {
+        if (Busy) return;
+        Busy = true;
+        try
+        {
+            var result = await Svc.DeleteAllDataAsync(_resetPassword, _resetConfirm);
+            if (!result.Ok) { _popError = result.Error; return; }
+            _resetOpen = false;
+            await ReloadAsync();
+            ShowOk($"All data deleted. A safety backup was saved first: {result.Value!.Name}.");
         }
         finally { Busy = false; }
     }

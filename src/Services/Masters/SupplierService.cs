@@ -149,7 +149,7 @@ public class SupplierService(IDbContextFactory<AppDbContext> dbFactory, ICurrent
             return Result.Fail("This supplier has vehicles or transactions, so it cannot be deleted. Set it to Inactive instead.");
 
         RecoveryService.MarkDeleted(supplier, me, Now, deletedBy);
-        ActivityLogger.Add(db, Now, me, ActivityCategory.Master, "SUPPLIER_DELETED", nameof(Supplier), id, before: Snapshot(supplier), reason: $"Deleted by {who.Value}");
+        ActivityLogger.Add(db, Now, me, ActivityCategory.Master, "SUPPLIER_DELETED", nameof(Supplier), id, before: Snapshot(supplier), reason: $"Deleted by {who.Value}", doneBy: who.Value);
         return await SaveAsync(db);
     }
 

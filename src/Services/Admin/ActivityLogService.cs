@@ -7,10 +7,15 @@ namespace WaterBilling.Services.Admin;
 
 // Reads the Activity Log for the Admin, with filters. Each search is itself recorded.
 
-public sealed record ActivityFilter(DateOnly From, DateOnly To, ActivityCategory? Category = null, string? UserName = null, string? Text = null);
+public sealed record ActivityFilter(DateOnly From, DateOnly To, ActivityCategory? Category = null, string? UserName = null, string? Text = null, string? DoneBy = null);
 
 public sealed record ActivityRow(long Id, DateTime EventAtUtc, string UserName, string? Role, ActivityCategory Category,
-    string Action, string? EntityType, long? EntityId, string? BeforeJson, string? AfterJson, string? Reason);
+    string Action, string? EntityType, long? EntityId, string? BeforeJson, string? AfterJson, string? Reason, string? DoneBy = null)
+{
+    // "Done by" column: the person's name, and which login they used.
+    public string DoneByName => DoneBy ?? (Role == nameof(UserRole.Admin) ? "Admin" : Role is null ? UserName : "Sales");
+    public string LoginText => Role == nameof(UserRole.Admin) ? "Admin login" : Role is null ? "Not signed in" : "Sales login";
+}
 
 // Activity log viewer (FR-ADM-07): Admin only, read-only, and every search is itself logged.
 public class ActivityLogService(IDbContextFactory<AppDbContext> dbFactory, ICurrentUser currentUser, TimeProvider clock)
@@ -28,6 +33,11 @@ public class ActivityLogService(IDbContextFactory<AppDbContext> dbFactory, ICurr
         var query = db.ActivityLogs.Where(a => a.EventAtUtc >= fromUtc && a.EventAtUtc < toUtc);
         if (f.Category is { } c) query = query.Where(a => a.Category == c);
         if (!string.IsNullOrWhiteSpace(f.UserName)) query = query.Where(a => EF.Functions.Like(a.UserName, $"%{f.UserName.Trim()}%"));
+        if (!string.IsNullOrWhiteSpace(f.DoneBy))
+        {
+            // "Admin" means the Admin login; any other name is the sales person chosen on the Sales login.
+            query = f.DoneBy == "Admin" ? query.Where(a => a.Role == nameof(UserRole.Admin)) : query.Where(a => a.DoneBy == f.DoneBy);
+        }
         if (!string.IsNullOrWhiteSpace(f.Text))
         {
             var t = $"%{f.Text.Trim()}%";
@@ -36,11 +46,11 @@ public class ActivityLogService(IDbContextFactory<AppDbContext> dbFactory, ICurr
         }
         var rows = await query.OrderByDescending(a => a.Id).Take(MaxRows)
             .Select(a => new ActivityRow(a.Id, a.EventAtUtc, a.UserName, a.Role, a.Category, a.Action, a.EntityType, a.EntityId,
-                a.BeforeJson, a.AfterJson, a.Reason))
+                a.BeforeJson, a.AfterJson, a.Reason, a.DoneBy))
             .ToListAsync();
 
         ActivityLogger.Add(db, clock.GetUtcNow().UtcDateTime, me, ActivityCategory.Admin, "ACTIVITY_LOG_VIEWED",
-            after: new { From = f.From.ToString("yyyy-MM-dd"), To = f.To.ToString("yyyy-MM-dd"), Category = f.Category?.ToString(), f.UserName, f.Text });
+            after: new { From = f.From.ToString("yyyy-MM-dd"), To = f.To.ToString("yyyy-MM-dd"), Category = f.Category?.ToString(), f.UserName, f.Text, f.DoneBy });
         await db.SaveChangesAsync();
         return rows;
     }

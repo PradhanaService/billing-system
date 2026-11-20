@@ -260,6 +260,9 @@ namespace WaterBilling.Data.Migrations
                         .HasMaxLength(10)
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("DoneBy")
+                        .HasColumnType("TEXT");
+
                     b.Property<long?>("EntityId")
                         .HasColumnType("INTEGER");
 
@@ -949,6 +952,9 @@ namespace WaterBilling.Data.Migrations
                     b.Property<string>("NormalizedUserName")
                         .IsRequired()
                         .HasMaxLength(50)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("PasswordChangedAtUtc")
                         .HasColumnType("TEXT");
 
                     b.Property<string>("PasswordHash")
