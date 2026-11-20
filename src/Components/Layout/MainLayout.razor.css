@@ -1,5 +1,7 @@
 /* Styles here apply only to MainLayout (Blazor "CSS isolation"). */
 .shell {
+    /* The menu colour runs the full height of long pages. */
+    background: linear-gradient(to right, var(--menu) 236px, transparent 236px);
     display: grid;
     grid-template-columns: 236px 1fr;
     grid-template-rows: 64px 1fr;
@@ -9,7 +11,7 @@
     min-height: 100vh;
 }
 
-/* Top bar: Deep Space to Royal Blue. */
+/* Top bar: dark Chathams Blue to Chathams Blue. */
 .topbar {
     grid-area: top;
     position: sticky;
@@ -19,9 +21,9 @@
     align-items: center;
     gap: 0.75rem;
     padding: 0 1.25rem;
-    background: linear-gradient(90deg, var(--ink) 0%, var(--accent) 100%);
+    background: linear-gradient(90deg, var(--top1) 0%, var(--menu) 100%);
     color: #ffffff;
-    box-shadow: 0 2px 10px rgba(27, 38, 44, 0.25);
+    box-shadow: 0 2px 10px rgba(23, 40, 58, 0.25);
 }
 
 .brand-mark {
@@ -38,21 +40,16 @@
 .brand { font-weight: 700; font-size: 1.08rem; letter-spacing: 0.01em; }
 .subtitle { color: var(--cloud); font-size: 0.8rem; }
 
-/* User menu (a <details>: opens on click or Enter, no script). */
-.user-menu { margin-left: auto; position: relative; }
-.user-menu summary {
-    list-style: none;
+/* Signed-in user with Change password and Sign out beside it. */
+.user-menu {
+    margin-left: auto;
     display: flex;
     align-items: center;
-    gap: 0.6rem;
-    padding: 0.3rem 0.6rem 0.3rem 0.3rem;
+    gap: 0.75rem;
+    padding: 0.3rem 0.8rem 0.3rem 0.3rem;
     border-radius: 999px;
-    cursor: pointer;
+    background: rgba(216, 228, 239, 0.16);
 }
-.user-menu summary::-webkit-details-marker { display: none; }
-.user-menu summary:hover, .user-menu[open] summary { background: rgba(187, 225, 250, 0.16); }
-.user-menu summary:focus-visible { outline: 3px solid var(--cloud); outline-offset: 2px; }
-
 .avatar {
     display: grid;
     place-items: center;
@@ -65,44 +62,27 @@
 }
 .user-name { display: flex; flex-direction: column; line-height: 1.15; font-size: 0.9rem; }
 .user-name small { color: var(--cloud); font-size: 0.75rem; }
-
-.user-drop {
-    position: absolute;
-    right: 0;
-    top: calc(100% + 8px);
-    min-width: 210px;
-    padding: 0.4rem;
-    background: var(--paper);
-    color: var(--ink);
-    border-radius: 12px;
-    box-shadow: 0 10px 30px rgba(27, 38, 44, 0.22);
-}
-.user-drop a, .user-drop button {
-    display: flex;
-    align-items: center;
-    gap: 0.55rem;
-    width: 100%;
-    padding: 0.55rem 0.7rem;
-    border: 0;
-    border-radius: 8px;
-    background: none;
-    color: var(--ink);
+.top-form { margin: 0; }
+.top-link {
+    color: var(--cloud);
     font: inherit;
-    font-size: 0.92rem;
-    text-decoration: none;
-    text-align: left;
+    font-size: 0.85rem;
+    text-decoration: underline;
+    background: none;
+    border: 0;
+    padding: 0;
     cursor: pointer;
 }
-.user-drop a:hover, .user-drop button:hover { background: var(--tint); }
-.user-drop form { margin: 0; }
+.top-link:hover { color: #ffffff; }
+.top-link:focus-visible { outline: 3px solid var(--cloud); outline-offset: 2px; }
 
-/* Side menu: dark Deep Space. */
+/* Side menu: Chathams Blue. */
 .sidebar {
     grid-area: side;
     position: sticky;
     top: 64px;
     height: calc(100vh - 64px);
-    background: var(--ink);
+    background: var(--menu);
     padding: 1rem 0;
     overflow-y: auto;
 }
@@ -115,7 +95,7 @@
 
 /* Narrow windows: the menu goes above the page. */
 @media (max-width: 760px) {
-    .shell { grid-template-columns: 1fr; grid-template-rows: auto auto 1fr; grid-template-areas: "top" "side" "main"; }
+    .shell { background: none; grid-template-columns: 1fr; grid-template-rows: auto auto 1fr; grid-template-areas: "top" "side" "main"; }
     .topbar { position: static; flex-wrap: wrap; padding: 0.6rem 1rem; }
     .subtitle, .user-name { display: none; }
     .sidebar { position: static; height: auto; max-height: 50vh; }

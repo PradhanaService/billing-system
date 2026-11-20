@@ -44,9 +44,12 @@ public class NavMenuTests : IClassFixture<TestAppFactory>
         Assert.Contains("Receipt", titles);
         Assert.Contains("Payment", titles);
         Assert.Contains("Ledger Master", titles);
-        Assert.DoesNotContain("Users & Roles", titles);
+        Assert.DoesNotContain("Password Management", titles);
+        Assert.DoesNotContain("Ledger Statement", titles);
+        Assert.DoesNotContain("Customer Master", titles);
+        Assert.Contains("Recycle Bin", titles);
         Assert.DoesNotContain("Activity Log", titles);
-        Assert.DoesNotContain("Backup", titles);
+        Assert.DoesNotContain("Backup & Restore", titles);
         Assert.Empty(MenuItems.For(null));
     }
 
