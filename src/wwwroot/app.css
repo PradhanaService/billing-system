@@ -193,3 +193,9 @@ table.data tr.muted td { color: var(--muted); }
 /* Supplier details strip on "Vehicles of supplier". */
 .supplier-facts { display: flex; gap: 1.75rem; flex-wrap: wrap; padding: 1rem 1.25rem; }
 .supplier-facts span { display: flex; flex-direction: column; gap: 0.1rem; font-size: 0.92rem; }
+/* Search box with a magnifier icon (Vehicle Master, Invoice Display). */
+.field.grow { flex: 3 1 320px; }
+.search-box { display: flex; align-items: center; gap: 0.5rem; padding: 0 0.65rem; border: 1px solid var(--input); border-radius: var(--radius-sm); background: var(--paper); color: var(--muted); }
+.search-box input { border: 0; flex: 1; min-width: 0; padding: 0.5rem 0; box-shadow: none; }
+.search-box input:focus { box-shadow: none; }
+.search-box:focus-within { border-color: var(--focus); box-shadow: 0 0 0 3px rgba(74, 134, 189, 0.28); }
