@@ -23,6 +23,7 @@ public sealed class TestServices(TestDatabase db, FakeCurrentUser me)
     public DaySalesService DaySales => new(db, me, db.Clock, Poster, Calendar);
     public DashboardService Dashboard => new(db, me, Calendar);
     public WaterBilling.Services.Reports.ReportService Reports => new(db, me);
+    public WaterBilling.Services.Reports.TripReportService TripReports => new(db, me);
     public WaterBilling.Services.Admin.ActivityLogService ActivityLog => new(db, me, db.Clock);
     public WaterBilling.Services.Admin.SalesPersonService SalesPersons => new(db, me, db.Clock);
     public WaterBilling.Services.Recovery.RecoveryService Recovery => new(db, me, db.Clock);

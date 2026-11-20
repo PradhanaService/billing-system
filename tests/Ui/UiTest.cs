@@ -46,6 +46,7 @@ public abstract class UiTest : TestContext
         Services.AddTransient<SalesPersonService>();
         Services.AddTransient<ActivityLogService>();
         Services.AddTransient<WaterBilling.Services.Reports.ReportService>();
+        Services.AddTransient<WaterBilling.Services.Reports.TripReportService>();
         var auth = this.AddTestAuthorization();
         auth.SetAuthorized(user.UserName);
         auth.SetClaims(new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.NameIdentifier, user.Id.ToString()),

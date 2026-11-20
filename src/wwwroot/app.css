@@ -316,3 +316,20 @@ button.pill-ok:hover { border-color: var(--focus); }
 .ms-foot .btn { margin-left: auto; }
 input.strong { font-weight: 700; }
 .right { text-align: right; }
+/* ---------- Reports: Vehicle Trip Report ---------- */
+.rpt-filters { display: grid; grid-template-columns: 160px 160px minmax(0, 1fr) minmax(0, 1fr) auto; gap: 14px; align-items: end; }
+.rpt-filters .field { margin: 0; min-width: 0; }
+.rpt-filters .btn { height: 42px; }
+@media (max-width: 900px) { .rpt-filters { grid-template-columns: 1fr 1fr; } }
+.rpt-band { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 12px 16px; margin-bottom: 6px; border-radius: 10px; background: var(--cloud); color: var(--accent); }
+.rpt-band .rpt-title { font-size: 1.15rem; font-weight: 700; color: var(--ink); }
+.rpt-band .muted { margin-left: auto; }
+.rpt-group { display: flex; align-items: center; gap: 10px; padding: 8px 12px; margin: 14px 0 8px; border-left: 4px solid var(--accent); border-radius: 6px; background: var(--badge); color: var(--accent); }
+.rpt-group b { color: var(--ink); }
+.rpt-group .muted { margin-left: auto; font-size: 0.85rem; }
+.rpt-totals { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 18px; }
+.rpt-totals > div { flex: 1 1 180px; padding: 14px 18px; border-radius: 10px; background: var(--badge); }
+.rpt-totals .lbl { font-size: 0.8rem; color: var(--muted); font-weight: 600; }
+.rpt-totals .val { font-size: 1.3rem; font-weight: 700; }
+.rpt-totals .val.accent { color: var(--accent); }
+.small { font-size: 0.85rem; }
