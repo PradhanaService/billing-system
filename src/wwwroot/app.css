@@ -199,3 +199,55 @@ table.data tr.muted td { color: var(--muted); }
 .search-box input { border: 0; flex: 1; min-width: 0; padding: 0.5rem 0; box-shadow: none; }
 .search-box input:focus { box-shadow: none; }
 .search-box:focus-within { border-color: var(--focus); box-shadow: 0 0 0 3px rgba(74, 134, 189, 0.28); }
+
+/* ---------- Sales Invoice (final design) ---------- */
+.si-head { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.25rem; }
+.si-head h1 { margin: 0; font-size: 1.9rem; flex: 1 1 240px; }
+.si-icon { display: grid; place-items: center; width: 56px; height: 56px; border-radius: 50%; background: var(--accent); color: var(--paper); flex: none; }
+.si-hcard { display: flex; flex-direction: column; gap: 0.3rem; padding: 0.7rem 0.9rem; border-radius: var(--radius); background: var(--cloud); min-width: 230px; }
+.si-hcard label { font-weight: 700; font-size: 0.88rem; }
+.si-hcard input { font-weight: 700; }
+.input-icon { display: flex; align-items: center; gap: 0.5rem; padding: 0 0.65rem; border: 1px solid var(--input); border-radius: var(--radius-sm); background: var(--paper); color: var(--accent); }
+.input-icon input { border: 0; padding: 0.45rem 0; background: transparent; min-width: 0; }
+.si-nav { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; padding: 0.75rem 1rem; margin-bottom: 1.25rem; background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); }
+.si-nav .btn + .btn { margin-left: 0; }
+.si-sep { width: 1px; height: 28px; background: var(--line); margin: 0 0.2rem; }
+.si-find { flex: 1 1 240px; max-width: 360px; }
+.si-right { margin-left: auto; display: flex; gap: 0.6rem; }
+.si-viewing { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
+.si-viewing .btn { margin-left: auto; }
+.si-block { background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); margin-bottom: 1.25rem; overflow: hidden; }
+.si-block > h2 { display: flex; align-items: center; gap: 0.6rem; margin: 0; padding: 0.75rem 1.1rem; font-size: 1.05rem; background: var(--badge); border-bottom: 1px solid var(--line); color: var(--ink); }
+.si-block > h2 .icon { color: var(--accent); }
+.si-body { padding: 1rem 1.1rem; }
+.si-row { display: flex; gap: 1rem 1.25rem; flex-wrap: wrap; align-items: flex-start; }
+.si-row .field { flex: 2 1 220px; min-width: 0; margin-bottom: 0.4rem; }
+.si-row .field input, .si-row .field select { width: 100%; box-sizing: border-box; }
+.si-row .grow3 { flex: 3 1 220px; }
+.si-row .grow1 { flex: 1 1 120px; }
+.si-code input { font-weight: 700; font-size: 1.1rem; border: 2px solid var(--accent); }
+.si-hint { flex: 3 1 260px; margin: 1.6rem 0 0; font-size: 0.85rem; }
+.si-fetched { margin-top: 0.6rem; align-items: flex-end; }
+.req { color: var(--danger); }
+.ok-note { display: flex; align-items: center; gap: 0.25rem; color: var(--accent) !important; font-weight: 600; }
+.bad-note { color: var(--danger) !important; font-weight: 600; }
+.amount-box { flex: 1 1 190px; max-width: 300px; margin-left: auto; display: flex; flex-direction: column; align-items: center; gap: 0.4rem; padding: 0.6rem 0.9rem; border-radius: var(--radius); background: rgba(216, 228, 239, 0.6); }
+.amount-title { display: flex; align-items: center; gap: 0.5rem; font-weight: 700; }
+.amount-coin { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; background: var(--accent); color: var(--paper); }
+.amount-box input { width: 100%; box-sizing: border-box; text-align: center; font-weight: 700; font-size: 1.4rem; background: var(--paper); }
+.si-items th, .si-items td { text-align: center !important; }
+.si-pair { display: flex; gap: 1.25rem; flex-wrap: wrap; align-items: stretch; }
+.si-pair > .si-block { flex: 1 1 360px; min-width: 0; }
+.time-row { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 0.75rem; color: var(--accent); }
+.time-row label, .time-row b { width: 80px; color: var(--ink); font-weight: 700; font-size: 0.9rem; }
+.time-row input[type=date] { flex: 1 1 140px; }
+.time-input { flex: 0 1 110px; width: 110px; }
+.meters { width: 100%; border-collapse: separate; border-spacing: 6px 4px; }
+.meters thead th { font-size: 0.78rem; font-weight: 600; text-align: center; }
+.meters input { width: 100%; box-sizing: border-box; text-align: center; padding: 0.35rem 0.4rem; }
+.meters .vol { background: var(--readonly); }
+.meter-tag { display: block; padding: 0.3rem 0.6rem; border-radius: 6px; background: var(--cloud); color: var(--accent); font-weight: 700; font-size: 0.85rem; text-align: center; white-space: nowrap; }
+.si-actions { display: flex; gap: 0.9rem; justify-content: center; margin: 1.5rem 0 0.5rem; }
+.btn-lg { padding: 0.65rem 1.6rem; font-size: 1rem; }
+.btn-outline { border-color: var(--accent); color: var(--accent); }
+.si-saved { display: flex; gap: 0.6rem; justify-content: center; }

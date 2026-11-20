@@ -5,166 +5,249 @@
 @using WaterBilling.Services.Masters
 @inject InvoiceService Svc
 @inject VehicleService VehicleSvc
-@inject CustomerService CustomerSvc
 @inject WaterBilling.Services.Admin.SalesPersonService SalesPersonSvc
 
-@* Sales Invoice: bill one tanker visit.
-   Choose Created by (the sales person), the vehicle (code or name: the supplier and rate fill in),
-   the trips, and Cash or Credit. The amount is worked out as trips x rate.
+@* Sales Invoice (final design, Nov 2026): bill one tanker trip.
+   Only the Vehicle Code is typed: the vehicle, its supplier, capacity and rate come from Vehicle Master.
+   Amount = 1 trip x rate. Trip Timing: the date is picked from the calendar, the time is typed.
+   Meter Readings (optional): start and end for Meter 1, 2 and 3; the volume is worked out.
+   The toolbar moves through saved invoices (Previous / Next, or Search by number) and shows the one
+   chosen read-only on this screen, with View (full page and print) and Edit (corrected copy).
    Saving gives the next invoice number and posts the accounts entries in the same step. *@
 
 <PageTitle>Sales Invoice</PageTitle>
 
-<PageHeader IconName="file-text" Title="Sales Invoice" Subtitle="Bill a water fill. The number is given when you save." />
+<div class="si-head">
+    <span class="si-icon"><Icon Name="file-text" Size="28" /></span>
+    <h1>Sales Invoice</h1>
+    <div class="si-hcard">
+        <label for="invno">Invoice No.</label>
+        <input id="invno" value="@(_shown?.DisplayNo ?? _nextNo)" readonly title="@(_shown is null ? "Assigned when you save" : "Saved invoice")" />
+    </div>
+    <div class="si-hcard">
+        <label for="invdate">Invoice Date</label>
+        <span class="input-icon"><Icon Name="calendar" Size="18" /><input id="invdate" value="@IndianTime.FormatDate(_shown?.InvoiceDate ?? _date)" readonly /></span>
+    </div>
+</div>
+
+@* Toolbar: switch between saved invoices without leaving the screen. *@
+<div class="si-nav">
+    <button class="btn" @onclick="() => StepAsync(next: false)" disabled="@Busy"><Icon Name="chevron-left" Size="16" /> Previous</button>
+    <button class="btn" @onclick="() => StepAsync(next: true)" disabled="@(Busy || _shown is null)">Next <Icon Name="chevron-right" Size="16" /></button>
+    <span class="si-sep"></span>
+    <span class="search-box si-find"><Icon Name="search" Size="16" />
+        <input aria-label="Find invoice" placeholder="Invoice no., e.g. 7231" @bind="_find" @onkeydown="FindOnEnterAsync" />
+    </span>
+    <button class="btn btn-primary" @onclick="FindAsync"><Icon Name="search" Size="16" /> Search</button>
+    <span class="si-right">
+        @if (_shown is not null)
+        {
+            <a class="btn" href="/invoices/@_shown.Id"><Icon Name="eye" Size="16" /> View</a>
+            @if (_shown.Status != InvoiceStatus.Cancelled && Can(Permission.InvoiceCancel))
+            {
+                <a class="btn" href="/invoices/@_shown.Id/edit"><Icon Name="edit" Size="16" /> Edit</a>
+            }
+        }
+        else
+        {
+            <button class="btn" disabled title="Find a saved invoice first"><Icon Name="eye" Size="16" /> View</button>
+            <button class="btn" disabled title="Find a saved invoice first"><Icon Name="edit" Size="16" /> Edit</button>
+        }
+    </span>
+</div>
 
 <PageMessage Text="@MessageText" Ok="@MessageOk" />
-@if (_savedId is not null)
+
+@if (_shown is not null)
 {
-    <p>
-        <a class="btn" href="/pdf/invoice/@_savedId" target="_blank" rel="noopener">Print @_savedNo</a>
-        <a class="btn" href="/invoices/@_savedId">View @_savedNo</a>
-    </p>
+    <div class="alert alert-ok si-viewing">
+        Showing saved invoice <b>@_shown.DisplayNo</b> (@StatusText(_shown)) · created by @_shown.CreatedBy, @IndianTime.FormatDateTime(_shown.CreatedAtUtc).
+        <button class="btn btn-small" @onclick="NewInvoiceAsync"><Icon Name="plus" Size="14" /> New invoice</button>
+    </div>
 }
 
-<div class="card">
-    <div class="form-grid">
-        <div class="field">
-            <label>Invoice No.</label>
-            <input value="@_nextNo" readonly title="Assigned when you save" />
-            <small>Expected. Assigned when you save.</small>
-        </div>
-        <div class="field">
-            <label>Invoice Date</label>
-            <input value="@IndianTime.FormatDate(_date)" readonly />
-            <small>Business day (6 PM to 6 PM).</small>
-        </div>
-        <div class="field">
-            <label for="createdby">Created by*</label>
-            @* Admin login: always "Admin". Sales login: only the names the Admin added (Sales Persons page). *@
-            @if (IsAdmin)
-            {
-                <input id="createdby" value="@InvoiceService.AdminName" readonly />
-            }
-            else
-            {
-                <select id="createdby" @bind="_form.SalesPersonId">
-                    <option value="">Choose your name</option>
-                    @foreach (var p in _salesPersons) { <option value="@p.Id">@p.Name</option> }
-                </select>
-                @if (_salesPersons.Count == 0) { <small>No names yet. Ask the Admin to add sales persons.</small> }
-            }
-        </div>
-        <div class="field">
-            <label for="vcode">Vehicle Code*</label>
-            <select id="vcode" @bind="_form.VehicleId" @bind:after="OnVehicleChanged">
-                <option value="0">Choose</option>
-                @foreach (var v in _vehicles) { <option value="@v.Id">@v.Code</option> }
-            </select>
-        </div>
-        <div class="field">
-            <label for="vname">Vehicle Name*</label>
-            <select id="vname" @bind="_form.VehicleId" @bind:after="OnVehicleChanged">
-                <option value="0">Choose</option>
-                @foreach (var v in _vehicles.OrderBy(x => x.Nickname)) { <option value="@v.Id">@v.Nickname</option> }
-            </select>
-        </div>
-        <div class="field">
-            <label>Vehicle Supplier</label>
-            <input value="@(_vehicle?.SupplierName)" readonly />
-        </div>
-        <div class="field">
-            <label for="billto">Bill To</label>
-            <select id="billto" @bind="_form.BillToType">
-                <option value="@PartyType.Supplier">Vehicle supplier</option>
-                <option value="@PartyType.Customer">A customer</option>
-            </select>
-        </div>
-        @if (_form.BillToType == PartyType.Customer)
-        {
-            <div class="field">
-                <label for="customer">Customer*</label>
-                <select id="customer" @bind="_form.CustomerId">
-                    <option value="">Choose</option>
-                    @foreach (var c in _customers) { <option value="@c.Id">@c.Name</option> }
-                </select>
+@* ---------- Invoice Details ---------- *@
+<section class="si-block">
+    <h2><Icon Name="edit" Size="20" /> Invoice Details</h2>
+    <div class="si-body">
+        <div class="si-row">
+            <div class="field si-code">
+                <label for="vcode">Vehicle Code <span class="req">*</span></label>
+                @if (_shown is not null)
+                {
+                    <input id="vcode" value="@_shown.VehicleCode" readonly />
+                }
+                else
+                {
+                    <input id="vcode" @bind="_code" @bind:after="OnCodeChanged" placeholder="Type the vehicle code, e.g. A13" autocomplete="off" />
+                    @if (_vehicle is not null) { <small class="ok-note"><Icon Name="check" Size="14" /> Found in Vehicle Master</small> }
+                    else if (_codeError is not null) { <small class="bad-note">@_codeError</small> }
+                }
             </div>
-        }
-        <div class="field">
-            <label for="mode">Payment Mode*</label>
-            <select id="mode" @bind="_form.PaymentMode">
-                <option value="@InvoicePaymentMode.Credit">Credit</option>
-                <option value="@InvoicePaymentMode.Cash">Cash</option>
-            </select>
-        </div>
-        <div class="field">
-            <label for="trips">Trip*</label>
-            <input id="trips" type="number" min="1" max="99" @bind="_form.Trips" @bind:event="oninput" />
-        </div>
-        <div class="field">
-            <label for="rate">Rate (₹ per trip)*</label>
-            <input id="rate" type="number" min="0" step="0.01" @bind="_form.Rate" @bind:event="oninput"
-                   readonly="@(!Can(Permission.InvoiceOverrideRate))" />
-            @if (!Can(Permission.InvoiceOverrideRate)) { <small>From the Vehicle Master.</small> }
-        </div>
-        @if (RateChanged)
-        {
             <div class="field">
-                <label for="ratereason">Reason for rate change*</label>
-                <input id="ratereason" @bind="_form.RateReason" />
+                <label for="mode">Payment Mode <span class="req">*</span></label>
+                @if (_shown is not null)
+                {
+                    <input id="mode" value="@_shown.PaymentMode" readonly />
+                }
+                else
+                {
+                    <select id="mode" @bind="_form.PaymentMode">
+                        <option value="@InvoicePaymentMode.Cash">Cash</option>
+                        <option value="@InvoicePaymentMode.Credit">Credit</option>
+                    </select>
+                }
             </div>
-        }
+            <div class="field">
+                <label for="createdby">Created by <span class="req">*</span></label>
+                @* Admin login: always "Admin". Sales login: only the names the Admin added (Sales Persons page). *@
+                @if (_shown is not null)
+                {
+                    <input id="createdby" value="@_shown.CreatedBy" readonly />
+                }
+                else if (IsAdmin)
+                {
+                    <input id="createdby" value="@InvoiceService.AdminName" readonly />
+                }
+                else
+                {
+                    <select id="createdby" @bind="_form.SalesPersonId">
+                        <option value="">Choose your name</option>
+                        @foreach (var p in _salesPersons) { <option value="@p.Id">@p.Name</option> }
+                    </select>
+                    @if (_salesPersons.Count == 0) { <small>No names yet. Ask the Admin to add sales persons.</small> }
+                }
+            </div>
+            @if (_shown is null)
+            {
+                <p class="muted si-hint">Type the code and press Enter or Tab: the vehicle, its supplier, capacity and rate fill in by themselves.</p>
+            }
+        </div>
+        <div class="si-row si-fetched">
+            <div class="field grow3"><label>Vehicle Name</label><input value="@VehicleName" readonly /><small>From Vehicle Master</small></div>
+            <div class="field grow3"><label>Vehicle Supplier</label><input value="@SupplierName" readonly /><small>From Vehicle Master</small></div>
+            <div class="field grow1"><label>Capacity (L)</label><input value="@CapacityText" readonly /><small>From Vehicle Master</small></div>
+            <div class="field grow1"><label>Rate (₹/Trip)</label><input value="@RateText" readonly /><small>From Vehicle Master</small></div>
+            <div class="amount-box">
+                <span class="amount-title"><span class="amount-coin"><Icon Name="rupee" Size="16" /></span> Amount (₹)</span>
+                <input aria-label="Amount" value="@AmountText" readonly />
+            </div>
+        </div>
     </div>
-    <div class="field">
-        <label for="narration">Narration</label>
-        <input id="narration" @bind="_form.Narration" maxlength="300" />
-    </div>
-</div>
+</section>
 
-<div class="card">
-    <h2>Item Details</h2>
-    <table class="data">
-        <thead><tr><th>S.No</th><th>Material</th><th class="num">Qty</th><th>Measurement</th><th class="num">Rate (₹)</th><th class="num">Total Amount (₹)</th></tr></thead>
+@* ---------- Item Details ---------- *@
+<section class="si-block">
+    <h2><Icon Name="table" Size="20" /> Item Details</h2>
+    <table class="data si-items">
+        <thead><tr><th>S.No</th><th>Material</th><th class="num">Capacity (L)</th><th>Measurement</th><th class="num">Rate (₹)</th><th class="num">Total Amount (₹)</th></tr></thead>
         <tbody>
-            @if (_vehicle is not null)
+            @if (HasVehicle)
             {
-                <tr>
-                    <td>1</td><td>Water</td>
-                    <td class="num">@PreviewQty</td>
-                    <td>Trip</td>
-                    <td class="num">@PreviewRate</td>
-                    <td class="num">@PreviewAmount</td>
-                </tr>
+                <tr><td>1</td><td>@VehicleName</td><td class="num">@CapacityText</td><td>TRIP</td><td class="num">@RateText</td><td class="num">@AmountText</td></tr>
             }
             else
             {
-                <tr><td colspan="6" class="muted">Choose a vehicle.</td></tr>
+                <tr><td colspan="6" class="muted">Type a vehicle code.</td></tr>
             }
         </tbody>
-        <tfoot><tr><td colspan="5" class="num">Total</td><td class="num">@PreviewAmount</td></tr></tfoot>
     </table>
-    <div class="form-actions">
-        <button class="btn btn-primary" @onclick="SaveAsync" disabled="@(Busy || _vehicle is null)">Save invoice</button>
-        <button class="btn" @onclick="ResetForm">Clear</button>
-    </div>
+</section>
+
+<div class="si-pair">
+    @* ---------- Trip Timing ---------- *@
+    <section class="si-block">
+        <h2><Icon Name="calendar" Size="20" /> Trip Timing</h2>
+        <div class="si-body">
+            @if (_shown is not null)
+            {
+                <div class="time-row"><Icon Name="clock" Size="18" /><b>In Time</b><span>@(_shown.InTimeUtc is { } a ? IndianTime.FormatDateTime(a) : "-")</span></div>
+                <div class="time-row"><Icon Name="clock" Size="18" /><b>Out Time</b><span>@(_shown.OutTimeUtc is { } b ? IndianTime.FormatDateTime(b) : "-")</span></div>
+            }
+            else
+            {
+                <div class="time-row">
+                    <Icon Name="clock" Size="18" /><label for="indate">In Time</label>
+                    <input id="indate" type="date" aria-label="In Time date" @bind="_form.InDate" />
+                    <input id="intime" class="time-input" aria-label="In Time time" placeholder="hh:mm AM" @bind="_form.InTime" />
+                </div>
+                <div class="time-row">
+                    <Icon Name="clock" Size="18" /><label for="outdate">Out Time</label>
+                    <input id="outdate" type="date" aria-label="Out Time date" @bind="_form.OutDate" />
+                    <input id="outtime" class="time-input" aria-label="Out Time time" placeholder="hh:mm AM" @bind="_form.OutTime" />
+                </div>
+                <small class="muted">Pick the date from the calendar. Type the time, e.g. 11:05 AM.</small>
+            }
+        </div>
+    </section>
+
+    @* ---------- Meter Readings ---------- *@
+    <section class="si-block">
+        <h2><Icon Name="activity" Size="20" /> Meter Readings</h2>
+        <div class="si-body">
+            <table class="meters">
+                <thead><tr><th></th><th>Start reading</th><th>End reading</th><th>Volume (kL)</th></tr></thead>
+                <tbody>
+                    @for (var m = 1; m <= 3; m++)
+                    {
+                        var n = m;
+                        <tr>
+                            <th><span class="meter-tag">Meter @n</span></th>
+                            @if (_shown is not null)
+                            {
+                                <td><input readonly value="@Reading(ShownStart(n))" aria-label="Meter @n start" /></td>
+                                <td><input readonly value="@Reading(ShownEnd(n))" aria-label="Meter @n end" /></td>
+                            }
+                            else
+                            {
+                                <td><input type="number" step="0.1" min="0" aria-label="Meter @n start" value="@GetStart(n)" @onchange="e => SetStart(n, e.Value)" /></td>
+                                <td><input type="number" step="0.1" min="0" aria-label="Meter @n end" value="@GetEnd(n)" @onchange="e => SetEnd(n, e.Value)" /></td>
+                            }
+                            <td><input readonly class="vol" value="@MeterVolume(n)" aria-label="Meter @n volume" /></td>
+                        </tr>
+                    }
+                    <tr><td colspan="3" class="num"><b>Total</b></td><td><input readonly class="vol" value="@TotalVolume" aria-label="Total volume" /></td></tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
 </div>
+
+@if (_shown is null)
+{
+    <div class="si-actions">
+        <button class="btn btn-primary btn-lg" @onclick="SaveAsync" disabled="@(Busy || _vehicle is null)"><Icon Name="download" Size="18" /> Save</button>
+        <button class="btn btn-outline btn-lg" @onclick="ResetForm"><Icon Name="recovery" Size="18" /> Clear</button>
+    </div>
+    @if (_savedId is not null)
+    {
+        <p class="si-saved">
+            <a class="btn" href="/pdf/invoice/@_savedId" target="_blank" rel="noopener"><Icon Name="printer" Size="16" /> Print @_savedNo</a>
+            <a class="btn" href="/invoices/@_savedId"><Icon Name="eye" Size="16" /> View @_savedNo</a>
+        </p>
+    }
+}
 
 @code {
     private InvoiceForm _form = new();
     private IReadOnlyList<VehicleForBilling> _vehicles = [];
-    private IReadOnlyList<(long Id, string Name)> _customers = [];
     private IReadOnlyList<(long Id, string Name)> _salesPersons = [];
     private VehicleForBilling? _vehicle;
+    private string? _code;
+    private string? _codeError;
     private string _nextNo = "";
     private DateOnly _date;
     private long? _savedId;
     private string? _savedNo;
+    private string? _find;
+    private InvoiceDetail? _shown;   // a saved invoice shown read-only (toolbar)
 
     protected override async Task OnUserReadyAsync()
     {
         _vehicles = await VehicleSvc.ListBillableAsync();
-        _customers = await CustomerSvc.ListActiveAsync();
         _salesPersons = await SalesPersonSvc.ListActiveAsync();
         await RefreshHeaderAsync();
+        NewForm();
     }
 
     private async Task RefreshHeaderAsync()
@@ -173,33 +256,92 @@
         _date = Svc.BusinessDate();
     }
 
-    // FR-INV-02: choosing code or name fills the other, the supplier and the rate.
-    private void OnVehicleChanged()
+    // Only the code is typed: Enter or Tab looks it up among the vehicles that can be invoiced.
+    private void OnCodeChanged()
     {
-        _vehicle = _vehicles.FirstOrDefault(v => v.Id == _form.VehicleId);
+        var code = (_code ?? "").Trim();
+        _vehicle = code.Length == 0 ? null : _vehicles.FirstOrDefault(v => string.Equals(v.Code, code, StringComparison.OrdinalIgnoreCase));
+        _codeError = code.Length == 0 || _vehicle is not null ? null : $"No active vehicle with code {code}. Check Vehicle Master.";
+        _form.VehicleId = _vehicle?.Id ?? 0;
         _form.Rate = _vehicle is null ? 0 : Money.ToRupees(_vehicle.RatePaise);
-        _form.RateReason = null;
+        _form.Trips = 1;
     }
 
-    private bool RateChanged => _vehicle is not null && _form.Rate != Money.ToRupees(_vehicle.RatePaise);
+    // ---- What the read-only boxes show: the typed vehicle, or the saved invoice ----
+    private bool HasVehicle => _shown is not null || _vehicle is not null;
+    private string VehicleName => _shown?.VehicleName ?? _vehicle?.Nickname ?? "";
+    private string SupplierName => _shown?.SupplierName ?? _vehicle?.SupplierName ?? "";
+    private string CapacityText => (_shown?.CapacityLitres ?? _vehicle?.TankCapacityLitres) is { } c and > 0 ? c.ToString("N0", System.Globalization.CultureInfo.GetCultureInfo("en-IN")) : "";
+    private string RateText => _shown is not null ? Money.Format(_shown.RatePaise) : _vehicle is not null ? Money.Format(_vehicle.RatePaise) : "";
+    private string AmountText => _shown is not null ? Money.Format(_shown.AmountPaise) : _vehicle is not null ? Money.Format(InvoiceMath.Amount(1, _vehicle.RatePaise)) : "0.00";
 
-    private long? PreviewPaise
+    private static string StatusText(InvoiceDetail d) => d.Status == InvoiceStatus.Cancelled ? "Cancelled"
+        : PayStates.Text(PayStates.For(d.Status, d.PaymentMode, d.AmountPaise, d.AllocatedPaise));
+
+    // ---- Meter readings ----
+    private decimal? GetStart(int n) => n switch { 1 => _form.Meter1Start, 2 => _form.Meter2Start, _ => _form.Meter3Start };
+    private decimal? GetEnd(int n) => n switch { 1 => _form.Meter1End, 2 => _form.Meter2End, _ => _form.Meter3End };
+    private void SetStart(int n, object? v) { var d = ToDecimal(v); if (n == 1) _form.Meter1Start = d; else if (n == 2) _form.Meter2Start = d; else _form.Meter3Start = d; }
+    private void SetEnd(int n, object? v) { var d = ToDecimal(v); if (n == 1) _form.Meter1End = d; else if (n == 2) _form.Meter2End = d; else _form.Meter3End = d; }
+    private static decimal? ToDecimal(object? v) => decimal.TryParse(v?.ToString(), System.Globalization.NumberStyles.Number, System.Globalization.CultureInfo.InvariantCulture, out var d) ? d : null;
+    private long? ShownStart(int n) => n switch { 1 => _shown!.Meters.Start1, 2 => _shown!.Meters.Start2, _ => _shown!.Meters.Start3 };
+    private long? ShownEnd(int n) => n switch { 1 => _shown!.Meters.End1, 2 => _shown!.Meters.End2, _ => _shown!.Meters.End3 };
+    private static string Reading(long? tenths) => tenths is { } t ? Volume.Format(t) : "";
+
+    private string MeterVolume(int n)
+    {
+        if (_shown is not null) return ShownEnd(n) - ShownStart(n) is { } t ? Volume.Format(t) : "";
+        return GetEnd(n) - GetStart(n) is { } d && d >= 0 ? d.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture) : "";
+    }
+
+    private string TotalVolume
     {
         get
         {
-            if (_vehicle is null || _form.Trips < 1 || _form.Rate <= 0) return null;
-            try
-            {
-                return InvoiceMath.Amount(_form.Trips, Money.RoundHalfUp(_form.Rate));
-            }
-            catch (Exception) { return null; }   // half-typed input: no preview yet
+            if (_shown is not null) return Volume.Format(_shown.Meters.VolumeTenths);
+            var total = Enumerable.Range(1, 3).Sum(n => GetEnd(n) - GetStart(n) is { } d && d > 0 ? d : 0m);
+            return total.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture);
         }
     }
 
-    private string PreviewAmount => PreviewPaise is { } p ? Money.Format(p) : "-";
-    private string PreviewRate => _form.Rate > 0 ? Money.Format(Money.RoundHalfUp(_form.Rate)) : "-";
-    private string PreviewQty => _form.Trips.ToString();
+    // ---- Toolbar: Previous / Next / Search ----
+    private async Task StepAsync(bool next)
+    {
+        long? id = _shown is null
+            ? (next ? null : await Svc.LatestAsync())        // from a blank invoice, Previous opens the newest one
+            : await Svc.NeighbourAsync(_shown.InvoiceNo, next);
+        if (id is null)
+        {
+            if (_shown is not null && next) { await NewInvoiceAsync(); return; }   // past the newest: back to a new invoice
+            ShowError(_shown is null ? "No invoices saved yet." : "This is the first invoice.");
+            return;
+        }
+        await ShowAsync(id.Value);
+    }
 
+    private async Task FindOnEnterAsync(KeyboardEventArgs e) { if (e.Key == "Enter") await FindAsync(); }
+
+    private async Task FindAsync()
+    {
+        var id = await Svc.FindByNumberAsync(_find);
+        if (id is null) { ShowError($"No invoice numbered {(_find ?? "").Trim()}."); return; }
+        await ShowAsync(id.Value);
+    }
+
+    private async Task ShowAsync(long id)
+    {
+        _shown = await Svc.GetAsync(id);
+        MessageText = null;
+    }
+
+    private async Task NewInvoiceAsync()
+    {
+        _shown = null;
+        MessageText = null;
+        await RefreshHeaderAsync();
+    }
+
+    // ---- Save / Clear ----
     private async Task SaveAsync()
     {
         if (Busy) return;   // a click that arrives while saving does nothing (NFR-CON-06)
@@ -221,8 +363,17 @@
         finally { Busy = false; }
     }
 
-    // Clears the invoice but keeps "Created by": the same person usually makes several invoices in a row.
     private bool IsAdmin => Me?.Role == UserRole.Admin;
 
-    private void ResetForm() { _form = new InvoiceForm { SalesPersonId = _form.SalesPersonId }; _vehicle = null; }
+    private void NewForm(long? salesPersonId = null) =>
+        _form = new InvoiceForm { SalesPersonId = salesPersonId, PaymentMode = InvoicePaymentMode.Cash, InDate = _date, OutDate = _date };
+
+    // Clears the invoice but keeps "Created by": the same person usually makes several invoices in a row.
+    private void ResetForm()
+    {
+        NewForm(_form.SalesPersonId);
+        _vehicle = null;
+        _code = null;
+        _codeError = null;
+    }
 }

@@ -20,4 +20,20 @@ public static class IndianTime
 
     public static string FormatDateTime(DateTime utc) =>
         ToIst(utc).ToString("dd/MM/yyyy hh:mm tt", CultureInfo.InvariantCulture);
+
+    public static string FormatTime(DateTime utc) => ToIst(utc).ToString("hh:mm tt", CultureInfo.InvariantCulture);
+
+    // An IST date and clock time -> the UTC instant stored in the database.
+    public static DateTime FromIst(DateOnly date, TimeOnly time) =>
+        DateTime.SpecifyKind(date.ToDateTime(time) - Offset, DateTimeKind.Utc);
+
+    // A typed time such as "11:05 AM", "11:05am", "9:5 pm" or "23:05" -> TimeOnly. Null when it is not a time.
+    public static TimeOnly? ParseTime(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return null;
+        var t = text.Trim().ToUpperInvariant().Replace(".", "");
+        t = System.Text.RegularExpressions.Regex.Replace(t, @"\s*(AM|PM)$", " $1");
+        string[] formats = ["h:mm tt", "h:m tt", "hh:mm tt", "H:mm", "HH:mm", "h tt"];
+        return TimeOnly.TryParseExact(t, formats, CultureInfo.InvariantCulture, DateTimeStyles.None, out var time) ? time : null;
+    }
 }

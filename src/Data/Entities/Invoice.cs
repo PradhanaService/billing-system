@@ -42,6 +42,24 @@ public class Invoice
     public DateTime CreatedAtUtc { get; set; }
     public int Version { get; set; }
 
+    // Final design (Nov 2026). Tanker capacity at the time of billing (from Vehicle Master; can be
+    // corrected when the invoice is edited), the trip times (stored in UTC, shown in IST) and the
+    // three meters' start and end readings in tenths of a kL (simple meter version, no locked chain).
+    public int CapacityLitres { get; set; }
+    public DateTime? InTimeUtc { get; set; }
+    public DateTime? OutTimeUtc { get; set; }
+    public long? Meter1StartTenths { get; set; }
+    public long? Meter1EndTenths { get; set; }
+    public long? Meter2StartTenths { get; set; }
+    public long? Meter2EndTenths { get; set; }
+    public long? Meter3StartTenths { get; set; }
+    public long? Meter3EndTenths { get; set; }
+
+    // Edit = cancel and reissue (the ledger is never changed in place): the corrected invoice points
+    // back to the one it replaces, and the cancelled one points forward to its replacement.
+    public long? ReplacesInvoiceId { get; set; }
+    public long? ReplacedByInvoiceId { get; set; }
+
     public long OutstandingPaise => Status == InvoiceStatus.Cancelled ? 0 : AmountPaise - AllocatedPaise;
     public string Measurement => BillingBasis == BillingBasis.Trip ? "Trip" : "kL";
 }

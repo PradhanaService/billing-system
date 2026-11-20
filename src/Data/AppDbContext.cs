@@ -152,6 +152,8 @@ public class AppDbContext : DbContext
                 t.HasCheckConstraint("CK_Invoices_Amount", "AmountPaise > 0 AND RatePaise > 0");
                 t.HasCheckConstraint("CK_Invoices_Trips", "Trips >= 1 AND VolumeTenths >= 0");
                 t.HasCheckConstraint("CK_Invoices_Allocated", "AllocatedPaise >= 0 AND AllocatedPaise <= AmountPaise");
+                t.HasCheckConstraint("CK_Invoices_Capacity", "CapacityLitres >= 0");
+                t.HasCheckConstraint("CK_Invoices_TripTimes", "InTimeUtc IS NULL OR OutTimeUtc IS NULL OR OutTimeUtc >= InTimeUtc");
                 // Exactly the right party for Bill To (Database Schema page 9).
                 t.HasCheckConstraint("CK_Invoices_BillTo",
                     "(BillToType = 'Supplier' AND CustomerId IS NULL) OR (BillToType = 'Customer' AND CustomerId IS NOT NULL)");

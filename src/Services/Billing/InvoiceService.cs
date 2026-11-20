@@ -31,6 +31,20 @@ public sealed class InvoiceForm
 
     [StringLength(200)] public string? RateReason { get; set; }
     [StringLength(300)] public string? Narration { get; set; }
+
+    // Trip Timing (final design): the date is picked, the time is typed ("11:05 AM").
+    public DateOnly? InDate { get; set; }
+    public string? InTime { get; set; }
+    public DateOnly? OutDate { get; set; }
+    public string? OutTime { get; set; }
+
+    // Meter Readings in kL with one decimal: start and end for each of the three meters (all optional).
+    public decimal? Meter1Start { get; set; }
+    public decimal? Meter1End { get; set; }
+    public decimal? Meter2Start { get; set; }
+    public decimal? Meter2End { get; set; }
+    public decimal? Meter3Start { get; set; }
+    public decimal? Meter3End { get; set; }
 }
 
 // Everything the view screen and the PDF need.
@@ -41,7 +55,16 @@ public sealed record InvoiceDetail(
     InvoicePaymentMode PaymentMode, string Material, string Quantity, string Measurement,
     int Trips, long VolumeTenths, long RatePaise, RateSource RateSource, long AmountPaise, long AllocatedPaise,
     string? Narration, string CreatedBy, DateTime CreatedAtUtc,   // CreatedBy: the chosen sales person
-    string? CancelReason, DateTime? CancelledAtUtc, string? ReversalNo, int Version);
+    string? CancelReason, DateTime? CancelledAtUtc, string? ReversalNo, int Version)
+{
+    // Final design: capacity at billing, trip times (UTC), meter readings, and the edit chain.
+    public int CapacityLitres { get; init; }
+    public DateTime? InTimeUtc { get; init; }
+    public DateTime? OutTimeUtc { get; init; }
+    public MeterReadings Meters { get; init; } = new(null, null, null, null, null, null);
+    public string? ReplacesNo { get; init; }      // this invoice corrects that one (edit)
+    public string? ReplacedByNo { get; init; }    // this invoice was corrected by that one (edit)
+}
 
 public sealed record InvoiceRow(long Id, string DisplayNo, DateOnly InvoiceDate, string VehicleCode, string VehicleNo,
     string BillToName, InvoicePaymentMode PaymentMode, long AmountPaise, long AllocatedPaise, InvoiceStatus Status);
@@ -93,6 +116,11 @@ public class InvoiceService(IDbContextFactory<AppDbContext> dbFactory, ICurrentU
             if (!me.Has(Permission.InvoiceOverrideRate)) return Result<long>.Fail("You do not have permission to change the rate.");
             if (string.IsNullOrWhiteSpace(form.RateReason)) return Result<long>.Fail("Give a reason for changing the rate.");
         }
+
+        var times = TripDetails.Times(form.InDate, form.InTime, form.OutDate, form.OutTime);
+        if (!times.Ok) return Result<long>.Fail(times.Error!);
+        var meters = TripDetails.Meters(form.Meter1Start, form.Meter1End, form.Meter2Start, form.Meter2End, form.Meter3Start, form.Meter3End);
+        if (!meters.Ok) return Result<long>.Fail(meters.Error!);
 
         // Client change, Nov 2026: every invoice is Trip x Rate (no volume billing).
         var amount = InvoiceMath.Amount(form.Trips, ratePaise);
@@ -158,7 +186,13 @@ public class InvoiceService(IDbContextFactory<AppDbContext> dbFactory, ICurrentU
             CustomerId = customerId,
             PaymentMode = form.PaymentMode,
             Trips = form.Trips,
-            VolumeTenths = 0,
+            VolumeTenths = meters.Value!.VolumeTenths,   // information only: billing is per trip
+            CapacityLitres = vehicle.TankCapacityLitres,
+            InTimeUtc = times.Value!.InUtc,
+            OutTimeUtc = times.Value.OutUtc,
+            Meter1StartTenths = meters.Value.Start1, Meter1EndTenths = meters.Value.End1,
+            Meter2StartTenths = meters.Value.Start2, Meter2EndTenths = meters.Value.End2,
+            Meter3StartTenths = meters.Value.Start3, Meter3EndTenths = meters.Value.End3,
             BillingBasis = BillingBasis.Trip,
             RatePaise = ratePaise,
             RateSource = overridden ? RateSource.Overridden : RateSource.Master,
@@ -244,9 +278,14 @@ public class InvoiceService(IDbContextFactory<AppDbContext> dbFactory, ICurrentU
             from r in rj.DefaultIfEmpty()
             join p in db.SalesPersons.IgnoreQueryFilters() on i.SalesPersonId equals p.Id into pj   // removed names still show
             from p in pj.DefaultIfEmpty()
+            join o in db.Invoices on i.ReplacesInvoiceId equals o.Id into oj
+            from o in oj.DefaultIfEmpty()
+            join n in db.Invoices on i.ReplacedByInvoiceId equals n.Id into nj
+            from n in nj.DefaultIfEmpty()
             where i.Id == id
             // No sales person: made on the Admin login ("Admin"), or made before the "Created by" list (login's name).
-            select new { i, v, s, CreatedBy = p != null ? p.Name : u.Role == UserRole.Admin ? AdminName : u.FullName, Customer = c, ReversalNo = r == null ? null : r.DisplayNo }
+            select new { i, v, s, CreatedBy = p != null ? p.Name : u.Role == UserRole.Admin ? AdminName : u.FullName, Customer = c, ReversalNo = r == null ? null : r.DisplayNo,
+                     ReplacesNo = o == null ? null : o.DisplayNo, ReplacedByNo = n == null ? null : n.DisplayNo }
         ).SingleOrDefaultAsync();
         if (row is null) return null;
 
@@ -259,7 +298,34 @@ public class InvoiceService(IDbContextFactory<AppDbContext> dbFactory, ICurrentU
             toCustomer ? row.Customer!.Address : row.s.Address, toCustomer ? row.Customer!.Phone : row.s.Phone,
             inv.PaymentMode, inv.Material, InvoiceMath.Quantity(inv.BillingBasis, inv.Trips, inv.VolumeTenths), inv.Measurement,
             inv.Trips, inv.VolumeTenths, inv.RatePaise, inv.RateSource, inv.AmountPaise, inv.AllocatedPaise,
-            inv.Narration, row.CreatedBy, inv.CreatedAtUtc, inv.CancelReason, inv.CancelledAtUtc, row.ReversalNo, inv.Version);
+            inv.Narration, row.CreatedBy, inv.CreatedAtUtc, inv.CancelReason, inv.CancelledAtUtc, row.ReversalNo, inv.Version)
+        {
+            CapacityLitres = inv.CapacityLitres,
+            InTimeUtc = inv.InTimeUtc is { } t1 ? DateTime.SpecifyKind(t1, DateTimeKind.Utc) : null,
+            OutTimeUtc = inv.OutTimeUtc is { } t2 ? DateTime.SpecifyKind(t2, DateTimeKind.Utc) : null,
+            Meters = new MeterReadings(inv.Meter1StartTenths, inv.Meter1EndTenths, inv.Meter2StartTenths, inv.Meter2EndTenths,
+                                       inv.Meter3StartTenths, inv.Meter3EndTenths),
+            ReplacesNo = row.ReplacesNo,
+            ReplacedByNo = row.ReplacedByNo,
+        };
+    }
+
+    // Search box on the Sales Invoice toolbar: "7231" (or "INV-7231" for old invoices) -> that invoice.
+    public async Task<long?> FindByNumberAsync(string? text)
+    {
+        await currentUser.RequireAsync(Permission.InvoiceView);
+        var digits = new string((text ?? "").Where(char.IsDigit).ToArray());
+        if (digits.Length == 0 || !long.TryParse(digits, out var no)) return null;
+        await using var db = await dbFactory.CreateDbContextAsync();
+        return await db.Invoices.Where(i => i.InvoiceNo == no).Select(i => (long?)i.Id).FirstOrDefaultAsync();
+    }
+
+    // The newest invoice, where Previous starts from on a blank Sales Invoice.
+    public async Task<long?> LatestAsync()
+    {
+        await currentUser.RequireAsync(Permission.InvoiceView);
+        await using var db = await dbFactory.CreateDbContextAsync();
+        return await db.Invoices.OrderByDescending(i => i.InvoiceNo).Select(i => (long?)i.Id).FirstOrDefaultAsync();
     }
 
     // FR-INV-14: Previous / Next by invoice number.
