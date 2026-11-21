@@ -50,8 +50,39 @@ public class SalesInvoiceUiTests : UiTest
         using var db = Db.NewContext();
         var inv = db.Invoices.Single();
         Assert.NotNull(inv.InTimeUtc);
-        Assert.Equal(InvoicePaymentMode.Cash, inv.PaymentMode);   // Cash is the default on the new screen
+        Assert.Equal((InvoicePaymentMode.Credit, 0L), (inv.PaymentMode, inv.AllocatedPaise));   // saved as Not paid
+        Assert.Contains("Not paid until a receipt is recorded", page.Markup);
         Assert.Equal(24000, inv.CapacityLitres);
+    }
+
+    [Fact]
+    public async Task SI_16_No_Payment_Choice_On_A_New_Invoice()
+    {
+        await SupplierWithVehicleAsync();
+        var page = RenderComponent<SalesInvoice>();
+        Assert.Empty(page.FindAll("#mode"));
+        Assert.DoesNotContain("Payment Mode", page.Markup);
+        Assert.Empty(page.FindAll("#paystatus"));
+    }
+
+    [Fact]
+    public async Task SI_17_Saved_Invoice_Shows_Not_Paid_Then_Paid_After_A_Receipt()
+    {
+        var (supplier, _) = await SupplierWithVehicleAsync();
+        var page = RenderComponent<SalesInvoice>();
+        page.Find("#vcode").Change("A2");
+        page.FindAll("button").First(b => b.TextContent.Trim() == "Save").Click();
+        page.WaitForAssertion(() => Assert.Contains("saved", page.Markup));
+
+        page.FindAll("button").First(b => b.TextContent.Contains("Previous")).Click();
+        page.WaitForAssertion(() => Assert.Equal("Not paid", page.Find("#paystatus").TextContent.Trim()));
+
+        var id = Db.NewContext().Invoices.Single().Id;
+        Assert.True((await S.Receipts.CreateAsync(new WaterBilling.Services.Accounts.ReceiptForm { PartyId = supplier, Amount = 129.68m, InvoiceIds = [id] })).Ok);
+        page.FindAll("button").First(b => b.TextContent.Contains("New invoice")).Click();
+        page.FindAll("button").First(b => b.TextContent.Contains("Previous")).Click();
+        page.WaitForAssertion(() => Assert.Equal("Paid", page.Find("#paystatus").TextContent.Trim()));
+        Assert.Contains("pill-ok", page.Find("#paystatus").ClassName);
     }
 
     [Fact]

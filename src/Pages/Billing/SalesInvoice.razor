@@ -13,7 +13,9 @@
    Meter Readings (optional): start and end for Meter 1, 2 and 3; the volume is worked out.
    The toolbar moves through saved invoices (Previous / Next, or Search by number) and shows the one
    chosen read-only on this screen, with View (full page and print) and Edit (corrected copy).
-   Saving gives the next invoice number and posts the accounts entries in the same step. *@
+   Saving gives the next invoice number and posts the accounts entries in the same step.
+   No payment is taken here (client change, Nov 2026): every invoice is saved as Not paid (on the
+   supplier's account) and shows Paid only after a Receipt is recorded for it. *@
 
 <PageTitle>Sales Invoice</PageTitle>
 
@@ -84,20 +86,15 @@
                     else if (_codeError is not null) { <small class="bad-note">@_codeError</small> }
                 }
             </div>
-            <div class="field">
-                <label for="mode">Payment Mode <span class="req">*</span></label>
-                @if (_shown is not null)
-                {
-                    <input id="mode" value="@_shown.PaymentMode" readonly />
-                }
-                else
-                {
-                    <select id="mode" @bind="_form.PaymentMode">
-                        <option value="@InvoicePaymentMode.Cash">Cash</option>
-                        <option value="@InvoicePaymentMode.Credit">Credit</option>
-                    </select>
-                }
-            </div>
+            @if (_shown is not null)
+            {
+                @* No payment choice on this screen (client change, Nov 2026): every invoice is saved as Not paid
+                   and becomes Paid only when a Receipt is recorded for it. A saved invoice shows its status here. *@
+                <div class="field">
+                    <label>Payment Status</label>
+                    <div class="status-box"><span id="paystatus" class="pill @StatusClass(_shown)">@StatusText(_shown)</span></div>
+                </div>
+            }
             <div class="field">
                 <label for="createdby">Created by <span class="req">*</span></label>
                 @* Admin login: always "Admin". Sales login: only the names the Admin added (Sales Persons page). *@
@@ -275,8 +272,9 @@
     private string RateText => _shown is not null ? Money.Format(_shown.RatePaise) : _vehicle is not null ? Money.Format(_vehicle.RatePaise) : "";
     private string AmountText => _shown is not null ? Money.Format(_shown.AmountPaise) : _vehicle is not null ? Money.Format(InvoiceMath.Amount(1, _vehicle.RatePaise)) : "0.00";
 
-    private static string StatusText(InvoiceDetail d) => d.Status == InvoiceStatus.Cancelled ? "Cancelled"
-        : PayStates.Text(PayStates.For(d.Status, d.PaymentMode, d.AmountPaise, d.AllocatedPaise));
+    private static PayState StateOf(InvoiceDetail d) => PayStates.For(d.Status, d.PaymentMode, d.AmountPaise, d.AllocatedPaise);
+    private static string StatusText(InvoiceDetail d) => PayStates.Text(StateOf(d));
+    private static string StatusClass(InvoiceDetail d) => StateOf(d) == PayState.Paid ? "pill-ok" : "pill-bad";
 
     // ---- Meter readings ----
     private decimal? GetStart(int n) => n switch { 1 => _form.Meter1Start, 2 => _form.Meter2Start, _ => _form.Meter3Start };
@@ -354,7 +352,7 @@
                 var saved = await Svc.GetAsync(result.Value);
                 _savedId = result.Value;
                 _savedNo = saved?.DisplayNo;
-                ShowOk($"Invoice {_savedNo} saved for ₹{Money.Format(saved?.AmountPaise ?? 0)}.");
+                ShowOk($"Invoice {_savedNo} saved for ₹{Money.Format(saved?.AmountPaise ?? 0)}. It shows Not paid until a receipt is recorded.");
                 ResetForm();
                 await RefreshHeaderAsync();
             }
@@ -366,7 +364,7 @@
     private bool IsAdmin => Me?.Role == UserRole.Admin;
 
     private void NewForm(long? salesPersonId = null) =>
-        _form = new InvoiceForm { SalesPersonId = salesPersonId, PaymentMode = InvoicePaymentMode.Cash, InDate = _date, OutDate = _date };
+        _form = new InvoiceForm { SalesPersonId = salesPersonId, PaymentMode = InvoicePaymentMode.Credit, InDate = _date, OutDate = _date };   // paid later, by Receipt
 
     // Clears the invoice but keeps "Created by": the same person usually makes several invoices in a row.
     private void ResetForm()

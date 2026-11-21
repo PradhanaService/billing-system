@@ -358,3 +358,6 @@ input.strong { font-weight: 700; }
 .al-filters .field { margin: 0; min-width: 0; }
 .al-filters input, .al-filters select, .al-filters .btn { height: 40px; box-sizing: border-box; width: 100%; }
 @media (max-width: 900px) { .al-filters { grid-template-columns: 1fr 1fr; } }
+/* Sales Invoice: Payment Status of a saved invoice (Paid / Not paid / Part paid / Cancelled) */
+.status-box { display: flex; align-items: center; min-height: 42px; }
+.status-box .pill { font-size: 0.9rem; padding: 0.25rem 0.85rem; }

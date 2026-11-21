@@ -83,7 +83,6 @@ const results = [];
     await p.goto(BASE + '/invoices/new'); await settle();
     await p.fill('#vcode', code); await p.press('#vcode', 'Tab'); await settle();
     await see('Found in Vehicle Master');
-    await p.locator('#mode').selectOption({ label: 'Credit' });
     await p.locator('#createdby').selectOption({ label: 'Ravi' });
     await p.fill('#intime', '11:30 AM'); await p.press('#intime', 'Tab');
     await p.fill('#outtime', '11:55 AM'); await p.press('#outtime', 'Tab');
