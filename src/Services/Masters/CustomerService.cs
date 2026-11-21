@@ -135,7 +135,7 @@ public class CustomerService(IDbContextFactory<AppDbContext> dbFactory, ICurrent
             return Result.Fail("This customer has transactions, so it cannot be deleted. Set it to Inactive instead.");
 
         RecoveryService.MarkDeleted(customer, me, Now, deletedBy);
-        ActivityLogger.Add(db, Now, me, ActivityCategory.Master, "CUSTOMER_DELETED", nameof(Customer), id, before: Snapshot(customer), reason: $"Deleted by {who.Value}");
+        ActivityLogger.Add(db, Now, me, ActivityCategory.Master, "CUSTOMER_DELETED", nameof(Customer), id, before: Snapshot(customer), reason: $"Deleted by {who.Value}", doneBy: who.Value);
         await db.SaveChangesAsync();
         return Result.Success();
     }

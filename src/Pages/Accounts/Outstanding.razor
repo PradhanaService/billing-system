@@ -66,7 +66,6 @@
                             @(_expanded.ContainsKey(key) ? "Hide invoices" : "Show invoices")
                         </button>
                     }
-                    <a class="btn btn-small" href="/statements?kind=@r.PartyType&id=@r.PartyId">Statement</a>
                 </td>
             </tr>
             @if (_expanded.TryGetValue(key, out var invoices))

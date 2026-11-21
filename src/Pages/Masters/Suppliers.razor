@@ -2,22 +2,90 @@
 @attribute [Authorize(Policy = nameof(Permission.MastersView))]
 @inherits UserContextBase
 @using WaterBilling.Services.Masters
+@using WaterBilling.Services.Admin
+@using WaterBilling.Services.Billing
 @inject SupplierService Svc
+@inject SalesPersonService SalesPersons
 
-@* Supplier Master: water suppliers who own the tankers. Search, add, edit, set Inactive; delete only
-   if the supplier has no vehicles or transactions. An inactive supplier's vehicles cannot be invoiced.
+@* Supplier Master: water suppliers who own the tankers.
+   The list loads as soon as the page opens. Add and Edit open the form in a pop-up; Delete asks for
+   confirmation and "Deleted by" in a pop-up. Delete is allowed only for a supplier with no vehicles
+   or transactions (otherwise set it Inactive); a deleted supplier goes to the Recycle Bin for 30 days.
    An opening balance can be given only when adding, and is posted to the accounts once. *@
 
 <PageTitle>Supplier Master</PageTitle>
 
-<PageHeader IconName="users" Title="Supplier Master" Subtitle="Tanker owners: add, edit, search, set Inactive." />
+<PageHeader IconName="users" Title="Supplier Master" Subtitle="Tanker owners: add, edit, search, set Inactive.">
+    @if (Can(Permission.MastersEdit))
+    {
+        <button class="btn btn-primary" @onclick="StartNew"><Icon Name="users" Size="18" /> Add Supplier</button>
+    }
+</PageHeader>
 
 <PageMessage Text="@MessageText" Ok="@MessageOk" />
 
-@if (_form is not null)
-{
-    <div class="card">
-        <h2>@(_editingId is null ? "Add supplier" : $"Edit supplier: {_form.Name}")</h2>
+<div class="toolbar">
+    <div class="field">
+        <label for="search">Search</label>
+        <input id="search" @bind="_search" @bind:event="oninput" @bind:after="LoadAsync" placeholder="Name, phone or contact" />
+    </div>
+    <div class="field">
+        <label for="filter">Show</label>
+        <select id="filter" @bind="_filter" @bind:after="LoadAsync">
+            <option value="@StatusFilter.Active">Active</option>
+            <option value="@StatusFilter.Inactive">Inactive</option>
+            <option value="@StatusFilter.All">All</option>
+        </select>
+    </div>
+</div>
+
+<div class="card">
+    <table class="data">
+        <thead><tr><th>Supplier</th><th>Short name</th><th>Contact</th><th>Phone</th><th>Address</th><th class="num">Vehicles</th><th>Status</th><th>Actions</th></tr></thead>
+        <tbody>
+            @if (_loading)
+            {
+                <tr><td colspan="8" class="muted">Loading suppliers…</td></tr>
+            }
+            else if (_loadError is not null)
+            {
+                <tr><td colspan="8"><div class="alert alert-error" role="alert" style="margin: 0">@_loadError</div></td></tr>
+            }
+            else if (_rows.Count == 0)
+            {
+                <tr><td colspan="8" class="muted">@(string.IsNullOrWhiteSpace(_search) && _filter == StatusFilter.Active ? "No suppliers yet." : "No suppliers match this search.")</td></tr>
+            }
+            else
+            {
+                @foreach (var s in _rows)
+                {
+                    <tr class="@(s.Status == RecordStatus.Inactive ? "muted" : "")">
+                        <td><a class="strong-link" href="/suppliers/@s.Id/vehicles" title="See this supplier&apos;s vehicles">@s.Name</a></td>
+                        <td>@s.ShortName</td>
+                        <td>@s.ContactPerson</td>
+                        <td>@s.Phone</td>
+                        <td>@s.Address</td>
+                        <td class="num">@s.VehicleCount</td>
+                        <td><span class="badge @(s.Status == RecordStatus.Inactive ? "badge-off" : "")">@s.Status</span></td>
+                        <td class="nowrap">
+                            @if (Can(Permission.MastersEdit))
+                            {
+                                <button class="btn btn-small" @onclick="() => EditAsync(s.Id)">Edit</button>
+                                <button class="btn btn-small btn-danger" @onclick="() => StartDeleteAsync(s)">Delete</button>
+                            }
+                        </td>
+                    </tr>
+                }
+            }
+        </tbody>
+    </table>
+</div>
+
+@* ---------- Add / Edit pop-up ---------- *@
+<Modal Open="@(_form is not null)" Title="@(_editingId is null ? "Add supplier" : $"Edit supplier: {_editingName}")" OnClose="CloseForm">
+    @if (_form is not null)
+    {
+        @if (_formError is not null) { <div class="alert alert-error" role="alert">@_formError</div> }
         <EditForm Model="_form" OnValidSubmit="SaveAsync">
             <DataAnnotationsValidator />
             <div class="form-grid">
@@ -72,120 +140,162 @@
                 <InputTextArea id="addr" @bind-Value="_form.Address" rows="2" />
             </div>
             <div class="form-actions">
+                <button type="button" class="btn" @onclick="CloseForm">Cancel</button>
                 <button type="submit" class="btn btn-primary" disabled="@Busy">Save</button>
-                <button type="button" class="btn" @onclick="() => _form = null">Cancel</button>
             </div>
         </EditForm>
-    </div>
-}
-
-<div class="toolbar">
-    <div class="field">
-        <label for="search">Search</label>
-        <input id="search" @bind="_search" @bind:event="oninput" @bind:after="LoadAsync" placeholder="Name, phone or contact" />
-    </div>
-    <div class="field">
-        <label for="filter">Show</label>
-        <select id="filter" @bind="_filter" @bind:after="LoadAsync">
-            <option value="@StatusFilter.Active">Active</option>
-            <option value="@StatusFilter.Inactive">Inactive</option>
-            <option value="@StatusFilter.All">All</option>
-        </select>
-    </div>
-    @if (Can(Permission.MastersEdit))
-    {
-        <button class="btn btn-primary" @onclick="StartNew">Add supplier</button>
     }
-</div>
+</Modal>
 
-<table class="data">
-    <thead><tr><th>Supplier</th><th>Short name</th><th>Contact</th><th>Phone</th><th class="num">Vehicles</th><th>Status</th><th></th></tr></thead>
-    <tbody>
-        @foreach (var s in _rows)
-        {
-            <tr class="@(s.Status == RecordStatus.Inactive ? "muted" : "")">
-                <td>@s.Name</td>
-                <td>@s.ShortName</td>
-                <td>@s.ContactPerson</td>
-                <td>@s.Phone</td>
-                <td class="num">@s.VehicleCount</td>
-                <td><span class="badge @(s.Status == RecordStatus.Inactive ? "badge-off" : "")">@s.Status</span></td>
-                <td>
-                    @if (Can(Permission.MastersEdit))
-                    {
-                        <button class="btn btn-small" @onclick="() => EditAsync(s.Id)">Edit</button>
-                        @if (_confirmDeleteId == s.Id)
-                        {
-                            <DeleteConfirm Id="s.Id" Admin="IsAdmin" OnConfirm="who => DeleteAsync(s.Id, who)" OnCancel="() => _confirmDeleteId = null" />
-                        }
-                        else
-                        {
-                            <button class="btn btn-small btn-danger" @onclick="() => _confirmDeleteId = s.Id">Delete</button>
-                        }
-                    }
-                </td>
-            </tr>
-        }
-        @if (_rows.Count == 0)
-        {
-            <tr><td colspan="7" class="muted">No suppliers found.</td></tr>
-        }
-    </tbody>
-</table>
+@* ---------- Delete confirmation pop-up ---------- *@
+<Modal Open="@(_deleting is not null)" Title="Delete supplier?" Narrow OnClose="CloseDelete">
+    @if (_deleting is not null)
+    {
+        <p style="margin-top: 0">Are you sure you want to delete supplier <b>@_deleting.Name</b>? It moves to the Recycle Bin and can be restored for 30 days.</p>
+        @if (_deleteError is not null) { <div class="alert alert-error" role="alert">@_deleteError</div> }
+        <div class="field">
+            <label for="deletedby">Deleted by*</label>
+            @if (IsAdmin)
+            {
+                @* Admin login: always recorded as Admin (client decision). *@
+                <input id="deletedby" value="@InvoiceService.AdminName" readonly />
+            }
+            else
+            {
+                <select id="deletedby" @bind="_deletedBy">
+                    <option value="">Choose your name</option>
+                    @foreach (var p in _people) { <option value="@p.Id">@p.Name</option> }
+                </select>
+                <small>Names from the Sales Persons list.</small>
+                @if (_people.Count == 0) { <small>No names yet. Ask the Admin to add sales persons.</small> }
+            }
+        </div>
+        <div class="form-actions">
+            <button type="button" class="btn" @onclick="CloseDelete">Cancel</button>
+            <button type="button" class="btn btn-danger-solid" @onclick="DeleteAsync" disabled="@(!CanConfirmDelete)">Delete</button>
+        </div>
+    }
+</Modal>
 
 @code {
     private IReadOnlyList<SupplierRow> _rows = [];
-    private SupplierForm? _form;
-    private long? _editingId;
-    private long? _confirmDeleteId;
+    private bool _loading = true;
+    private string? _loadError;
     private string _search = "";
     private StatusFilter _filter = StatusFilter.Active;
 
+    private SupplierForm? _form;
+    private long? _editingId;
+    private string? _editingName;
+    private string? _formError;
+
+    private SupplierRow? _deleting;
+    private long? _deletedBy;
+    private string? _deleteError;
+    private IReadOnlyList<(long Id, string Name)> _people = [];
+
+    private bool IsAdmin => Me?.Role == UserRole.Admin;
+    private bool CanConfirmDelete => !Busy && (IsAdmin || _deletedBy is not null);
+
     protected override Task OnUserReadyAsync() => LoadAsync();
 
-    private async Task LoadAsync() => _rows = await Svc.SearchAsync(_search, _filter);
+    // Loads the list (on opening the page, after a search, and after every save or delete).
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _loadError = null;
+        try
+        {
+            _rows = await Svc.SearchAsync(_search, _filter);
+        }
+        catch (Exception)
+        {
+            _rows = [];
+            _loadError = "The suppliers could not be loaded. Please try again; if it keeps happening, restart the app.";
+        }
+        finally { _loading = false; }
+    }
 
-    private void StartNew() { _form = new SupplierForm(); _editingId = null; MessageText = null; }
+    // ---- Add / Edit ----
+    private void StartNew()
+    {
+        _form = new SupplierForm();
+        _editingId = null;
+        _formError = null;
+        MessageText = null;
+    }
 
     private async Task EditAsync(long id)
     {
         _form = await Svc.GetAsync(id);
         _editingId = _form is null ? null : id;
+        _editingName = _form?.Name;
+        _formError = null;
         MessageText = null;
+    }
+
+    // Cancel, Esc or a click outside: close without saving and forget what was typed.
+    private void CloseForm()
+    {
+        _form = null;
+        _editingId = null;
+        _formError = null;
     }
 
     private async Task SaveAsync()
     {
-        if (_form is null) return;
-        if (Busy) return;   // a click that arrives while saving does nothing (NFR-CON-06)
+        if (_form is null || Busy) return;   // a click that arrives while saving does nothing (NFR-CON-06)
         Busy = true;
         try
         {
+            Result result;
             if (_editingId is { } id)
             {
-                var result = await Svc.UpdateAsync(id, _form);
-                Show(result, "Supplier saved.");
-                if (result.Ok) _form = null;
+                result = await Svc.UpdateAsync(id, _form);
             }
             else
             {
-                var result = await Svc.CreateAsync(_form);
-                if (result.Ok) { ShowOk("Supplier added."); _form = null; }
-                else ShowError(result.Error!);
+                var created = await Svc.CreateAsync(_form);
+                result = new Result(created.Ok, created.Error);
             }
+            if (!result.Ok) { _formError = result.Error; return; }   // keep the pop-up open so nothing typed is lost
+            ShowOk(_editingId is null ? "Supplier added." : "Supplier saved.");
+            CloseForm();
             await LoadAsync();
         }
         finally { Busy = false; }
     }
 
-    private bool IsAdmin => Me?.Role == UserRole.Admin;
-
-    // who: the name chosen in "Deleted by" (Sales login).
-    private async Task DeleteAsync(long id, long? who)
+    // ---- Delete ----
+    private async Task StartDeleteAsync(SupplierRow row)
     {
-        var result = await Svc.DeleteAsync(id, who);
-        if (result.Ok) _confirmDeleteId = null;   // stay on the confirm step if no name was chosen
-        Show(result, "Supplier deleted. It can be restored from Recovery for 30 days.");
-        await LoadAsync();
+        _deleting = row;
+        _deletedBy = null;
+        _deleteError = null;
+        MessageText = null;
+        if (!IsAdmin) _people = await SalesPersons.ListActiveAsync();
+    }
+
+    private void CloseDelete()
+    {
+        _deleting = null;
+        _deletedBy = null;
+        _deleteError = null;
+    }
+
+    private async Task DeleteAsync()
+    {
+        if (_deleting is null || !CanConfirmDelete) return;
+        Busy = true;
+        try
+        {
+            var name = _deleting.Name;
+            var result = await Svc.DeleteAsync(_deleting.Id, _deletedBy);   // the server checks "Deleted by" again
+            if (!result.Ok) { _deleteError = result.Error; return; }
+            ShowOk($"Supplier {name} deleted. It can be restored from the Recycle Bin for 30 days.");
+            CloseDelete();
+            await LoadAsync();
+        }
+        finally { Busy = false; }
     }
 }

@@ -85,8 +85,7 @@ public class PaymentService(IDbContextFactory<AppDbContext> dbFactory, ICurrentU
     {
         var me = await currentUser.RequireAsync(Permission.PaymentCreate);
         if (FormValidator.FirstError(form) is { } error) return Result<long>.Fail(error);
-        if (form.Mode != PaymentMode.Cash && string.IsNullOrWhiteSpace(form.ReferenceNo))
-            return Result<long>.Fail("Reference No. is required for Bank and UPI payments.");
+        // Client decision (Nov 2026): no Reference No. on payments; the field stays optional for old data.
 
         var amount = Money.FromRupees(form.Amount);
         await using var db = await dbFactory.CreateDbContextAsync();

@@ -66,7 +66,7 @@ public class StatementServiceTests : BillingFixture
         Assert.Single(byDate.Lines);                      // only the invoice was entered on day 1
         Assert.Equal(2, byValue.Lines.Count);             // the reversal belongs to day 1
         Assert.Equal(0, byValue.ClosingPaise);
-        Assert.Contains("Reversal of INV-1", byValue.Lines[1].Particulars);
+        Assert.Contains("Reversal of 1", byValue.Lines[1].Particulars);
     }
 
     [Fact]

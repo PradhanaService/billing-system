@@ -12,7 +12,7 @@ public class OutstandingServiceTests : BillingFixture
 {
     private long _advanceSupplier;
 
-    // Sangeetha: two credit trips of 150, paid 100 -> owes 200 (INV-1 part paid, INV-2 unpaid).
+    // Sangeetha: two credit trips of 150, paid 100 -> owes 200 (invoice 1 part paid, invoice 2 unpaid).
     // Meena (customer): one credit trip of 150 -> owes 150.
     // Kaveri: opening balance 500 Cr (paid in advance) -> we owe 500.
     private async Task SetUpAsync()
@@ -60,7 +60,7 @@ public class OutstandingServiceTests : BillingFixture
 
         var invoices = await Svc.Outstanding.OpenInvoicesAsync(PartyType.Supplier, Supplier);
 
-        Assert.Equal(["INV-1", "INV-2"], invoices.Select(i => i.InvoiceNo));
+        Assert.Equal(["1", "2"], invoices.Select(i => i.InvoiceNo));
         Assert.Equal((15000L, 10000L, 5000L), (invoices[0].AmountPaise, invoices[0].PaidPaise, invoices[0].DuePaise));
         Assert.Equal((15000L, 0L, 15000L), (invoices[1].AmountPaise, invoices[1].PaidPaise, invoices[1].DuePaise));
         Assert.Equal("TN 38 M 3", invoices[0].VehicleNo);

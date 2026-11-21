@@ -116,6 +116,17 @@ public class SupplierServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task FR_VM_10_List_Shows_Every_Supplier_Field_Including_Address()
+    {
+        var form = Form();
+        form.Address = "  Gandhi Road,  Tiruppur ";
+        await _svc.CreateAsync(form);
+
+        var row = Assert.Single(await _svc.SearchAsync(null, StatusFilter.Active));
+        Assert.Equal(("Sangeetha", "Murugan", "Gandhi Road, Tiruppur"), (row.ShortName, row.ContactPerson, row.Address));
+    }
+
+    [Fact]
     public async Task Search_Text_Is_Not_Sql()
     {
         await _svc.CreateAsync(Form());

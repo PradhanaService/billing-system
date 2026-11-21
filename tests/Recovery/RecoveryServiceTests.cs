@@ -93,7 +93,7 @@ public class RecoveryServiceTests : BillingFixture
     public async Task Vehicle_Restore_Gets_Its_Number_Back_Unless_It_Was_Reused()
     {
         await Svc.Vehicles.DeleteAsync(VolumeVehicle, Seller);
-        var reused = (await Svc.Vehicles.CreateAsync(new VehicleForm { VehicleNo = "TN 67 C", SupplierId = Supplier, TankCapacityLitres = 1000, Rate = 1 })).Value;
+        var reused = (await Svc.Vehicles.CreateAsync(new VehicleForm { Code = "A3", VehicleNo = "TN 67 C", SupplierId = Supplier, TankCapacityLitres = 1000, Rate = 1 })).Value;
 
         Assert.False((await Recovery.RestoreAsync(RecoveryKind.Vehicle, VolumeVehicle)).Ok);
 
@@ -133,7 +133,8 @@ public class RecoveryServiceTests : BillingFixture
         Db.Clock.Advance(TimeSpan.FromDays(31));
         await Recovery.RemoveExpiredAsync();
 
-        Assert.Equal("A3", await Svc.Vehicles.ProposeCodeAsync());
+        var reuse = await Svc.Vehicles.CreateAsync(new VehicleForm { Code = "A2", VehicleNo = "TN 99 X", SupplierId = Supplier, TankCapacityLitres = 1000, Rate = 1 });
+        Assert.Contains("already used", reuse.Error);
     }
 
     [Fact]

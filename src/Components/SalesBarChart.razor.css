@@ -7,21 +7,21 @@
 .plot {
     position: relative;
     display: grid; grid-template-columns: repeat(6, 1fr); gap: 2px;
-    height: 200px; align-items: end; border-bottom: 1px solid #9fb3c2;
+    height: 200px; align-items: end; border-bottom: 1px solid var(--input);
 }
 /* Light dashed gridlines behind the bars. */
-.grid { position: absolute; left: 0; right: 0; border-top: 1px dashed #d6e4ee; pointer-events: none; }
+.grid { position: absolute; left: 0; right: 0; border-top: 1px dashed var(--line); pointer-events: none; }
 .bar-slot { position: relative; z-index: 1; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; height: 100%; text-decoration: none; color: var(--ink); border-radius: 8px 8px 0 0; }
-.bar-slot:hover { background: rgba(187, 225, 250, 0.25); }
+.bar-slot:hover { background: rgba(216, 228, 239, 0.45); }
 /* Bar with rounded top, anchored to the baseline: Sky Focus, selected month Royal Blue. */
-.bar { display: block; width: 46%; min-height: 1px; background: linear-gradient(180deg, var(--focus), #4b97c9); border-radius: 6px 6px 0 0; }
-.bar-slot.selected .bar { background: linear-gradient(180deg, var(--accent), #1d6296); }
+.bar { display: block; width: 46%; min-height: 1px; background: linear-gradient(180deg, var(--focus), #6a9fcd); border-radius: 6px 6px 0 0; }
+.bar-slot.selected .bar { background: linear-gradient(180deg, var(--accent), #2A66A0); }
 .bar-value { font-size: 0.8rem; font-weight: 600; color: var(--ink); margin-bottom: 3px; font-variant-numeric: tabular-nums; }
 /* Tooltip on hover and keyboard focus; the whole column is the hit target. */
 .tip {
     display: none; position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%);
     background: var(--ink); color: var(--paper); padding: 0.35rem 0.6rem; border-radius: 6px; font-size: 0.8rem; white-space: nowrap; z-index: 2;
-    box-shadow: 0 4px 12px rgba(27, 38, 44, 0.25);
+    box-shadow: 0 4px 12px rgba(23, 40, 58, 0.25);
 }
 .bar-slot:hover .tip, .bar-slot:focus-visible .tip { display: block; }
 .bar-slot:hover .bar { background: var(--accent); }

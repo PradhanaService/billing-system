@@ -20,6 +20,7 @@ public class User : IAuditedEntity
     public string SecurityStamp { get; set; } = Guid.NewGuid().ToString("N");
 
     public DateTime? LastLoginAtUtc { get; set; }
+    public DateTime? PasswordChangedAtUtc { get; set; }   // Password Management shows it
     public RecordStatus Status { get; set; } = RecordStatus.Active;
 
     public DateTime CreatedAtUtc { get; set; }

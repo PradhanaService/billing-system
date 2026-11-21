@@ -13,7 +13,7 @@ namespace WaterBilling.Services.Masters;
 // opening balance posted once on creation, delete only without vehicles or history, every change recorded.
 
 public sealed record SupplierRow(long Id, string Name, string ShortName, string? ContactPerson, string Phone,
-    RecordStatus Status, int VehicleCount);
+    RecordStatus Status, int VehicleCount, string? Address = null);
 
 // Supplier Master form (FR-VM-01). Opening balance can only be entered when creating.
 public sealed class SupplierForm
@@ -60,7 +60,7 @@ public class SupplierService(IDbContextFactory<AppDbContext> dbFactory, ICurrent
         }
         return await query.OrderBy(s => s.Name)
             .Select(s => new SupplierRow(s.Id, s.Name, s.ShortName, s.ContactPerson, s.Phone, s.Status,
-                db.Vehicles.Count(v => v.SupplierId == s.Id && !v.IsDeleted)))
+                db.Vehicles.Count(v => v.SupplierId == s.Id && !v.IsDeleted), s.Address))
             .ToListAsync();
     }
 
@@ -149,7 +149,7 @@ public class SupplierService(IDbContextFactory<AppDbContext> dbFactory, ICurrent
             return Result.Fail("This supplier has vehicles or transactions, so it cannot be deleted. Set it to Inactive instead.");
 
         RecoveryService.MarkDeleted(supplier, me, Now, deletedBy);
-        ActivityLogger.Add(db, Now, me, ActivityCategory.Master, "SUPPLIER_DELETED", nameof(Supplier), id, before: Snapshot(supplier), reason: $"Deleted by {who.Value}");
+        ActivityLogger.Add(db, Now, me, ActivityCategory.Master, "SUPPLIER_DELETED", nameof(Supplier), id, before: Snapshot(supplier), reason: $"Deleted by {who.Value}", doneBy: who.Value);
         return await SaveAsync(db);
     }
 

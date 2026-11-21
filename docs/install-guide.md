@@ -1,12 +1,19 @@
 # Install guide (shop PC)
 
-## Build the installer (developer, on any Windows PC)
-1. Install the .NET 8 SDK and Inno Setup 6 (https://jrsoftware.org/isinfo.php). Internet is needed while building.
-2. From the repository folder run:
-   `powershell -ExecutionPolicy Bypass -File installer\build-installer.ps1`
-   It runs all tests first and stops if any fail. It then publishes the service and the Water Billing
-   window, downloads the small WebView2 Runtime installer, and compiles the setup.
-3. The result is `installer\output\WaterBillingSetup.exe`: the ONE file to give to the client.
+## Build the installer (developer)
+The result is always `installer/output/WaterBillingSetup.exe`: the ONE file to give to the client.
+Every way runs all tests first and stops if any fail.
+
+- **On Linux, macOS or WSL (NSIS):** install the .NET 8 SDK and NSIS 3 (`sudo apt install nsis`), then run
+  `bash installer/build-installer.sh`. Script: `installer/WaterBilling.nsi`.
+- **On Windows (Inno Setup):** install the .NET 8 SDK and Inno Setup 6, then run
+  `powershell -ExecutionPolicy Bypass -File installer\build-installer.ps1`. Script: `installer/WaterBilling.iss`.
+- **Signing:** see `docs/code-signing.md` (removes the "Unknown publisher" warning).
+- **On GitHub:** every push runs `.github/workflows/windows-installer.yml` on a Windows PC. It builds the setup,
+  installs it silently, checks the service answers and the app window opens, uninstalls it, and keeps
+  `WaterBillingSetup.exe` under Actions → the run → Artifacts.
+
+Both scripts install the same way (folders, service, icons, uninstall). Keep them in step when one changes.
 
 ## Install on the shop PC
 1. Turn on **BitLocker** for the C: drive (Settings → Privacy & security → Device encryption). This
@@ -19,7 +26,7 @@
    again brings the open window to the front instead of opening a second one.
 4. Sign in as `admin` / `Admin@123` and choose a new password straight away.
 5. In **Ledger Master → Starting numbers**, set the agreed first invoice number before the first invoice.
-6. Create the staff users in **Users & Roles**.
+6. In **Password Management**, set the Sales login's password. In **Sales Persons**, add the staff names.
 
 ## Where things are
 | What | Where |

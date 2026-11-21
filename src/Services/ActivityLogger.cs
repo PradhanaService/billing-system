@@ -15,7 +15,7 @@ public static class ActivityLogger
         AppDbContext db, DateTime nowUtc, UserInfo? user, ActivityCategory category, string action,
         string? entityType = null, long? entityId = null,
         object? before = null, object? after = null, string? reason = null,
-        string? userNameIfUnknown = null)
+        string? userNameIfUnknown = null, string? doneBy = null)
     {
         db.ActivityLogs.Add(new ActivityLog
         {
@@ -23,6 +23,8 @@ public static class ActivityLogger
             UserId = user?.Id,
             UserName = user?.UserName ?? Truncate(userNameIfUnknown ?? "(unknown)", 50),
             Role = user?.Role.ToString(),
+            // The Admin login is always "Admin"; on the Sales login the caller passes the chosen sales person.
+            DoneBy = doneBy ?? (user?.Role == UserRole.Admin ? "Admin" : null),
             Category = category,
             Action = action,
             EntityType = entityType,

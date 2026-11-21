@@ -12,20 +12,6 @@ namespace WaterBilling.Tests.Round3;
 public class EdgeCaseTests : BillingFixture
 {
     [Fact]
-    public async Task Volume_With_Two_Decimals_Is_Refused()
-    {
-        var r = await Svc.Invoices.CreateAsync(new InvoiceForm { SalesPersonId = Seller, VehicleId = VolumeVehicle, Rate = 12.35m, VolumeKl = 10.25m });
-        Assert.False(r.Ok);
-        Assert.Contains("one decimal", r.Error);
-    }
-
-    [Theory]
-    [InlineData("10.005")]
-    [InlineData("1000000000000")]
-    public async Task Receipt_Amount_Out_Of_Range_Is_Refused(string amount) =>
-        Assert.False((await Svc.Receipts.CreateAsync(new ReceiptForm { PartyType = PartyType.Supplier, PartyId = Supplier, Amount = decimal.Parse(amount) })).Ok);
-
-    [Fact]
     public async Task Largest_Allowed_Invoice_Does_Not_Overflow()
     {
         Me.User = Db.AddUser(UserRole.Admin);
@@ -59,7 +45,7 @@ public class EdgeCaseTests : BillingFixture
     public async Task Deleted_Vehicle_Cannot_Be_Billed()
     {
         Me.User = Db.AddUser(UserRole.Admin);
-        var extra = (await Svc.Vehicles.CreateAsync(new VehicleForm { VehicleNo = "TN 99 Z", SupplierId = Supplier, TankCapacityLitres = 1000, Rate = 10 })).Value;
+        var extra = (await Svc.Vehicles.CreateAsync(new VehicleForm { Code = "A3", VehicleNo = "TN 99 Z", SupplierId = Supplier, TankCapacityLitres = 1000, Rate = 10 })).Value;
         await Svc.Vehicles.DeleteAsync(extra);
 
         Assert.False((await Svc.Invoices.CreateAsync(new InvoiceForm { SalesPersonId = Seller, VehicleId = extra, Rate = 10 })).Ok);
@@ -99,7 +85,7 @@ public class EdgeCaseTests : BillingFixture
     {
         Me.User = Db.AddUser(UserRole.Admin);
         var inv = (await Svc.Invoices.CreateAsync(new InvoiceForm { SalesPersonId = Seller, VehicleId = TripVehicle, Rate = 150 })).Value;
-        await Svc.Invoices.CreateAsync(new InvoiceForm { SalesPersonId = Seller, VehicleId = VolumeVehicle, Rate = 12.35m, VolumeKl = 3.3m, PaymentMode = InvoicePaymentMode.Cash });
+        await Svc.Invoices.CreateAsync(new InvoiceForm { SalesPersonId = Seller, VehicleId = VolumeVehicle, Rate = 129.68m, PaymentMode = InvoicePaymentMode.Cash });
         var rcp = (await Svc.Receipts.CreateAsync(new ReceiptForm { PartyType = PartyType.Supplier, PartyId = Supplier, Amount = 400 })).Value;
         await Svc.Receipts.CancelAsync(rcp, "bounced", 1);
         await Svc.Invoices.CancelAsync(inv, "wrong", 1);

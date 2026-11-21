@@ -148,7 +148,7 @@
     {
         var result = await Svc.DeleteAsync(id, who);
         if (result.Ok) _confirmDeleteId = null;   // stay on the confirm step if no name was chosen
-        Show(result, "Ledger deleted. It can be restored from Recovery for 30 days.");
+        Show(result, "Ledger deleted. It can be restored from the Recycle Bin for 30 days.");
         await LoadAsync();
     }
 

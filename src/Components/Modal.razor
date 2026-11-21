@@ -1,0 +1,49 @@
+@* A pop-up window over the page (no extra library, no JavaScript of our own).
+   Closes on its Cancel button (the page's own), on Esc, or on a click outside the window.
+   When it opens, keyboard focus moves into it so Esc and Tab work straight away.
+   Use: <Modal Open="@_open" Title="Add supplier" OnClose="Close"> ...form... </Modal> *@
+
+@if (Open)
+{
+    <div class="modal-backdrop" @onclick="CloseAsync"></div>
+    <div class="modal @(Narrow ? "modal-narrow" : "") @(Wide ? "modal-wide" : "")" role="dialog" aria-modal="true" aria-labelledby="@_titleId"
+         tabindex="-1" @ref="_panel" @onkeydown="OnKeyDownAsync">
+        @if (ShowClose)
+        {
+            <div class="modal-head">
+                <h2 id="@_titleId">@Title</h2>
+                <button type="button" class="btn btn-small" aria-label="Close" @onclick="CloseAsync"><Icon Name="x" Size="16" /> Close</button>
+            </div>
+        }
+        else
+        {
+            <h2 id="@_titleId">@Title</h2>
+        }
+        @ChildContent
+    </div>
+}
+
+@code {
+    [Parameter] public bool Open { get; set; }
+    [Parameter, EditorRequired] public string Title { get; set; } = "";
+    [Parameter] public bool Narrow { get; set; }                   // smaller window, e.g. a confirm question
+    [Parameter] public bool Wide { get; set; }                     // larger window, e.g. a history list
+    [Parameter] public bool ShowClose { get; set; }                // a Close button in the title row
+    [Parameter] public EventCallback OnClose { get; set; }         // Esc, click outside (the page clears its form here)
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    private readonly string _titleId = "modal-title-" + Guid.NewGuid().ToString("N")[..8];
+    private ElementReference _panel;
+    private bool _wasOpen;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        // Move focus into the window once, when it opens.
+        if (Open && !_wasOpen) await _panel.FocusAsync();
+        _wasOpen = Open;
+    }
+
+    private Task CloseAsync() => OnClose.InvokeAsync();
+
+    private Task OnKeyDownAsync(KeyboardEventArgs e) => e.Key == "Escape" ? CloseAsync() : Task.CompletedTask;
+}

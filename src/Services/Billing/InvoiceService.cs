@@ -27,13 +27,38 @@ public sealed class InvoiceForm
     [Range(1, 99, ErrorMessage = "Trip must be between 1 and 99.")]
     public int Trips { get; set; } = 1;
 
-    [Range(typeof(decimal), "0", "99999.9", ErrorMessage = "Volume must be between 0 and 99,999.9 kL.")]
-    public decimal VolumeKl { get; set; }
-
     [Rupees(AllowZero = false)] public decimal Rate { get; set; }
 
     [StringLength(200)] public string? RateReason { get; set; }
     [StringLength(300)] public string? Narration { get; set; }
+
+    // Trip Timing (final design): the date is picked, the time is typed ("11:05 AM").
+    public DateOnly? InDate { get; set; }
+    public string? InTime { get; set; }
+    public DateOnly? OutDate { get; set; }
+    public string? OutTime { get; set; }
+
+    // Meter Readings in kL with one decimal: start and end for each of the three meters (all optional).
+    public decimal? Meter1Start { get; set; }
+    public decimal? Meter1End { get; set; }
+    public decimal? Meter2Start { get; set; }
+    public decimal? Meter2End { get; set; }
+    public decimal? Meter3Start { get; set; }
+    public decimal? Meter3End { get; set; }
+}
+
+// The invoice edit screen (final design): only Capacity, Rate, In Time and Out Time can change.
+// Who is editing: a name from Sales Persons (Sales login; the Admin login is recorded as Admin).
+public sealed class InvoiceRevision
+{
+    public long? EditedBySalesPersonId { get; set; }
+    [Range(1, 1_000_000, ErrorMessage = "Capacity must be at least 1 litre.")] public int CapacityLitres { get; set; }
+    [Rupees(AllowZero = false)] public decimal Rate { get; set; }
+    public DateOnly? InDate { get; set; }
+    public string? InTime { get; set; }
+    public DateOnly? OutDate { get; set; }
+    public string? OutTime { get; set; }
+    public int Version { get; set; }
 }
 
 // Everything the view screen and the PDF need.
@@ -44,7 +69,16 @@ public sealed record InvoiceDetail(
     InvoicePaymentMode PaymentMode, string Material, string Quantity, string Measurement,
     int Trips, long VolumeTenths, long RatePaise, RateSource RateSource, long AmountPaise, long AllocatedPaise,
     string? Narration, string CreatedBy, DateTime CreatedAtUtc,   // CreatedBy: the chosen sales person
-    string? CancelReason, DateTime? CancelledAtUtc, string? ReversalNo, int Version);
+    string? CancelReason, DateTime? CancelledAtUtc, string? ReversalNo, int Version)
+{
+    // Final design: capacity at billing, trip times (UTC), meter readings, and the edit chain.
+    public int CapacityLitres { get; init; }
+    public DateTime? InTimeUtc { get; init; }
+    public DateTime? OutTimeUtc { get; init; }
+    public MeterReadings Meters { get; init; } = new(null, null, null, null, null, null);
+    public string? ReplacesNo { get; init; }      // this invoice corrects that one (edit)
+    public string? ReplacedByNo { get; init; }    // this invoice was corrected by that one (edit)
+}
 
 public sealed record InvoiceRow(long Id, string DisplayNo, DateOnly InvoiceDate, string VehicleCode, string VehicleNo,
     string BillToName, InvoicePaymentMode PaymentMode, long AmountPaise, long AllocatedPaise, InvoiceStatus Status);
@@ -70,7 +104,6 @@ public class InvoiceService(IDbContextFactory<AppDbContext> dbFactory, ICurrentU
     {
         var me = await currentUser.RequireAsync(Permission.InvoiceCreate);
         if (FormValidator.FirstError(form) is { } error) return Result<long>.Fail(error);
-        if (form.VolumeKl * 10 != decimal.Truncate(form.VolumeKl * 10)) return Result<long>.Fail("Volume can have only one decimal place.");
 
         await using var db = await dbFactory.CreateDbContextAsync();
         await using var tx = await db.Database.BeginTransactionAsync();
@@ -98,10 +131,13 @@ public class InvoiceService(IDbContextFactory<AppDbContext> dbFactory, ICurrentU
             if (string.IsNullOrWhiteSpace(form.RateReason)) return Result<long>.Fail("Give a reason for changing the rate.");
         }
 
-        var volumeTenths = Volume.FromKilolitres(form.VolumeKl);
-        if (vehicle.BillingBasis == BillingBasis.Volume && volumeTenths <= 0)
-            return Result<long>.Fail("Enter the volume (kL) for this vehicle, which is billed by volume.");
-        var amount = InvoiceMath.Amount(vehicle.BillingBasis, form.Trips, volumeTenths, ratePaise);
+        var times = TripDetails.Times(form.InDate, form.InTime, form.OutDate, form.OutTime);
+        if (!times.Ok) return Result<long>.Fail(times.Error!);
+        var meters = TripDetails.Meters(form.Meter1Start, form.Meter1End, form.Meter2Start, form.Meter2End, form.Meter3Start, form.Meter3End);
+        if (!meters.Ok) return Result<long>.Fail(meters.Error!);
+
+        // Client change, Nov 2026: every invoice is Trip x Rate (no volume billing).
+        var amount = InvoiceMath.Amount(form.Trips, ratePaise);
         if (amount <= 0) return Result<long>.Fail("The invoice amount must be above zero.");
 
         // Bill To: the vehicle's supplier, or a chosen active customer (FR-INV-08).
@@ -114,40 +150,11 @@ public class InvoiceService(IDbContextFactory<AppDbContext> dbFactory, ICurrentU
             customerId = customer.Id;
             billToName = customer.Name;
         }
-        long? supplierTag = form.BillToType == PartyType.Supplier ? vehicle.SupplierId : null;
-        var partyAccount = SystemAccounts.ForParty(form.BillToType);
-
-        var qty = InvoiceMath.Quantity(vehicle.BillingBasis, form.Trips, volumeTenths);
-        var text = $"Water sales - {vehicle.VehicleNo} ({qty} {vehicle.UnitOfMeasure})";
-        var lines = new List<LineDraft>
-        {
-            // P1: Dr party (tagged with vehicle), Cr Water Sales.
-            LineDraft.Dr(partyAccount, amount, text, supplierTag, customerId, vehicle.Id),
-            LineDraft.Cr(SystemAccounts.WaterSales, amount, text, vehicle: vehicle.Id),
-        };
-        if (form.PaymentMode == InvoicePaymentMode.Cash)
-        {
-            // P2: the cash is received at once, through the party, so the trip shows on the
-            // party statement and nets to zero.
-            lines.Add(LineDraft.Dr(SystemAccounts.Cash, amount, $"Cash received - {vehicle.VehicleNo}"));
-            lines.Add(LineDraft.Cr(partyAccount, amount, $"Cash received - {vehicle.VehicleNo}", supplierTag, customerId, vehicle.Id));
-        }
-
-        var voucher = new Voucher
-        {
-            Type = VoucherType.Sales,
-            PartyType = form.BillToType,
-            SupplierId = supplierTag,
-            CustomerId = customerId,
-            VehicleId = vehicle.Id,
-            Mode = form.PaymentMode == InvoicePaymentMode.Cash ? PaymentMode.Cash : null,
-            AmountPaise = amount,
-            Narration = PartyRules.TidyOrNull(form.Narration),
-        };
-
+        Voucher voucher;
         try
         {
-            await poster.PostAsync(db, voucher, lines, me);
+            voucher = await PostSaleAsync(db, vehicle, form.BillToType, customerId, form.PaymentMode, form.Trips, amount,
+                PartyRules.TidyOrNull(form.Narration), me);
         }
         catch (BusinessRuleException ex)
         {
@@ -165,8 +172,14 @@ public class InvoiceService(IDbContextFactory<AppDbContext> dbFactory, ICurrentU
             CustomerId = customerId,
             PaymentMode = form.PaymentMode,
             Trips = form.Trips,
-            VolumeTenths = volumeTenths,
-            BillingBasis = vehicle.BillingBasis,
+            VolumeTenths = meters.Value!.VolumeTenths,   // information only: billing is per trip
+            CapacityLitres = vehicle.TankCapacityLitres,
+            InTimeUtc = times.Value!.InUtc,
+            OutTimeUtc = times.Value.OutUtc,
+            Meter1StartTenths = meters.Value.Start1, Meter1EndTenths = meters.Value.End1,
+            Meter2StartTenths = meters.Value.Start2, Meter2EndTenths = meters.Value.End2,
+            Meter3StartTenths = meters.Value.Start3, Meter3EndTenths = meters.Value.End3,
+            BillingBasis = BillingBasis.Trip,
             RatePaise = ratePaise,
             RateSource = overridden ? RateSource.Overridden : RateSource.Master,
             AmountPaise = amount,
@@ -183,7 +196,7 @@ public class InvoiceService(IDbContextFactory<AppDbContext> dbFactory, ICurrentU
         await db.SaveChangesAsync();
 
         ActivityLogger.Add(db, Now, me, ActivityCategory.Billing, "INVOICE_CREATED", nameof(Invoice), invoice.Id,
-            after: new { invoice.DisplayNo, CreatedBy = createdBy, vehicle.VehicleNo, BillTo = billToName, Mode = form.PaymentMode.ToString(), invoice.AmountPaise });
+            after: new { invoice.DisplayNo, CreatedBy = createdBy, vehicle.VehicleNo, BillTo = billToName, Mode = form.PaymentMode.ToString(), invoice.AmountPaise }, doneBy: createdBy);
         if (overridden)
         {
             ActivityLogger.Add(db, Now, me, ActivityCategory.Billing, "INVOICE_RATE_OVERRIDDEN", nameof(Invoice), invoice.Id,
@@ -236,6 +249,126 @@ public class InvoiceService(IDbContextFactory<AppDbContext> dbFactory, ICurrentU
         return Result.Success();
     }
 
+    // Edit an invoice without changing the ledger in place (CLAUDE.md principle 1, FR-INV-11):
+    // the old invoice is cancelled with a reversal and a corrected copy is posted with a new number.
+    // Receipts set against the old invoice move to the copy. Everything happens in one transaction.
+    // Returns the id of the corrected invoice.
+    public async Task<Result<long>> ReviseAsync(long id, InvoiceRevision r)
+    {
+        var me = await currentUser.RequireAsync(Permission.InvoiceCancel);
+        if (FormValidator.FirstError(r) is { } error) return Result<long>.Fail(error);
+        var times = TripDetails.Times(r.InDate, r.InTime, r.OutDate, r.OutTime);
+        if (!times.Ok) return Result<long>.Fail(times.Error!);
+
+        await using var db = await dbFactory.CreateDbContextAsync();
+        await using var tx = await db.Database.BeginTransactionAsync();
+        var old = await db.Invoices.SingleOrDefaultAsync(i => i.Id == id);
+        if (old is null) return Result<long>.Fail("Invoice not found.");
+        if (old.Version != r.Version) return Result<long>.Fail(Messages.ChangedBySomeoneElse);
+        if (old.Status == InvoiceStatus.Cancelled) return Result<long>.Fail($"{old.DisplayNo} is cancelled and cannot be edited.");
+
+        // Who is editing: Admin login = "Admin"; Sales login = an active name from Sales Persons.
+        string editor = AdminName;
+        if (me.Role != UserRole.Admin)
+        {
+            var person = await db.SalesPersons.SingleOrDefaultAsync(p => p.Id == r.EditedBySalesPersonId && p.Status == RecordStatus.Active);
+            if (person is null) return Result<long>.Fail("Choose which salesperson is editing.");
+            editor = person.Name;
+        }
+
+        var ratePaise = Money.FromRupees(r.Rate);
+        var inUtc = times.Value!.InUtc;
+        var outUtc = times.Value.OutUtc;
+        static DateTime? Utc(DateTime? t) => t is { } v ? DateTime.SpecifyKind(v, DateTimeKind.Utc) : null;
+        if (ratePaise == old.RatePaise && r.CapacityLitres == old.CapacityLitres && inUtc == Utc(old.InTimeUtc) && outUtc == Utc(old.OutTimeUtc))
+            return Result<long>.Fail("Nothing was changed.");
+
+        var amount = InvoiceMath.Amount(old.Trips, ratePaise);
+        if (old.PaymentMode == InvoicePaymentMode.Credit && old.AllocatedPaise > amount)
+            return Result<long>.Fail($"₹{Money.Format(old.AllocatedPaise)} has already been received against {old.DisplayNo}; the new amount cannot be lower than that.");
+
+        var vehicle = await db.Vehicles.IgnoreQueryFilters().SingleAsync(v => v.Id == old.VehicleId);
+        var reason = $"Edited by {editor}: corrected copy issued";
+        Voucher reversal, voucher;
+        try
+        {
+            reversal = await poster.ReverseAsync(db, old.VoucherId, reason, me);
+            voucher = await PostSaleAsync(db, vehicle, old.BillToType, old.CustomerId, old.PaymentMode, old.Trips, amount,
+                $"Corrected copy of {old.DisplayNo}", me);
+        }
+        catch (BusinessRuleException ex)
+        {
+            return Result<long>.Fail(ex.Message);
+        }
+
+        var copy = new Invoice
+        {
+            InvoiceNo = voucher.Number,
+            DisplayNo = voucher.DisplayNo,
+            InvoiceDate = voucher.VoucherDate,
+            VehicleId = old.VehicleId,
+            SupplierId = old.SupplierId,
+            BillToType = old.BillToType,
+            CustomerId = old.CustomerId,
+            PaymentMode = old.PaymentMode,
+            Material = old.Material,
+            Trips = old.Trips,
+            VolumeTenths = old.VolumeTenths,
+            BillingBasis = BillingBasis.Trip,
+            RatePaise = ratePaise,
+            RateSource = ratePaise == vehicle.RatePaise ? RateSource.Master : RateSource.Overridden,
+            AmountPaise = amount,
+            AllocatedPaise = old.PaymentMode == InvoicePaymentMode.Cash ? amount : old.AllocatedPaise,
+            Narration = voucher.Narration,
+            VoucherId = voucher.Id,
+            SalesPersonId = old.SalesPersonId,           // "Created by" stays the person who made the invoice
+            CreatedByUserId = me.Id,
+            CreatedAtUtc = Now,
+            Version = 1,
+            CapacityLitres = r.CapacityLitres,
+            InTimeUtc = inUtc,
+            OutTimeUtc = outUtc,
+            Meter1StartTenths = old.Meter1StartTenths, Meter1EndTenths = old.Meter1EndTenths,
+            Meter2StartTenths = old.Meter2StartTenths, Meter2EndTenths = old.Meter2EndTenths,
+            Meter3StartTenths = old.Meter3StartTenths, Meter3EndTenths = old.Meter3EndTenths,
+            ReplacesInvoiceId = old.Id,
+        };
+        copy.Status = copy.PaymentMode == InvoicePaymentMode.Cash || copy.AllocatedPaise >= amount ? InvoiceStatus.Paid
+            : copy.AllocatedPaise > 0 ? InvoiceStatus.PartPaid : InvoiceStatus.Posted;
+        db.Invoices.Add(copy);
+        await db.SaveChangesAsync();
+
+        // Receipts that paid the old invoice now pay the corrected copy.
+        foreach (var a in await db.ReceiptAllocations.Where(a => a.InvoiceId == old.Id && a.IsActive).ToListAsync())
+            a.InvoiceId = copy.Id;
+
+        var before = new { old.DisplayNo, old.CapacityLitres, old.RatePaise, old.AmountPaise, InTime = Show(Utc(old.InTimeUtc)), OutTime = Show(Utc(old.OutTimeUtc)) };
+        old.AllocatedPaise = 0;
+        old.Status = InvoiceStatus.Cancelled;
+        old.ReversalVoucherId = reversal.Id;
+        old.CancelReason = reason;
+        old.CancelledByUserId = me.Id;
+        old.CancelledAtUtc = Now;
+        old.ReplacedByInvoiceId = copy.Id;
+        old.Version++;
+
+        ActivityLogger.Add(db, Now, me, ActivityCategory.Billing, "INVOICE_EDITED", nameof(Invoice), copy.Id, before,
+            new { copy.DisplayNo, copy.CapacityLitres, copy.RatePaise, copy.AmountPaise, InTime = Show(inUtc), OutTime = Show(outUtc), EditedBy = editor },
+            reason, doneBy: editor);
+        try
+        {
+            await db.SaveChangesAsync();
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            return Result<long>.Fail(Messages.ChangedBySomeoneElse);
+        }
+        await tx.CommitAsync();
+        return Result<long>.Success(copy.Id);
+    }
+
+    private static string? Show(DateTime? utc) => utc is { } t ? IndianTime.FormatDateTime(t) : null;
+
     public async Task<InvoiceDetail?> GetAsync(long id)
     {
         await currentUser.RequireAsync(Permission.InvoiceView);
@@ -251,9 +384,14 @@ public class InvoiceService(IDbContextFactory<AppDbContext> dbFactory, ICurrentU
             from r in rj.DefaultIfEmpty()
             join p in db.SalesPersons.IgnoreQueryFilters() on i.SalesPersonId equals p.Id into pj   // removed names still show
             from p in pj.DefaultIfEmpty()
+            join o in db.Invoices on i.ReplacesInvoiceId equals o.Id into oj
+            from o in oj.DefaultIfEmpty()
+            join n in db.Invoices on i.ReplacedByInvoiceId equals n.Id into nj
+            from n in nj.DefaultIfEmpty()
             where i.Id == id
             // No sales person: made on the Admin login ("Admin"), or made before the "Created by" list (login's name).
-            select new { i, v, s, CreatedBy = p != null ? p.Name : u.Role == UserRole.Admin ? AdminName : u.FullName, Customer = c, ReversalNo = r == null ? null : r.DisplayNo }
+            select new { i, v, s, CreatedBy = p != null ? p.Name : u.Role == UserRole.Admin ? AdminName : u.FullName, Customer = c, ReversalNo = r == null ? null : r.DisplayNo,
+                     ReplacesNo = o == null ? null : o.DisplayNo, ReplacedByNo = n == null ? null : n.DisplayNo }
         ).SingleOrDefaultAsync();
         if (row is null) return null;
 
@@ -266,7 +404,34 @@ public class InvoiceService(IDbContextFactory<AppDbContext> dbFactory, ICurrentU
             toCustomer ? row.Customer!.Address : row.s.Address, toCustomer ? row.Customer!.Phone : row.s.Phone,
             inv.PaymentMode, inv.Material, InvoiceMath.Quantity(inv.BillingBasis, inv.Trips, inv.VolumeTenths), inv.Measurement,
             inv.Trips, inv.VolumeTenths, inv.RatePaise, inv.RateSource, inv.AmountPaise, inv.AllocatedPaise,
-            inv.Narration, row.CreatedBy, inv.CreatedAtUtc, inv.CancelReason, inv.CancelledAtUtc, row.ReversalNo, inv.Version);
+            inv.Narration, row.CreatedBy, inv.CreatedAtUtc, inv.CancelReason, inv.CancelledAtUtc, row.ReversalNo, inv.Version)
+        {
+            CapacityLitres = inv.CapacityLitres,
+            InTimeUtc = inv.InTimeUtc is { } t1 ? DateTime.SpecifyKind(t1, DateTimeKind.Utc) : null,
+            OutTimeUtc = inv.OutTimeUtc is { } t2 ? DateTime.SpecifyKind(t2, DateTimeKind.Utc) : null,
+            Meters = new MeterReadings(inv.Meter1StartTenths, inv.Meter1EndTenths, inv.Meter2StartTenths, inv.Meter2EndTenths,
+                                       inv.Meter3StartTenths, inv.Meter3EndTenths),
+            ReplacesNo = row.ReplacesNo,
+            ReplacedByNo = row.ReplacedByNo,
+        };
+    }
+
+    // Search box on the Sales Invoice toolbar: "7231" (or "INV-7231" for old invoices) -> that invoice.
+    public async Task<long?> FindByNumberAsync(string? text)
+    {
+        await currentUser.RequireAsync(Permission.InvoiceView);
+        var digits = new string((text ?? "").Where(char.IsDigit).ToArray());
+        if (digits.Length == 0 || !long.TryParse(digits, out var no)) return null;
+        await using var db = await dbFactory.CreateDbContextAsync();
+        return await db.Invoices.Where(i => i.InvoiceNo == no).Select(i => (long?)i.Id).FirstOrDefaultAsync();
+    }
+
+    // The newest invoice, where Previous starts from on a blank Sales Invoice.
+    public async Task<long?> LatestAsync()
+    {
+        await currentUser.RequireAsync(Permission.InvoiceView);
+        await using var db = await dbFactory.CreateDbContextAsync();
+        return await db.Invoices.OrderByDescending(i => i.InvoiceNo).Select(i => (long?)i.Id).FirstOrDefaultAsync();
     }
 
     // FR-INV-14: Previous / Next by invoice number.
@@ -306,6 +471,39 @@ public class InvoiceService(IDbContextFactory<AppDbContext> dbFactory, ICurrentU
                              where a.InvoiceId == invoiceId && a.IsActive
                              select v.DisplayNo).Distinct().ToListAsync();
         return string.Join(", ", numbers);
+    }
+
+    // Posts one sale: P1 (Dr party tagged with the vehicle, Cr Water Sales), plus P2 for a cash sale
+    // (the cash comes in at once, through the party, so the trip shows on the party statement and nets to zero).
+    // Used by a new invoice and by the corrected copy an edit makes. Throws BusinessRuleException.
+    private async Task<Voucher> PostSaleAsync(AppDbContext db, Vehicle vehicle, PartyType billToType, long? customerId,
+        InvoicePaymentMode mode, int trips, long amount, string? narration, UserInfo me)
+    {
+        long? supplierTag = billToType == PartyType.Supplier ? vehicle.SupplierId : null;
+        var partyAccount = SystemAccounts.ForParty(billToType);
+        var text = $"Water sales - {vehicle.VehicleNo} ({trips} {(trips == 1 ? "trip" : "trips")})";
+        var lines = new List<LineDraft>
+        {
+            LineDraft.Dr(partyAccount, amount, text, supplierTag, customerId, vehicle.Id),
+            LineDraft.Cr(SystemAccounts.WaterSales, amount, text, vehicle: vehicle.Id),
+        };
+        if (mode == InvoicePaymentMode.Cash)
+        {
+            lines.Add(LineDraft.Dr(SystemAccounts.Cash, amount, $"Cash received - {vehicle.VehicleNo}"));
+            lines.Add(LineDraft.Cr(partyAccount, amount, $"Cash received - {vehicle.VehicleNo}", supplierTag, customerId, vehicle.Id));
+        }
+        var voucher = new Voucher
+        {
+            Type = VoucherType.Sales,
+            PartyType = billToType,
+            SupplierId = supplierTag,
+            CustomerId = customerId,
+            VehicleId = vehicle.Id,
+            Mode = mode == InvoicePaymentMode.Cash ? PaymentMode.Cash : null,
+            AmountPaise = amount,
+            Narration = narration,
+        };
+        return await poster.PostAsync(db, voucher, lines, me);
     }
 
     private DateTime Now => clock.GetUtcNow().UtcDateTime;

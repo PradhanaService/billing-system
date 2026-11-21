@@ -9,6 +9,8 @@ public class ActivityLog
     public long? UserId { get; set; }                  // null for a failed login with an unknown name
     public string UserName { get; set; } = "";         // copied, so renaming a user never changes history
     public string? Role { get; set; }
+    // Who actually did it: "Admin", or the sales person's name on the shared Sales login (null when not known).
+    public string? DoneBy { get; set; }
     public ActivityCategory Category { get; set; }
     public string Action { get; set; } = "";           // e.g. "SUPPLIER_CREATED"
     public string? EntityType { get; set; }            // e.g. "Supplier"
