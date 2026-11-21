@@ -1,0 +1,76 @@
+# Builds WaterBillingSetup.exe on a real Windows PC (GitHub's Windows runner), installs it silently,
+# checks the installed app works, uninstalls it, and keeps the setup file for download
+# (Actions tab > this run > Artifacts > WaterBillingSetup).
+name: Windows installer
+
+on:
+  push:
+    branches: [main, "feature/**"]
+  workflow_dispatch:
+
+jobs:
+  build-install-check:
+    runs-on: windows-2022
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: 1. Tests
+        run: dotnet test tests
+
+      - name: 2. Publish the service and the app window (self-contained win-x64)
+        shell: pwsh
+        run: |
+          dotnet publish src -c Release -r win-x64 --self-contained true -o installer\output\app
+          Remove-Item installer\output\app\*.pdb -ErrorAction SilentlyContinue
+          dotnet publish desktop\WaterBilling.Desktop -c Release -r win-x64 --self-contained true `
+            -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o installer\output\desktop
+
+      - name: 3. Build WaterBillingSetup.exe (NSIS)
+        shell: pwsh
+        run: |
+          $nsis = "${env:ProgramFiles(x86)}\NSIS\makensis.exe"
+          if (-not (Test-Path $nsis)) { choco install nsis -y --no-progress; }
+          Push-Location installer; & $nsis WaterBilling.nsi; if ($LASTEXITCODE) { throw "makensis failed" }; Pop-Location
+
+      - name: 4. Install silently and check the app answers
+        shell: pwsh
+        run: |
+          $p = Start-Process installer\output\WaterBillingSetup.exe -ArgumentList "/S" -Wait -PassThru
+          if ($p.ExitCode -ne 0) { throw "Setup exit code $($p.ExitCode)" }
+          $dir = "${env:ProgramFiles}\Water Billing"
+          foreach ($f in "WaterBilling.exe", "WaterBillingApp.exe", "Uninstall Water Billing.exe") {
+            if (-not (Test-Path "$dir\$f")) { throw "Missing $f" } }
+          if (-not (Test-Path "${env:PUBLIC}\Desktop\Water Billing.lnk")) { throw "Missing desktop icon" }
+          $svc = Get-Service WaterBilling; "Service: $($svc.Status), start type $($svc.StartType)"
+          if ($svc.StartType -ne "Automatic") { throw "Service does not start with Windows" }
+          $ok = $false
+          for ($i = 0; $i -lt 60 -and -not $ok; $i++) {
+            try { $r = Invoke-WebRequest http://localhost:5080/account/login -UseBasicParsing; $ok = $r.StatusCode -eq 200 } catch { Start-Sleep 2 } }
+          if (-not $ok) { Get-Content "${env:ProgramData}\WaterBilling\*.log" -ErrorAction SilentlyContinue; throw "App did not answer on port 5080" }
+          if (-not (Test-Path "${env:ProgramData}\WaterBilling\waterbilling.db")) { throw "Database was not created" }
+          "Sign-in page answered and the database exists."
+          # The app window starts and stays open (it shows the screens in WebView2).
+          $w = Start-Process "$dir\WaterBillingApp.exe" -PassThru; Start-Sleep 15
+          if ($w.HasExited) { throw "WaterBillingApp.exe closed by itself (exit $($w.ExitCode))" }
+          "App window is running."; Stop-Process $w -Force
+
+      - name: 5. Uninstall and check the data is kept
+        shell: pwsh
+        run: |
+          $p = Start-Process "${env:ProgramFiles}\Water Billing\Uninstall Water Billing.exe" -ArgumentList "/S" -Wait -PassThru
+          Start-Sleep 20   # the NSIS uninstaller hands over to a copy of itself and returns at once
+          if (Get-Service WaterBilling -ErrorAction SilentlyContinue) { throw "Service still registered" }
+          if (Test-Path "${env:ProgramFiles}\Water Billing\WaterBilling.exe") { throw "Program files left behind" }
+          if (-not (Test-Path "${env:ProgramData}\WaterBilling\waterbilling.db")) { throw "Data folder was removed" }
+          "Uninstalled; database kept."
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: WaterBillingSetup
+          path: installer/output/WaterBillingSetup.exe
+          retention-days: 30

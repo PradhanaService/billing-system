@@ -21,7 +21,7 @@ dotnet test
 309 tests (unit, service, HTTP). See `docs/test-report.md` and `docs/requirement-test-matrix.md`.
 
 ## Install on the shop PC
-See `docs/install-guide.md`: run `installer\build-installer.ps1` on Windows to make `WaterBillingSetup.exe`.
+See `docs/install-guide.md`: run `bash installer/build-installer.sh` (Linux, NSIS) or `installer\build-installer.ps1` (Windows, Inno Setup) to make `WaterBillingSetup.exe`. It installs Water Billing as a desktop app (no browser).
 The client double-clicks it once; afterwards the **Water Billing** desktop icon opens the app window
 (`desktop/WaterBilling.Desktop`, a WebView2 window over the local service).
 
@@ -34,7 +34,7 @@ The client double-clicks it once; afterwards the **Water Billing** desktop icon 
 | `src/Components` | Layout, menu, shared UI, PDF layouts |
 | `tests` | xUnit tests, named by requirement ID |
 | `desktop` | The Water Billing app window (Windows Forms + WebView2) |
-| `installer` | Inno Setup script and build script |
+| `installer` | Installer scripts (NSIS and Inno Setup) and build scripts |
 | `docs` | Spec, design notes, guides, handover pack |
 
 ## Handover pack (for the reviewer)

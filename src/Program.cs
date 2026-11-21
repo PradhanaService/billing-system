@@ -271,8 +271,8 @@ app.MapGet("/pdf/trip-report", async (HttpContext context, CurrentUser currentUs
     if (to < from) return Results.BadRequest("The To date is before the From date.");
     var report = await trips.BuildAsync(new(from, to, supplierId, vehicleId));
     var table = WaterBilling.Services.Reports.TripReportService.ToTable(report);
-    return Results.File(WaterBilling.Components.Pdf.ReportPdf.Generate(table, company.Value, clock.GetUtcNow().UtcDateTime), "application/pdf",
-        $"trip-report-{from:yyyyMMdd}-{to:yyyyMMdd}.pdf");
+    // No file name: the PDF opens in the app's PDF window (with Print and Save) instead of downloading.
+    return Results.File(WaterBilling.Components.Pdf.ReportPdf.Generate(table, company.Value, clock.GetUtcNow().UtcDateTime), "application/pdf");
 }).RequireAuthorization(nameof(Permission.ReportsView));
 
 app.MapRazorComponents<App>()
