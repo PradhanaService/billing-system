@@ -108,4 +108,21 @@ public class TripDetailsTests : BillingFixture
         Assert.Equal(second, await Inv.LatestAsync());
         Assert.Equal(first, await Inv.NeighbourAsync((await Inv.GetAsync(second))!.InvoiceNo, next: false));
     }
+
+    [Fact]
+    public async Task SI_20_Meter_Start_Carries_On_From_The_Last_End_Reading_Of_That_Meter()
+    {
+        Assert.All(await Inv.MeterStartsAsync(), m => Assert.Null(m.EndTenths));   // nothing yet
+
+        var f1 = Form(); f1.Meter1Start = 28451.2m; f1.Meter1End = 28463.2m; f1.Meter2Start = 100m; f1.Meter2End = 110.5m;
+        await Inv.CreateAsync(f1);
+        var f2 = Form(); f2.Meter1Start = 28463.2m; f2.Meter1End = 28470.0m;          // meter 2 not used this time
+        await Inv.CreateAsync(f2);
+
+        var starts = await Inv.MeterStartsAsync();
+        Assert.Equal((284700L, "2"), (starts[0].EndTenths!.Value, starts[0].FromInvoiceNo));   // meter 1: from invoice 2
+        Assert.Equal((1105L, "1"), (starts[1].EndTenths!.Value, starts[1].FromInvoiceNo));     // meter 2: still from invoice 1
+        Assert.Null(starts[2].FromInvoiceNo);                                                   // meter 3 never used
+        Assert.Equal(28470.0m, starts[0].Kl);
+    }
 }

@@ -206,6 +206,12 @@
                     <tr><td colspan="3" class="num"><b>Total</b></td><td><input readonly class="vol" value="@TotalVolume" aria-label="Total volume" /></td></tr>
                 </tbody>
             </table>
+            @if (_shown is null && _starts.Any(x => x.FromInvoiceNo is not null))
+            {
+                <small id="meternote" class="muted">Start readings carry on from the last End reading of each meter
+                    (@string.Join(", ", _starts.Where(x => x.FromInvoiceNo is not null).Select(x => $"Meter {x.Meter}: invoice {x.FromInvoiceNo}"))).
+                    Type only the End reading. Change a Start reading only if the meter was reset or replaced.</small>
+            }
         </div>
     </section>
 </div>
@@ -243,15 +249,31 @@
     {
         _vehicles = await VehicleSvc.ListBillableAsync();
         _salesPersons = await SalesPersonSvc.ListActiveAsync();
-        await RefreshHeaderAsync();
         NewForm();
+        await RefreshHeaderAsync();
     }
 
     private async Task RefreshHeaderAsync()
     {
         _nextNo = await Svc.PeekNextNumberAsync();
         _date = Svc.BusinessDate();
+        var old = _starts;
+        _starts = await Svc.MeterStartsAsync();
+        ApplyMeterStarts(old);
     }
+
+    // Each meter's Start reading = its End reading on the last invoice (unless the user already typed another).
+    private IReadOnlyList<MeterStart> _starts = [];
+    private void ApplyMeterStarts(IReadOnlyList<MeterStart>? previous = null)
+    {
+        foreach (var m in _starts)
+        {
+            var current = GetStart(m.Meter);
+            var oldPrefill = previous?.FirstOrDefault(p => p.Meter == m.Meter)?.Kl;
+            if (current is null || current == oldPrefill) SetStartValue(m.Meter, m.Kl);
+        }
+    }
+    private void SetStartValue(int n, decimal? d) { if (n == 1) _form.Meter1Start = d; else if (n == 2) _form.Meter2Start = d; else _form.Meter3Start = d; }
 
     // Only the code is typed: Enter or Tab looks it up among the vehicles that can be invoiced.
     private void OnCodeChanged()
@@ -346,7 +368,11 @@
         Busy = true;
         try
         {
+            // A meter not used on this trip (no End reading) keeps only its carried-on Start: leave it out.
+            var unused = _starts.Where(m => GetEnd(m.Meter) is null && GetStart(m.Meter) == m.Kl && m.Kl is not null).ToList();
+            foreach (var m in unused) SetStartValue(m.Meter, null);
             var result = await Svc.CreateAsync(_form);
+            if (!result.Ok) foreach (var m in unused) SetStartValue(m.Meter, m.Kl);   // put them back on screen
             if (result.Ok)
             {
                 var saved = await Svc.GetAsync(result.Value);
@@ -370,6 +396,7 @@
     private void ResetForm()
     {
         NewForm(_form.SalesPersonId);
+        ApplyMeterStarts();
         _vehicle = null;
         _code = null;
         _codeError = null;

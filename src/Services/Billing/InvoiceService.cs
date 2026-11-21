@@ -62,6 +62,12 @@ public sealed class InvoiceRevision
 }
 
 // Everything the view screen and the PDF need.
+// The Start reading a new invoice gets for one meter, and the invoice it comes from.
+public sealed record MeterStart(int Meter, long? EndTenths, string? FromInvoiceNo)
+{
+    public decimal? Kl => EndTenths is { } t ? t / 10m : null;
+}
+
 public sealed record InvoiceDetail(
     long Id, string DisplayNo, long InvoiceNo, DateOnly InvoiceDate, InvoiceStatus Status,
     string VehicleCode, string VehicleNo, string VehicleName, string SupplierName,
@@ -424,6 +430,22 @@ public class InvoiceService(IDbContextFactory<AppDbContext> dbFactory, ICurrentU
         if (digits.Length == 0 || !long.TryParse(digits, out var no)) return null;
         await using var db = await dbFactory.CreateDbContextAsync();
         return await db.Invoices.Where(i => i.InvoiceNo == no).Select(i => (long?)i.Id).FirstOrDefaultAsync();
+    }
+
+    // Meter readings carry on from invoice to invoice: a new invoice's Start reading for each meter is
+    // the End reading of that meter on the latest invoice that recorded one (any status: the meter
+    // itself moved on even if that invoice was later cancelled). Null when the meter was never used.
+    public async Task<IReadOnlyList<MeterStart>> MeterStartsAsync()
+    {
+        await currentUser.RequireAsync(Permission.InvoiceCreate);
+        await using var db = await dbFactory.CreateDbContextAsync();
+        var m1 = await db.Invoices.Where(i => i.Meter1EndTenths != null).OrderByDescending(i => i.InvoiceNo)
+            .Select(i => new { i.DisplayNo, End = i.Meter1EndTenths }).FirstOrDefaultAsync();
+        var m2 = await db.Invoices.Where(i => i.Meter2EndTenths != null).OrderByDescending(i => i.InvoiceNo)
+            .Select(i => new { i.DisplayNo, End = i.Meter2EndTenths }).FirstOrDefaultAsync();
+        var m3 = await db.Invoices.Where(i => i.Meter3EndTenths != null).OrderByDescending(i => i.InvoiceNo)
+            .Select(i => new { i.DisplayNo, End = i.Meter3EndTenths }).FirstOrDefaultAsync();
+        return [new(1, m1?.End, m1?.DisplayNo), new(2, m2?.End, m2?.DisplayNo), new(3, m3?.End, m3?.DisplayNo)];
     }
 
     // The newest invoice, where Previous starts from on a blank Sales Invoice.

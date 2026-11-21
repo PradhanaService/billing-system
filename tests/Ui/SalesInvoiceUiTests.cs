@@ -56,6 +56,40 @@ public class SalesInvoiceUiTests : UiTest
     }
 
     [Fact]
+    public async Task SI_21_New_Invoice_Starts_Each_Meter_From_The_Previous_End_Reading()
+    {
+        await SupplierWithVehicleAsync();
+        var page = RenderComponent<SalesInvoice>();
+        Assert.Equal("", page.Find("input[aria-label='Meter 1 start']").GetAttribute("value") ?? "");
+        page.Find("#vcode").Change("A2");
+        page.Find("input[aria-label='Meter 1 start']").Change("28451.2");
+        page.Find("input[aria-label='Meter 1 end']").Change("28463.2");
+        page.FindAll("button").First(b => b.TextContent.Trim() == "Save").Click();
+        page.WaitForAssertion(() => Assert.Contains("saved", page.Markup));
+
+        // The next invoice: Meter 1 starts at 28463.2 by itself; meters 2 and 3 stay empty.
+        page.WaitForAssertion(() => Assert.Equal("28463.2", page.Find("input[aria-label='Meter 1 start']").GetAttribute("value")));
+        Assert.Equal("", page.Find("input[aria-label='Meter 2 start']").GetAttribute("value") ?? "");
+        Assert.Contains("Meter 1: invoice 1", page.Find("#meternote").TextContent);
+
+        // A trip that does not use meter 1 still saves (its carried-on start is not sent alone).
+        page.Find("#vcode").Change("A2");
+        page.FindAll("button").First(b => b.TextContent.Trim() == "Save").Click();
+        page.WaitForAssertion(() => Assert.Contains("Invoice 2 saved", page.Markup));
+        Assert.Equal("28463.2", page.Find("input[aria-label='Meter 1 start']").GetAttribute("value"));
+
+        // Using it again: type only the end reading.
+        page.Find("#vcode").Change("A2");
+        page.Find("input[aria-label='Meter 1 end']").Change("28475.0");
+        page.FindAll("button").First(b => b.TextContent.Trim() == "Save").Click();
+        page.WaitForAssertion(() => Assert.Contains("Invoice 3 saved", page.Markup));
+        using var db = Db.NewContext();
+        var third = db.Invoices.Single(i => i.DisplayNo == "3");
+        Assert.Equal((284632L, 284750L), (third.Meter1StartTenths!.Value, third.Meter1EndTenths!.Value));
+        Assert.Null(db.Invoices.Single(i => i.DisplayNo == "2").Meter1StartTenths);
+    }
+
+    [Fact]
     public async Task SI_16_No_Payment_Choice_On_A_New_Invoice()
     {
         await SupplierWithVehicleAsync();
