@@ -27,6 +27,20 @@ The build signs every program file (`WaterBillingSetup.exe`, the uninstaller, `W
    tick **Unblock** → OK. (A file copied from a USB drive does not need this.)
 4. Double-click `WaterBillingSetup.exe`. The prompt shows **Verified publisher: Shree Karunambika Traders**.
 
+## "Windows protected your PC" (SmartScreen)
+SmartScreen appears only for a file that came **from the internet** and whose publisher has **no reputation**
+with Microsoft yet. A self-signed certificate never earns reputation. Ways to stop it:
+
+1. **Remove the "downloaded" mark (free, works now).** Right-click the downloaded zip → Properties → tick
+   **Unblock** → OK, *then* Extract All. Or copy the setup to the shop PC from a USB drive. Programs the
+   installer puts on the PC are never marked, so the app itself never shows this box.
+2. **Ask Microsoft to clear the file (free, takes days).** Submit `WaterBillingSetup.exe` as a software developer
+   at https://www.microsoft.com/wdsi/filesubmission ("Incorrectly detected as malware/malicious"). Works per file,
+   so it must be repeated for each new version.
+3. **Sign with a certificate Microsoft trusts (paid, permanent).** Microsoft Trusted Signing gives SmartScreen
+   trust from the first download, where the business is eligible. A bought OV certificate also works, but the
+   box keeps appearing until enough PCs have installed files with that certificate.
+
 ## Keeping the certificate
 - The private key file (`.pfx`) and its password must **never** be put in the repository or sent by chat.
   Keep them on the developer's PC and a backup USB drive.
