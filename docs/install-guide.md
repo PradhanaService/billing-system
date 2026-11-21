@@ -8,6 +8,7 @@ Every way runs all tests first and stops if any fail.
   `bash installer/build-installer.sh`. Script: `installer/WaterBilling.nsi`.
 - **On Windows (Inno Setup):** install the .NET 8 SDK and Inno Setup 6, then run
   `powershell -ExecutionPolicy Bypass -File installer\build-installer.ps1`. Script: `installer/WaterBilling.iss`.
+- **Signing:** see `docs/code-signing.md` (removes the "Unknown publisher" warning).
 - **On GitHub:** every push runs `.github/workflows/windows-installer.yml` on a Windows PC. It builds the setup,
   installs it silently, checks the service answers and the app window opens, uninstalls it, and keeps
   `WaterBillingSetup.exe` under Actions → the run → Artifacts.

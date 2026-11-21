@@ -28,6 +28,14 @@ Unicode true
 ; Microsoft's fixed id for the WebView2 Runtime in the registry.
 !define WebView2Id   "{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}"
 
+; Code signing (build-installer.sh passes -DSIGN when a certificate is configured): the uninstaller
+; and the setup file itself get the publisher's digital signature, so Windows shows
+; "Verified publisher: Shree Karunambika Traders" instead of "Unknown publisher".
+!ifdef SIGN
+  !uninstfinalize 'bash sign.sh "%1"' = 0
+  !finalize 'bash sign.sh "%1"' = 0
+!endif
+
 Name "${AppName}"
 OutFile "output\WaterBillingSetup.exe"
 InstallDir "$PROGRAMFILES64\${AppName}"
