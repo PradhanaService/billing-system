@@ -1,3 +1,4 @@
+using WaterBilling.Services.Billing;
 using Bunit;
 using WaterBilling.Data.Entities;
 using WaterBilling.Pages.Billing;
@@ -87,6 +88,59 @@ public class SalesInvoiceUiTests : UiTest
         var third = db.Invoices.Single(i => i.DisplayNo == "3");
         Assert.Equal((284632L, 284750L), (third.Meter1StartTenths!.Value, third.Meter1EndTenths!.Value));
         Assert.Null(db.Invoices.Single(i => i.DisplayNo == "2").Meter1StartTenths);
+    }
+
+    [Fact]
+    public async Task MTR_10_Edit_Meter_Readings_On_A_Saved_Invoice_Updates_The_Next_One()
+    {
+        await SupplierWithVehicleAsync();
+        var ravi = Db.AddSalesPerson("Ravi");
+        foreach (var (st, en) in new[] { (100.0m, 110.0m), (110.0m, 125.5m) })
+            Assert.True((await S.Invoices.CreateAsync(new InvoiceForm { VehicleId = Db.NewContext().Vehicles.Single().Id, Rate = 129.68m, SalesPersonId = ravi,
+                                                                       Meter1Start = st, Meter1End = en })).Ok);
+        var page = RenderComponent<SalesInvoice>();
+        page.FindAll("button").First(b => b.TextContent.Contains("Previous")).Click();   // invoice 2
+        page.FindAll("button").First(b => b.TextContent.Contains("Previous")).Click();   // invoice 1
+        page.WaitForAssertion(() => Assert.Equal("1", page.Find("#invno").GetAttribute("value")));
+        Assert.True(page.Find("input[aria-label='Meter 1 end']").HasAttribute("readonly"));
+
+        page.FindAll("button").Single(b => b.TextContent.Contains("Edit meter readings")).Click();
+        Assert.False(page.Find("input[aria-label='Meter 1 end']").HasAttribute("readonly"));
+        page.Find("input[aria-label='Meter 1 end']").Change("108.5");
+        Assert.Equal("8.5", page.Find("input[aria-label='Meter 1 volume']").GetAttribute("value"));
+        page.Find("#mreason").Input("Misread the dial");
+        page.FindAll("button").Single(b => b.TextContent.Contains("Save meter readings")).Click();
+
+        page.WaitForAssertion(() => Assert.Contains("Meter readings of invoice 1 saved. Also updated: invoice 2, Meter 1 start: 110.0 → 108.5", page.Markup));
+        Assert.Equal("108.5", page.Find("input[aria-label='Meter 1 end']").GetAttribute("value"));
+        Assert.True(page.Find("input[aria-label='Meter 1 end']").HasAttribute("readonly"));   // back to read-only
+
+        page.FindAll("button").First(b => b.TextContent.Trim().StartsWith("Next")).Click();   // invoice 2 shows the new start
+        page.WaitForAssertion(() => Assert.Equal("108.5", page.Find("input[aria-label='Meter 1 start']").GetAttribute("value")));
+        Assert.Equal("17.0", page.Find("input[aria-label='Meter 1 volume']").GetAttribute("value"));
+    }
+
+    [Fact]
+    public async Task MTR_11_A_Refused_Correction_Is_Explained_And_Nothing_Changes()
+    {
+        await SupplierWithVehicleAsync();
+        var ravi = Db.AddSalesPerson("Ravi");
+        var vehicle = Db.NewContext().Vehicles.Single().Id;
+        await S.Invoices.CreateAsync(new InvoiceForm { VehicleId = vehicle, Rate = 129.68m, SalesPersonId = ravi, Meter1Start = 100m, Meter1End = 110m });
+        await S.Invoices.CreateAsync(new InvoiceForm { VehicleId = vehicle, Rate = 129.68m, SalesPersonId = ravi, Meter1Start = 110m, Meter1End = 120m });
+        var page = RenderComponent<SalesInvoice>();
+        page.FindAll("button").First(b => b.TextContent.Contains("Previous")).Click();
+        page.FindAll("button").First(b => b.TextContent.Contains("Previous")).Click();
+        page.WaitForAssertion(() => Assert.Equal("1", page.Find("#invno").GetAttribute("value")));
+        page.FindAll("button").Single(b => b.TextContent.Contains("Edit meter readings")).Click();
+        page.Find("input[aria-label='Meter 1 end']").Change("130");
+        page.Find("#mreason").Input("test");
+        page.FindAll("button").Single(b => b.TextContent.Contains("Save meter readings")).Click();
+
+        page.WaitForAssertion(() => Assert.Contains("above the end reading of invoice 2", page.Markup));
+        Assert.NotNull(page.Find("#meteredit"));                       // still editing, so it can be fixed
+        using var db = Db.NewContext();
+        Assert.Equal(1100L, db.Invoices.Single(i => i.DisplayNo == "1").Meter1EndTenths);
     }
 
     [Fact]

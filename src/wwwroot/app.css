@@ -361,3 +361,8 @@ input.strong { font-weight: 700; }
 /* Sales Invoice: Payment Status of a saved invoice (Paid / Not paid / Part paid / Cancelled) */
 .status-box { display: flex; align-items: center; min-height: 42px; }
 .status-box .pill { font-size: 0.9rem; padding: 0.25rem 0.85rem; }
+/* Sales Invoice: "Edit meter readings" on a saved invoice */
+.si-block > h2 .h2-action { margin-left: auto; font-size: 0.85rem; }
+.meter-edit { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line-soft); display: grid; gap: 10px; }
+.meter-edit .form-grid { margin: 0; }
+.meter-edit .form-actions { margin: 0; justify-content: flex-end; }

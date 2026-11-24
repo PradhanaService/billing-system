@@ -115,6 +115,7 @@ builder.Services.AddScoped<WaterBilling.Services.Accounts.DaySalesService>();
 builder.Services.AddScoped<WaterBilling.Services.Accounts.DashboardService>();
 builder.Services.AddScoped<WaterBilling.Services.Reports.ReportService>();
 builder.Services.AddScoped<WaterBilling.Services.Reports.TripReportService>();
+builder.Services.AddScoped<WaterBilling.Services.Billing.MeterReadingService>();
 builder.Services.AddScoped<WaterBilling.Services.Admin.ActivityLogService>();
 builder.Services.AddScoped<WaterBilling.Services.Admin.BackupService>();
 builder.Services.AddScoped<WaterBilling.Services.Admin.SalesPersonService>();

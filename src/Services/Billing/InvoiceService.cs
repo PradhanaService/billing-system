@@ -433,19 +433,21 @@ public class InvoiceService(IDbContextFactory<AppDbContext> dbFactory, ICurrentU
     }
 
     // Meter readings carry on from invoice to invoice: a new invoice's Start reading for each meter is
-    // the End reading of that meter on the latest invoice that recorded one (any status: the meter
-    // itself moved on even if that invoice was later cancelled). Null when the meter was never used.
+    // the End reading of that meter on the last trip that used it (trip order as in MeterChain: a
+    // corrected copy keeps the place of the invoice it replaced; cancelled invoices do not count).
+    // Null when the meter was never used.
     public async Task<IReadOnlyList<MeterStart>> MeterStartsAsync()
     {
         await currentUser.RequireAsync(Permission.InvoiceCreate);
         await using var db = await dbFactory.CreateDbContextAsync();
-        var m1 = await db.Invoices.Where(i => i.Meter1EndTenths != null).OrderByDescending(i => i.InvoiceNo)
-            .Select(i => new { i.DisplayNo, End = i.Meter1EndTenths }).FirstOrDefaultAsync();
-        var m2 = await db.Invoices.Where(i => i.Meter2EndTenths != null).OrderByDescending(i => i.InvoiceNo)
-            .Select(i => new { i.DisplayNo, End = i.Meter2EndTenths }).FirstOrDefaultAsync();
-        var m3 = await db.Invoices.Where(i => i.Meter3EndTenths != null).OrderByDescending(i => i.InvoiceNo)
-            .Select(i => new { i.DisplayNo, End = i.Meter3EndTenths }).FirstOrDefaultAsync();
-        return [new(1, m1?.End, m1?.DisplayNo), new(2, m2?.End, m2?.DisplayNo), new(3, m3?.End, m3?.DisplayNo)];
+        var order = await MeterChain.OrderAsync(db);
+        var active = await db.Invoices.Where(i => i.Status != InvoiceStatus.Cancelled
+                && (i.Meter1EndTenths != null || i.Meter2EndTenths != null || i.Meter3EndTenths != null)).ToListAsync();
+        return [.. Enumerable.Range(1, 3).Select(m =>
+        {
+            var last = active.Where(i => MeterChain.End(i, m) is not null).OrderBy(i => order[i.Id]).LastOrDefault();
+            return new MeterStart(m, last is null ? null : MeterChain.End(last, m), last?.DisplayNo);
+        })];
     }
 
     // The newest invoice, where Previous starts from on a blank Sales Invoice.

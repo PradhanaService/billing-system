@@ -4,6 +4,7 @@
 @using WaterBilling.Services.Billing
 @using WaterBilling.Services.Masters
 @inject InvoiceService Svc
+@inject MeterReadingService MeterSvc
 @inject VehicleService VehicleSvc
 @inject WaterBilling.Services.Admin.SalesPersonService SalesPersonSvc
 
@@ -15,7 +16,9 @@
    chosen read-only on this screen, with View (full page and print) and Edit (corrected copy).
    Saving gives the next invoice number and posts the accounts entries in the same step.
    No payment is taken here (client change, Nov 2026): every invoice is saved as Not paid (on the
-   supplier's account) and shows Paid only after a Receipt is recorded for it. *@
+   supplier's account) and shows Paid only after a Receipt is recorded for it.
+   Meter readings of a saved invoice can be corrected (Edit meter readings): the invoices before and
+   after it on the same meter follow automatically (MeterReadingService). *@
 
 <PageTitle>Sales Invoice</PageTitle>
 
@@ -180,7 +183,13 @@
 
     @* ---------- Meter Readings ---------- *@
     <section class="si-block">
-        <h2><Icon Name="activity" Size="20" /> Meter Readings</h2>
+        <h2>
+            <Icon Name="activity" Size="20" /> Meter Readings
+            @if (_shown is not null && _meterEdit is null && _shown.Status != InvoiceStatus.Cancelled && Can(Permission.InvoiceCancel))
+            {
+                <button class="btn btn-small h2-action" @onclick="StartMeterEdit"><Icon Name="edit" Size="14" /> Edit meter readings</button>
+            }
+        </h2>
         <div class="si-body">
             <table class="meters">
                 <thead><tr><th></th><th>Start reading</th><th>End reading</th><th>Volume (kL)</th></tr></thead>
@@ -190,15 +199,20 @@
                         var n = m;
                         <tr>
                             <th><span class="meter-tag">Meter @n</span></th>
-                            @if (_shown is not null)
+                            @if (_shown is not null && _meterEdit is not null)
+                            {
+                                <td><input type="number" step="0.1" min="0" aria-label="Meter @n start" value="@Kl(EditGet(n, start: true))" @onchange="e => EditSet(n, true, e.Value)" /></td>
+                                <td><input type="number" step="0.1" min="0" aria-label="Meter @n end" value="@Kl(EditGet(n, start: false))" @onchange="e => EditSet(n, false, e.Value)" /></td>
+                            }
+                            else if (_shown is not null)
                             {
                                 <td><input readonly value="@Reading(ShownStart(n))" aria-label="Meter @n start" /></td>
                                 <td><input readonly value="@Reading(ShownEnd(n))" aria-label="Meter @n end" /></td>
                             }
                             else
                             {
-                                <td><input type="number" step="0.1" min="0" aria-label="Meter @n start" value="@GetStart(n)" @onchange="e => SetStart(n, e.Value)" /></td>
-                                <td><input type="number" step="0.1" min="0" aria-label="Meter @n end" value="@GetEnd(n)" @onchange="e => SetEnd(n, e.Value)" /></td>
+                                <td><input type="number" step="0.1" min="0" aria-label="Meter @n start" value="@Kl(GetStart(n))" @onchange="e => SetStart(n, e.Value)" /></td>
+                                <td><input type="number" step="0.1" min="0" aria-label="Meter @n end" value="@Kl(GetEnd(n))" @onchange="e => SetEnd(n, e.Value)" /></td>
                             }
                             <td><input readonly class="vol" value="@MeterVolume(n)" aria-label="Meter @n volume" /></td>
                         </tr>
@@ -206,6 +220,34 @@
                     <tr><td colspan="3" class="num"><b>Total</b></td><td><input readonly class="vol" value="@TotalVolume" aria-label="Total volume" /></td></tr>
                 </tbody>
             </table>
+            @if (_shown is not null && _meterEdit is not null)
+            {
+                @* Correcting a saved invoice's readings: the invoices before and after it on the same meter follow. *@
+                <div class="meter-edit" id="meteredit">
+                    <p class="muted small">A changed End reading also becomes the Start reading of the next invoice on that meter;
+                        a changed Start reading becomes the End reading of the previous one. Clear both boxes to take a meter off this invoice.</p>
+                    <div class="form-grid">
+                        @if (!IsAdmin)
+                        {
+                            <div class="field">
+                                <label for="mwho">Who is editing? <span class="req">*</span></label>
+                                <select id="mwho" @bind="_meterEdit.EditedBySalesPersonId">
+                                    <option value="">Choose your name</option>
+                                    @foreach (var p in _salesPersons) { <option value="@p.Id">@p.Name</option> }
+                                </select>
+                            </div>
+                        }
+                        <div class="field grow">
+                            <label for="mreason">Reason <span class="req">*</span></label>
+                            <input id="mreason" @bind="_meterEdit.Reason" @bind:event="oninput" maxlength="200" placeholder="e.g. Misread the dial" />
+                        </div>
+                    </div>
+                    <div class="form-actions">
+                        <button class="btn" @onclick="() => _meterEdit = null">Cancel</button>
+                        <button class="btn btn-primary" @onclick="SaveMetersAsync" disabled="@Busy"><Icon Name="check" Size="16" /> Save meter readings</button>
+                    </div>
+                </div>
+            }
             @if (_shown is null && _starts.Any(x => x.FromInvoiceNo is not null))
             {
                 <small id="meternote" class="muted">Start readings carry on from the last End reading of each meter
@@ -306,10 +348,14 @@
     private static decimal? ToDecimal(object? v) => decimal.TryParse(v?.ToString(), System.Globalization.NumberStyles.Number, System.Globalization.CultureInfo.InvariantCulture, out var d) ? d : null;
     private long? ShownStart(int n) => n switch { 1 => _shown!.Meters.Start1, 2 => _shown!.Meters.Start2, _ => _shown!.Meters.Start3 };
     private long? ShownEnd(int n) => n switch { 1 => _shown!.Meters.End1, 2 => _shown!.Meters.End2, _ => _shown!.Meters.End3 };
+    // Meter readings always show one decimal place, e.g. 130.0 (not 130).
+    private static string Kl(decimal? d) => d?.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture) ?? "";
     private static string Reading(long? tenths) => tenths is { } t ? Volume.Format(t) : "";
 
     private string MeterVolume(int n)
     {
+        if (_shown is not null && _meterEdit is not null)
+            return EditGet(n, false) - EditGet(n, true) is { } v && v >= 0 ? v.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture) : "";
         if (_shown is not null) return ShownEnd(n) - ShownStart(n) is { } t ? Volume.Format(t) : "";
         return GetEnd(n) - GetStart(n) is { } d && d >= 0 ? d.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture) : "";
     }
@@ -318,6 +364,8 @@
     {
         get
         {
+            if (_shown is not null && _meterEdit is not null)
+                return Enumerable.Range(1, 3).Sum(n => EditGet(n, false) - EditGet(n, true) is { } d && d > 0 ? d : 0m).ToString("0.0", System.Globalization.CultureInfo.InvariantCulture);
             if (_shown is not null) return Volume.Format(_shown.Meters.VolumeTenths);
             var total = Enumerable.Range(1, 3).Sum(n => GetEnd(n) - GetStart(n) is { } d && d > 0 ? d : 0m);
             return total.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture);
@@ -351,7 +399,63 @@
     private async Task ShowAsync(long id)
     {
         _shown = await Svc.GetAsync(id);
+        _meterEdit = null;
         MessageText = null;
+    }
+
+    // ---- Correcting the meter readings of a saved invoice ----
+    private MeterEdit? _meterEdit;
+
+    private void StartMeterEdit()
+    {
+        static decimal? Kl(long? t) => t is { } v ? v / 10m : null;
+        var m = _shown!.Meters;
+        _meterEdit = new MeterEdit
+        {
+            Meter1Start = Kl(m.Start1), Meter1End = Kl(m.End1), Meter2Start = Kl(m.Start2), Meter2End = Kl(m.End2),
+            Meter3Start = Kl(m.Start3), Meter3End = Kl(m.End3), Version = _shown.Version,
+            EditedBySalesPersonId = _form.SalesPersonId,
+        };
+        MessageText = null;
+    }
+
+    private decimal? EditGet(int n, bool start) => (n, start) switch
+    {
+        (1, true) => _meterEdit!.Meter1Start, (1, false) => _meterEdit!.Meter1End,
+        (2, true) => _meterEdit!.Meter2Start, (2, false) => _meterEdit!.Meter2End,
+        (_, true) => _meterEdit!.Meter3Start, _ => _meterEdit!.Meter3End,
+    };
+
+    private void EditSet(int n, bool start, object? value)
+    {
+        var d = ToDecimal(value);
+        switch (n, start)
+        {
+            case (1, true): _meterEdit!.Meter1Start = d; break;
+            case (1, false): _meterEdit!.Meter1End = d; break;
+            case (2, true): _meterEdit!.Meter2Start = d; break;
+            case (2, false): _meterEdit!.Meter2End = d; break;
+            case (_, true): _meterEdit!.Meter3Start = d; break;
+            default: _meterEdit!.Meter3End = d; break;
+        }
+    }
+
+    private async Task SaveMetersAsync()
+    {
+        if (Busy || _shown is null || _meterEdit is null) return;
+        Busy = true;
+        try
+        {
+            var result = await MeterSvc.UpdateAsync(_shown.Id, _meterEdit);
+            if (!result.Ok) { ShowError(result.Error!); return; }
+            var no = _shown.DisplayNo;
+            await ShowAsync(_shown.Id);
+            _starts = await Svc.MeterStartsAsync();   // a new invoice starts from the corrected readings
+            ShowOk(result.Value!.Count == 0
+                ? $"Meter readings of invoice {no} saved."
+                : $"Meter readings of invoice {no} saved. Also updated: {string.Join("; ", result.Value!.Select(c => c.Text))}.");
+        }
+        finally { Busy = false; }
     }
 
     private async Task NewInvoiceAsync()
