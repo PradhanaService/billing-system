@@ -20,8 +20,8 @@ public static class MenuItems
 
         new("Transactions", "Sales Invoice",     "/invoices/new",        Permission.InvoiceCreate, "file-text"),
         new("Transactions", "Invoice Display",   "/invoices",            Permission.DaySalesView, "table"),
-        new("Transactions", "Receipt",           "/receipts",            Permission.ReceiptCreate, "download"),
-        new("Transactions", "Payment",           "/payments",            Permission.PaymentCreate, "upload"),
+        new("Transactions", "Receipt",           "/receipts",            Permission.ReceiptCreate, "receipt-in"),
+        new("Transactions", "Payment",           "/payments",            Permission.PaymentCreate, "payment-out"),
 
         new("Accounts",     "Reports",           "/reports",             Permission.ReportsView, "chart"),
 

@@ -32,7 +32,7 @@
         @Stat("card", $"Credit sales ({MonthName})", $"₹{Money.Format(_d.MonthCreditSalesPaise)}")
         @* Opens the detail: who has to give money. *@
         <a class="stat has-icon stat-link stat-edge" href="/outstanding" title="See who has to pay">
-            <span class="stat-icon"><Icon Name="wallet" Size="22" /></span>
+            <span class="stat-icon"><Icon Name="wallet" Size="24" Duotone="true" /></span>
             <span class="stat-body">
                 <div class="stat-label">Outstanding amount</div><div class="stat-value">₹@Money.Format(_d.OutstandingPaise)</div>
                 <div class="stat-more">View details</div>
@@ -47,10 +47,10 @@
         <div class="card">
                 <h2>Quick access</h2>
                 <div class="quick">
-                    @if (Can(Permission.InvoiceCreate)) { <a class="quick-tile" href="/invoices/new"><Icon Name="file-text" Size="26" />Sales Invoice</a> }
-                    @if (Can(Permission.DaySalesView)) { <a class="quick-tile" href="/invoices"><Icon Name="table" Size="26" />Invoice Display</a> }
-                    <a class="quick-tile" href="/vehicles"><Icon Name="truck" Size="26" />Vehicle Master</a>
-                    @if (Can(Permission.ReportsView)) { <a class="quick-tile" href="/reports"><Icon Name="chart" Size="26" />Reports</a> }
+                    @if (Can(Permission.InvoiceCreate)) { <a class="quick-tile" href="/invoices/new"><Icon Name="file-text" Size="28" Duotone="true" />Sales Invoice</a> }
+                    @if (Can(Permission.DaySalesView)) { <a class="quick-tile" href="/invoices"><Icon Name="table" Size="28" Duotone="true" />Invoice Display</a> }
+                    <a class="quick-tile" href="/vehicles"><Icon Name="truck" Size="28" Duotone="true" />Vehicle Master</a>
+                    @if (Can(Permission.ReportsView)) { <a class="quick-tile" href="/reports"><Icon Name="chart" Size="28" Duotone="true" />Reports</a> }
                 </div>
         </div>
     </div>
@@ -99,7 +99,7 @@
     private static RenderFragment Stat(string icon, string label, string value, bool dark = false) => __builder =>
     {
         <div class="stat has-icon @(dark ? "stat-dark" : "")">
-            <span class="stat-icon"><Icon Name="@icon" Size="22" /></span>
+            <span class="stat-icon"><Icon Name="@icon" Size="24" Duotone="true" /></span>
             <span class="stat-body"><div class="stat-label">@label</div><div class="stat-value">@value</div></span>
         </div>
     };

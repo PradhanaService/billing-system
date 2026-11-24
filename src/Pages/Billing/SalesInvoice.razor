@@ -23,7 +23,7 @@
 <PageTitle>Sales Invoice</PageTitle>
 
 <div class="si-head">
-    <span class="si-icon"><Icon Name="file-text" Size="28" /></span>
+    <span class="si-icon"><Icon Name="file-text" Size="28" Duotone="true" /></span>
     <h1>Sales Invoice</h1>
     <div class="si-hcard">
         <label for="invno">Invoice No.</label>
@@ -73,7 +73,7 @@
 
 @* ---------- Invoice Details ---------- *@
 <section class="si-block">
-    <h2><Icon Name="edit" Size="20" /> Invoice Details</h2>
+    <h2><Icon Name="edit" Size="20" Duotone="true" /> Invoice Details</h2>
     <div class="si-body">
         <div class="si-row">
             <div class="field si-code">
@@ -138,7 +138,7 @@
 
 @* ---------- Item Details ---------- *@
 <section class="si-block">
-    <h2><Icon Name="table" Size="20" /> Item Details</h2>
+    <h2><Icon Name="table" Size="20" Duotone="true" /> Item Details</h2>
     <table class="data si-items">
         <thead><tr><th>S.No</th><th>Material</th><th class="num">Capacity (L)</th><th>Measurement</th><th class="num">Rate (₹)</th><th class="num">Total Amount (₹)</th></tr></thead>
         <tbody>
@@ -157,7 +157,7 @@
 <div class="si-pair">
     @* ---------- Trip Timing ---------- *@
     <section class="si-block">
-        <h2><Icon Name="calendar" Size="20" /> Trip Timing</h2>
+        <h2><Icon Name="calendar" Size="20" Duotone="true" /> Trip Timing</h2>
         <div class="si-body">
             @if (_shown is not null)
             {
@@ -184,7 +184,7 @@
     @* ---------- Meter Readings ---------- *@
     <section class="si-block">
         <h2>
-            <Icon Name="activity" Size="20" /> Meter Readings
+            <Icon Name="meter" Size="20" Duotone="true" /> Meter Readings
             @if (_shown is not null && _meterEdit is null && _shown.Status != InvoiceStatus.Cancelled && Can(Permission.InvoiceCancel))
             {
                 <button class="btn btn-small h2-action" @onclick="StartMeterEdit"><Icon Name="edit" Size="14" /> Edit meter readings</button>
@@ -261,7 +261,7 @@
 @if (_shown is null)
 {
     <div class="si-actions">
-        <button class="btn btn-primary btn-lg" @onclick="SaveAsync" disabled="@(Busy || _vehicle is null)"><Icon Name="download" Size="18" /> Save</button>
+        <button class="btn btn-primary btn-lg" @onclick="SaveAsync" disabled="@(Busy || _vehicle is null)"><Icon Name="save" Size="18" /> Save</button>
         <button class="btn btn-outline btn-lg" @onclick="ResetForm"><Icon Name="recovery" Size="18" /> Clear</button>
     </div>
     @if (_savedId is not null)
@@ -291,6 +291,7 @@
     {
         _vehicles = await VehicleSvc.ListBillableAsync();
         _salesPersons = await SalesPersonSvc.ListActiveAsync();
+        _date = Svc.BusinessDate();   // first: the new form's In/Out dates default to today's business date
         NewForm();
         await RefreshHeaderAsync();
     }

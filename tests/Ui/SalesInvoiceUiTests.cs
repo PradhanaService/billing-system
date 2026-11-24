@@ -144,6 +144,15 @@ public class SalesInvoiceUiTests : UiTest
     }
 
     [Fact]
+    public void SI_22_Trip_Dates_Default_To_Todays_Business_Date()
+    {
+        var page = RenderComponent<SalesInvoice>();
+        var today = S.Invoices.BusinessDate().ToString("yyyy-MM-dd");
+        page.WaitForAssertion(() => Assert.Equal(today, page.Find("#indate").GetAttribute("value")));
+        Assert.Equal(today, page.Find("#outdate").GetAttribute("value"));
+    }
+
+    [Fact]
     public async Task SI_16_No_Payment_Choice_On_A_New_Invoice()
     {
         await SupplierWithVehicleAsync();

@@ -40,7 +40,7 @@
         </div>
         @if (_report is not null)
         {
-            <a class="btn btn-outline" id="export" href="@PdfLink" target="_blank" rel="noopener"><Icon Name="file-text" Size="18" /> Export PDF</a>
+            <a class="btn btn-outline" id="export" href="@PdfLink" target="_blank" rel="noopener"><Icon Name="file-pdf" Size="18" /> Export PDF</a>
         }
     </div>
     <p class="muted small">Pick All in both for every supplier, or one supplier, or one vehicle. When a supplier is chosen, the Vehicle list shows only that supplier’s vehicles. The report updates as soon as you change a choice.</p>
@@ -63,7 +63,7 @@
         {
             @foreach (var s in r.Suppliers)
             {
-                <div class="rpt-group"><Icon Name="users" Size="20" /><b>@s.Name</b></div>
+                <div class="rpt-group"><Icon Name="users" Size="20" Duotone="true" /><b>@s.Name</b></div>
                 <table class="data">
                     <thead><tr><th>Vehicle</th><th>Vehicle No.</th><th class="num">Trips</th><th class="num">Total bill (₹)</th><th class="num">Received (₹)</th><th class="num">Outstanding (₹)</th></tr></thead>
                     <tbody>
@@ -82,7 +82,7 @@
             {
                 @if (r.Shape == TripReportShape.OneSupplier)
                 {
-                    <div class="rpt-group"><Icon Name="truck" Size="20" /><b>@v.Code · @v.VehicleNo</b><span class="muted">@v.Trips trips · ₹@Money.Format(v.BillPaise)</span></div>
+                    <div class="rpt-group"><Icon Name="truck" Size="20" Duotone="true" /><b>@v.Code · @v.VehicleNo</b><span class="muted">@v.Trips trips · ₹@Money.Format(v.BillPaise)</span></div>
                 }
                 <table class="data">
                     <thead><tr><th>S.No.</th><th>Invoice No.</th><th>Date</th>@if (r.Shape == TripReportShape.OneVehicle) { <th>Vehicle No.</th> }<th>In Time</th><th>Out Time</th><th class="num">Trips</th><th class="num">Trip Cost (₹)</th><th>Status</th></tr></thead>

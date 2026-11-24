@@ -262,7 +262,7 @@
     private static RenderFragment Stat(string icon, string label, string value, bool dark = false) => __builder =>
     {
         <div class="stat has-icon @(dark ? "stat-dark" : "")">
-            <span class="stat-icon"><Icon Name="@icon" Size="22" /></span>
+            <span class="stat-icon"><Icon Name="@icon" Size="22" Duotone="true" /></span>
             <span class="stat-body"><div class="stat-label">@label</div><div class="stat-value">@value</div></span>
         </div>
     };
