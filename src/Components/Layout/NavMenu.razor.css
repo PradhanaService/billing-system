@@ -1,4 +1,4 @@
-/* Dark side menu (Deep Space) with Soft Cloud headings; the current page is a Soft Cloud pill. */
+/* Chathams Blue side menu with light headings; the current page is a light pill. */
 .nav { padding: 0 0.75rem; }
 .nav-group { margin-bottom: 1rem; }
 
@@ -27,7 +27,7 @@
 }
 
 ::deep .nav-link .icon { flex: none; opacity: 0.9; }
-::deep a.nav-link:hover { background: rgba(187, 225, 250, 0.14); }
+::deep a.nav-link:hover { background: rgba(216, 228, 239, 0.14); }
 ::deep a.nav-link:focus-visible { outline: 3px solid var(--cloud); outline-offset: 1px; }
 
 ::deep a.nav-link.active {

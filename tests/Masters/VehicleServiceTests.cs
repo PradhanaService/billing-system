@@ -25,45 +25,49 @@ public class VehicleServiceTests : IDisposable
 
     public void Dispose() => _db.Dispose();
 
+    private int _codes;   // each test vehicle gets its own typed code: T1, T2 ...
     private VehicleForm Form(string no = "tn 38  m 3") => new()
     {
-        VehicleNo = no, SupplierId = _sangeetha, TankCapacityLitres = 12000, Rate = 150, TripCost = 2500,
+        Code = $"T{++_codes}", VehicleNo = no, SupplierId = _sangeetha, TankCapacityLitres = 12000, Rate = 150, TripCost = 2500,
     };
 
     [Fact]
-    public async Task FR_VM_03_Codes_Are_Proposed_In_Order()
+    public async Task FR_VM_03_Code_Is_Typed_By_The_User_And_Required()
     {
-        var a = await _svc.CreateAsync(Form("TN 38 M 3"));
-        var b = await _svc.CreateAsync(Form("TN 67 C"));
+        // Client change, Nov 2026: the code is entered by hand, not proposed by the system.
+        var none = Form("TN 38 M 3");
+        none.Code = null;
+        Assert.Contains("Vehicle Code is required", (await _svc.CreateAsync(none)).Error);
 
-        var rows = await _svc.SearchAsync(null, StatusFilter.All);
-        Assert.Equal(["A1", "A2"], rows.Select(r => r.Code));
-        Assert.Equal("A3", await _svc.ProposeCodeAsync());
+        var typed = Form("TN 67 C");
+        typed.Code = " a13 ";
+        Assert.True((await _svc.CreateAsync(typed)).Ok);
+        Assert.Equal("A13", Assert.Single(await _svc.SearchAsync(null, StatusFilter.All)).Code);
     }
 
     [Fact]
     public async Task FR_VM_03_Code_Of_Deleted_Vehicle_Is_Never_Reused()
     {
-        var id = (await _svc.CreateAsync(Form())).Value;
+        var first = Form();
+        first.Code = "A1";
+        var id = (await _svc.CreateAsync(first)).Value;
         await _svc.DeleteAsync(id, _seller);
 
-        await _svc.CreateAsync(Form("TN 67 C"));
-
-        var row = Assert.Single(await _svc.SearchAsync(null, StatusFilter.All));
-        Assert.Equal("A2", row.Code);
+        var again = Form("TN 67 C");
+        again.Code = "A1";
+        Assert.Contains("already used", (await _svc.CreateAsync(again)).Error);
     }
 
     [Fact]
     public async Task FR_VM_03_A_Typed_Code_Must_Be_Valid_And_Unused()
     {
-        _me.User = _db.AddUser(UserRole.Admin);
-        var adminForm = Form("TN 38 M 3");
+        var adminForm = Form("TN 38 M 3");   // any login may type the code now
         adminForm.Code = "s13";
         Assert.True((await _svc.CreateAsync(adminForm)).Ok);
         Assert.Contains(await _svc.SearchAsync(null, StatusFilter.All), r => r.Code == "S13");
 
         var bad = Form("TN 10 A");
-        bad.Code = "13A";
+        bad.Code = "A-13";   // only letters and numbers
         Assert.False((await _svc.CreateAsync(bad)).Ok);
         var dup = Form("TN 11 A");
         dup.Code = "S13";
@@ -158,7 +162,7 @@ public class VehicleServiceTests : IDisposable
         await _svc.CreateAsync(Form("TN 38 M 3"));
 
         Assert.Single(await _svc.SearchAsync("TN38", StatusFilter.All));
-        Assert.Single(await _svc.SearchAsync("A1", StatusFilter.All));
+        Assert.Single(await _svc.SearchAsync("T1", StatusFilter.All));
         Assert.Single(await _svc.SearchAsync("sangeetha", StatusFilter.All));
         Assert.Empty(await _svc.SearchAsync("kaveri", StatusFilter.All));
     }

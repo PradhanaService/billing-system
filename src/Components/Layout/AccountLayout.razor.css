@@ -4,7 +4,7 @@
     align-items: center;
     justify-content: center;
     padding: 1rem;
-    background: linear-gradient(135deg, var(--ink) 0%, var(--accent) 55%, var(--focus) 100%);
+    background: linear-gradient(135deg, var(--top1) 0%, var(--menu) 55%, var(--focus) 100%);
 }
 .account-card {
     width: 380px;
@@ -12,7 +12,7 @@
     background: var(--paper);
     border-radius: 16px;
     padding: 2.25rem 2rem 2rem;
-    box-shadow: 0 20px 50px rgba(27, 38, 44, 0.35);
+    box-shadow: 0 20px 50px rgba(23, 40, 58, 0.35);
 }
 .account-logo {
     display: grid;

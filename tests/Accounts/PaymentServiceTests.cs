@@ -65,11 +65,10 @@ public class PaymentServiceTests : BillingFixture
     }
 
     [Fact]
-    public async Task Bank_Payment_Needs_Reference_But_No_Cash_Check()
+    public async Task FR_TXN_03_Bank_Payment_Needs_No_Reference_And_No_Cash_Check()
     {
+        // Client decision, Nov 2026: Reference No. is removed from payments.
         var form = new PaymentForm { AccountId = FuelExpense, Amount = 99999, Mode = PaymentMode.Bank };
-        Assert.False((await Pay.CreateAsync(form)).Ok);
-        form.ReferenceNo = "NEFT-1";
         Assert.True((await Pay.CreateAsync(form)).Ok);
     }
 
@@ -157,10 +156,10 @@ public class LedgerMasterServiceTests : BillingFixture
 
         Me.User = Db.AddUser(UserRole.Admin);
         Assert.True((await Svc.Ledgers.SetSeriesStartAsync("INVOICE", 7232)).Ok);
-        Assert.Equal("INV-7232", await Svc.Invoices.PeekNextNumberAsync());
+        Assert.Equal("7232", await Svc.Invoices.PeekNextNumberAsync());
 
         await Svc.Invoices.CreateAsync(new WaterBilling.Services.Billing.InvoiceForm { SalesPersonId = Seller, VehicleId = TripVehicle, Rate = 150 });
         Assert.False((await Svc.Ledgers.SetSeriesStartAsync("INVOICE", 1)).Ok);
-        Assert.Equal("INV-7233", await Svc.Invoices.PeekNextNumberAsync());
+        Assert.Equal("7233", await Svc.Invoices.PeekNextNumberAsync());
     }
 }

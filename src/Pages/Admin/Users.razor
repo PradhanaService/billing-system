@@ -1,174 +1,86 @@
 @page "/admin/users"
 @attribute [Authorize(Policy = nameof(Permission.UsersManage))]
 @inject UserService UserSvc
-@inject TimeProvider Clock
 
-@* Users & Roles (Admin only): the two logins, Admin and the shared Sales login. Only one active login
-   per role is allowed. Create a login with a temporary password (changed at first sign-in), reset a
-   password, or deactivate a login (logins are never deleted, so the history keeps its names). *@
+@* Password Management (Admin only, final design Nov 2026). There are only two logins: Admin and the
+   shared Sales login. The Admin sets either password here; it works from the next sign-in (that
+   login's open sessions are signed out). The sales persons' names for "Created by" and "Deleted by"
+   are kept on the Sales Persons page. *@
 
-<PageTitle>Users &amp; Roles</PageTitle>
+<PageTitle>Password Management</PageTitle>
 
-<PageHeader IconName="shield" Title="Users & Roles" Subtitle="The Admin and Sales logins." />
+<PageHeader IconName="key" Title="Password Management" Subtitle="Change the passwords of the two logins: Admin and Sales Person." />
 
 @if (_message is not null)
 {
     <div class="alert @(_messageOk ? "alert-ok" : "alert-error")" role="status">@_message</div>
 }
 
-<div class="card">
-    <h2>@(_editingId is null ? "Add user" : $"Edit user: {_form.UserName}")</h2>
-    <EditForm Model="_form" OnValidSubmit="SaveAsync">
-        <DataAnnotationsValidator />
-        <div class="form-grid">
-            <div class="field">
-                <label for="uname">User name*</label>
-                <InputText id="uname" @bind-Value="_form.UserName" readonly="@(_editingId is not null)" />
-                <ValidationMessage For="() => _form.UserName" />
+<div class="login-cards">
+    @foreach (var c in _cards)
+    {
+        var role = c.Role;
+        var title = RolePermissions.DisplayName(role);
+        <div class="card login-card" id="card-@role">
+            <div class="login-head">
+                <span class="login-tile @(role == UserRole.Admin ? "dark" : "")"><Icon Name="@(role == UserRole.Admin ? "shield" : "badge")" Size="24" /></span>
+                <div><div class="login-role">@title</div><div class="muted small">User name <b>@(c.UserName ?? UserService.SalesUserName)</b></div></div>
+                <span class="badge @(c.Id is null ? "badge-off" : "")">@(c.Id is null ? "Not created yet" : "Active")</span>
+            </div>
+            <div class="login-facts">
+                <span class="muted">Password last changed</span><span>@When(c.PasswordChangedAtUtc)</span>
+                <span class="muted">Last sign-in</span><span>@When(c.LastLoginAtUtc)</span>
             </div>
             <div class="field">
-                <label for="fname">Full name*</label>
-                <InputText id="fname" @bind-Value="_form.FullName" />
-                <ValidationMessage For="() => _form.FullName" />
+                <label for="new-@role">New password*</label>
+                <span class="pw-box">
+                    <input id="new-@role" type="@(_show.Contains(role) ? "text" : "password")" placeholder="At least @PasswordRules.MinLength characters" autocomplete="new-password"
+                           value="@Get(_new, role)" @oninput="e => _new[role] = e.Value?.ToString()" />
+                    <button type="button" class="icon-btn" aria-label="Show password" @onclick="() => ToggleShow(role)"><Icon Name="eye" Size="16" /></button>
+                </span>
             </div>
             <div class="field">
-                <label for="phone">Phone</label>
-                <InputText id="phone" @bind-Value="_form.Phone" />
+                <label for="confirm-@role">Confirm new password*</label>
+                <span class="pw-box">
+                    <input id="confirm-@role" type="@(_show.Contains(role) ? "text" : "password")" placeholder="Type it again" autocomplete="new-password"
+                           value="@Get(_confirm, role)" @oninput="e => _confirm[role] = e.Value?.ToString()" />
+                    <button type="button" class="icon-btn" aria-label="Show password" @onclick="() => ToggleShow(role)"><Icon Name="eye" Size="16" /></button>
+                </span>
             </div>
-            <div class="field">
-                <label for="role">Role*</label>
-                <InputSelect id="role" @bind-Value="_form.Role">
-                    @foreach (var r in Enum.GetValues<UserRole>())
-                    {
-                        <option value="@r">@RolePermissions.DisplayName(r)</option>
-                    }
-                </InputSelect>
+            <p class="muted small">Any letters, numbers or symbols, at least @PasswordRules.MinLength characters.</p>
+            <div class="form-actions">
+                <button class="btn btn-primary" @onclick="() => SaveAsync(role)" disabled="@_busy">@(c.Id is null ? $"Create {title} login" : $"Change {title} password")</button>
             </div>
-            @if (_editingId is null)
-            {
-                <div class="field">
-                    <label for="tmp">Temporary password*</label>
-                    <InputText id="tmp" type="password" @bind-Value="_form.TemporaryPassword" autocomplete="new-password" />
-                    <small>The user must change it at first login.</small>
-                </div>
-            }
         </div>
-        <div class="form-actions">
-            <button type="submit" class="btn btn-primary" disabled="@_busy">Save</button>
-            @if (_editingId is not null)
-            {
-                <button type="button" class="btn" @onclick="StartNew">Cancel</button>
-            }
-        </div>
-    </EditForm>
+    }
 </div>
 
-@if (_resetFor is not null)
-{
-    <div class="card">
-        <h2>Reset password: @_resetFor.UserName</h2>
-        <div class="field">
-            <label for="reset">New temporary password</label>
-            <input id="reset" type="password" @bind="_resetPassword" autocomplete="new-password" />
-        </div>
-        <div class="form-actions">
-            <button class="btn btn-primary" @onclick="ResetAsync" disabled="@_busy">Reset</button>
-            <button class="btn" @onclick="() => _resetFor = null">Cancel</button>
-        </div>
-    </div>
-}
-
-<table class="data">
-    <thead>
-        <tr><th>User name</th><th>Full name</th><th>Role</th><th>Status</th><th>Last login</th><th></th></tr>
-    </thead>
-    <tbody>
-        @foreach (var u in _rows)
-        {
-            <tr class="@(u.Status == RecordStatus.Inactive ? "muted" : "")">
-                <td>@u.UserName</td>
-                <td>@u.FullName</td>
-                <td>@RolePermissions.DisplayName(u.Role)</td>
-                <td><span class="badge @(u.Status == RecordStatus.Inactive ? "badge-off" : "")">@u.Status</span></td>
-                <td>@(u.LastLoginAtUtc is { } t ? IndianTime.FormatDateTime(t) : "never")</td>
-                <td>
-                    <button class="btn btn-small" @onclick="() => Edit(u)">Edit</button>
-                    <button class="btn btn-small" @onclick="() => { _resetFor = u; _resetPassword = string.Empty; }">Reset password</button>
-                    @if (u.Status == RecordStatus.Active)
-                    {
-                        <button class="btn btn-small btn-danger" @onclick="() => SetStatusAsync(u, RecordStatus.Inactive)">Deactivate</button>
-                    }
-                    else
-                    {
-                        <button class="btn btn-small" @onclick="() => SetStatusAsync(u, RecordStatus.Active)">Activate</button>
-                    }
-                </td>
-            </tr>
-        }
-    </tbody>
-</table>
+<p class="muted small">There are only these two users. The shared Sales login is used by all sales persons; their names for "Created by" and "Deleted by" are kept on the Sales Persons page.</p>
 
 @code {
-    private IReadOnlyList<UserRow> _rows = [];
-    private UserForm _form = new();
-    private long? _editingId;
-    private int _editingVersion;
-    private UserRow? _resetFor;
-    private string _resetPassword = "";
+    private IReadOnlyList<LoginCard> _cards = [];
+    private readonly Dictionary<UserRole, string?> _new = [], _confirm = [];
+    private readonly HashSet<UserRole> _show = [];
     private string? _message;
-    private bool _messageOk;
-    private bool _busy;   // stops a double click saving twice (NFR-CON-06)
+    private bool _messageOk, _busy;
 
-    protected override async Task OnInitializedAsync() => _rows = await UserSvc.ListAsync();
+    protected override async Task OnInitializedAsync() => _cards = await UserSvc.LoginsAsync();
 
-    private void StartNew() { _form = new(); _editingId = null; }
+    private static string Get(Dictionary<UserRole, string?> d, UserRole r) => d.GetValueOrDefault(r) ?? "";
+    private static string When(DateTime? utc) => utc is { } t ? IndianTime.FormatDateTime(DateTime.SpecifyKind(t, DateTimeKind.Utc)) : "Not yet";
+    private void ToggleShow(UserRole r) { if (!_show.Remove(r)) _show.Add(r); }
 
-    private void Edit(UserRow u)
+    private async Task SaveAsync(UserRole role)
     {
-        _editingId = u.Id;
-        _editingVersion = u.Version;
-        _form = new UserForm { UserName = u.UserName, FullName = u.FullName, Role = u.Role };
-    }
-
-    private async Task SaveAsync()
-    {
-        if (_busy) return;   // a click that arrives while saving does nothing (NFR-CON-06)
+        if (_busy) return;
         _busy = true;
         try
         {
-            var result = _editingId is { } id
-                ? await UserSvc.UpdateAsync(id, _form, _editingVersion)
-                : (await UserSvc.CreateAsync(_form)) is var r && r.Ok ? Result.Success() : Result.Fail(r.Error!);
-            Show(result, _editingId is null ? "User created." : "User saved.");
-            if (result.Ok) { StartNew(); _rows = await UserSvc.ListAsync(); }
+            var result = await UserSvc.SetPasswordAsync(role, _new.GetValueOrDefault(role), _confirm.GetValueOrDefault(role));
+            _messageOk = result.Ok;
+            _message = result.Ok ? $"{RolePermissions.DisplayName(role)} password changed. The new password works from the next sign-in." : result.Error;
+            if (result.Ok) { _new.Remove(role); _confirm.Remove(role); _cards = await UserSvc.LoginsAsync(); }
         }
         finally { _busy = false; }
-    }
-
-    private async Task SetStatusAsync(UserRow u, RecordStatus status)
-    {
-        var result = await UserSvc.SetStatusAsync(u.Id, status, u.Version);
-        Show(result, status == RecordStatus.Active ? "User activated." : "User deactivated.");
-        _rows = await UserSvc.ListAsync();
-    }
-
-    private async Task ResetAsync()
-    {
-        if (_resetFor is null) return;
-        if (_busy) return;   // a click that arrives while saving does nothing (NFR-CON-06)
-        _busy = true;
-        try
-        {
-            var result = await UserSvc.ResetPasswordAsync(_resetFor.Id, _resetPassword, _resetFor.Version);
-            Show(result, "Password reset. The user must change it at next login.");
-            if (result.Ok) { _resetFor = null; _rows = await UserSvc.ListAsync(); }
-        }
-        finally { _busy = false; }
-    }
-
-    private void Show(Result result, string okText)
-    {
-        _messageOk = result.Ok;
-        _message = result.Ok ? okText : result.Error;
     }
 }

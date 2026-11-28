@@ -17,6 +17,8 @@ public class AuthService(IDbContextFactory<AppDbContext> dbFactory, TimeProvider
     private static readonly string DummyHash = Hasher.HashPassword(new User(), Guid.NewGuid().ToString());
 
     public static string HashPassword(User user, string password) => Hasher.HashPassword(user, password);
+    public static bool VerifyPassword(User user, string? password) =>
+        Hasher.VerifyHashedPassword(user, user.PasswordHash, password ?? "") != PasswordVerificationResult.Failed;
 
     public async Task<Result<ClaimsPrincipal>> LoginAsync(string userName, string password)
     {
@@ -76,6 +78,7 @@ public class AuthService(IDbContextFactory<AppDbContext> dbFactory, TimeProvider
         user.PasswordHash = Hasher.HashPassword(user, newPassword!);
         user.MustChangePassword = false;
         user.SecurityStamp = Guid.NewGuid().ToString("N");
+        user.PasswordChangedAtUtc = clock.GetUtcNow().UtcDateTime;
         ActivityLogger.Add(db, clock.GetUtcNow().UtcDateTime, ToInfo(user), ActivityCategory.Auth, "PASSWORD_CHANGED", "User", user.Id);
         await db.SaveChangesAsync();
         return Result<ClaimsPrincipal>.Success(UserInfo.ToPrincipal(user));

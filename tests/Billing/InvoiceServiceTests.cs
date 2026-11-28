@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using WaterBilling.Data.Entities;
 using WaterBilling.Services.Billing;
 using WaterBilling.Services.Ledger;
@@ -23,38 +24,40 @@ public class InvoiceServiceTests : BillingFixture
     }
 
     [Theory]
-    [InlineData(BillingBasis.Volume, 1, 105, 1235, 12968)]  // 10.5 kL × 12.35 = 129.675 -> 129.68
-    [InlineData(BillingBasis.Volume, 1, 3, 1235, 371)]      // 0.3 × 12.35 = 3.705 -> 3.71 (half-up)
-    [InlineData(BillingBasis.Volume, 1, 1, 1, 0)]           // 0.1 × 0.01 = 0.001 -> 0.00
-    [InlineData(BillingBasis.Trip, 2, 999, 15000, 30000)]   // volume ignored for trip vehicles
-    public void FR_INV_03_Amount_Rounding(BillingBasis basis, int trips, long tenths, long rate, long expected) =>
-        Assert.Equal(expected, InvoiceMath.Amount(basis, trips, tenths, rate));
+    [InlineData(1, 15000, 15000)]
+    [InlineData(2, 12968, 25936)]
+    [InlineData(99, 1, 99)]
+    public void FR_INV_03_Amount_Is_Trips_Times_Rate(int trips, long rate, long expected) =>
+        Assert.Equal(expected, InvoiceMath.Amount(trips, rate));
 
     [Fact]
-    public async Task FR_INV_03_Volume_Vehicle_Needs_Volume_And_Bills_By_It()
+    public async Task FR_INV_03_Every_Vehicle_Is_Billed_Per_Trip()
     {
-        var noVolume = await Inv.CreateAsync(new InvoiceForm { SalesPersonId = Seller, VehicleId = VolumeVehicle, Rate = 12.35m });
-        Assert.False(noVolume.Ok);
-
-        var id = (await Inv.CreateAsync(new InvoiceForm { SalesPersonId = Seller, VehicleId = VolumeVehicle, Rate = 12.35m, VolumeKl = 10.5m })).Value;
+        // Client change, Nov 2026: no volume billing; a vehicle once set to Volume is billed per trip.
+        using (var db = Db.NewContext())
+        {
+            db.Database.ExecuteSqlRaw("UPDATE Vehicles SET BillingBasis = 'Volume' WHERE Id = {0}", VolumeVehicle);
+        }
+        var id = (await Inv.CreateAsync(new InvoiceForm { SalesPersonId = Seller, VehicleId = VolumeVehicle, Rate = 129.68m, Trips = 2 })).Value;
         var inv = (await Inv.GetAsync(id))!;
-        Assert.Equal(12968, inv.AmountPaise);
-        Assert.Equal("10.5", inv.Quantity);
-        Assert.Equal("kL", inv.Measurement);
+        Assert.Equal(25936, inv.AmountPaise);
+        Assert.Equal("2", inv.Quantity);
+        Assert.Equal("Trip", inv.Measurement);
     }
 
     [Fact]
     public async Task FR_INV_01_Numbers_Are_Gapless_And_Shown_Before_Save()
     {
-        Assert.Equal("INV-1", await Inv.PeekNextNumberAsync());
+        // Client change, Nov 2026: invoice numbers are numbers only.
+        Assert.Equal("1", await Inv.PeekNextNumberAsync());
         await Inv.CreateAsync(TripForm());
-        var bad = await Inv.CreateAsync(new InvoiceForm { SalesPersonId = Seller, VehicleId = VolumeVehicle, Rate = 12.35m });   // fails
+        var bad = await Inv.CreateAsync(new InvoiceForm { SalesPersonId = Seller, VehicleId = 9999, Rate = 150 });   // fails
         await Inv.CreateAsync(TripForm());
 
         Assert.False(bad.Ok);
         var rows = await Inv.ListAsync(DateOnly.MinValue, DateOnly.MaxValue);
-        Assert.Equal(["INV-2", "INV-1"], rows.Select(r => r.DisplayNo));
-        Assert.Equal("INV-3", await Inv.PeekNextNumberAsync());
+        Assert.Equal(["2", "1"], rows.Select(r => r.DisplayNo));
+        Assert.Equal("3", await Inv.PeekNextNumberAsync());
     }
 
     [Fact]
@@ -155,7 +158,7 @@ public class InvoiceServiceTests : BillingFixture
         var s = (await Svc.Suppliers.GetAsync(Supplier))!;
         s.Status = RecordStatus.Inactive;
         await Svc.Suppliers.UpdateAsync(Supplier, s);
-        var result = await Inv.CreateAsync(new InvoiceForm { SalesPersonId = Seller, VehicleId = VolumeVehicle, Rate = 12.35m, VolumeKl = 1 });
+        var result = await Inv.CreateAsync(new InvoiceForm { SalesPersonId = Seller, VehicleId = VolumeVehicle, Rate = 129.68m });
         Assert.False(result.Ok);
         Assert.Contains("cannot be invoiced", result.Error);
     }
@@ -175,7 +178,7 @@ public class InvoiceServiceTests : BillingFixture
         using var check = Db.NewContext();
         Assert.Empty(check.Invoices);
         Assert.Empty(check.Vouchers.Where(v => v.Type == VoucherType.Sales));
-        Assert.Equal("INV-1", await Inv.PeekNextNumberAsync());
+        Assert.Equal("1", await Inv.PeekNextNumberAsync());
     }
 
     [Fact]
@@ -188,7 +191,7 @@ public class InvoiceServiceTests : BillingFixture
         Assert.True((await Inv.CancelAsync(id, "Wrong vehicle", inv.Version)).Ok);
 
         var cancelled = (await Inv.GetAsync(id))!;
-        Assert.Equal((InvoiceStatus.Cancelled, "INV-1"), (cancelled.Status, cancelled.DisplayNo));
+        Assert.Equal((InvoiceStatus.Cancelled, "1"), (cancelled.Status, cancelled.DisplayNo));
         Assert.Equal("REV-1", cancelled.ReversalNo);
         using var ctx = Db.NewContext();
         Assert.Equal(0, await LedgerQueries.PartyBalanceAsync(ctx, PartyType.Supplier, Supplier));

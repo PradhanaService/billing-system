@@ -15,27 +15,24 @@ public static class MenuItems
         new("Home",         "Dashboard",         "/",                    Permission.DashboardView, "home"),
 
         new("Masters",      "Supplier Master",   "/suppliers",           Permission.MastersView, "users"),
-        new("Masters",      "Customer Master",   "/customers",           Permission.MastersView, "building"),
         new("Masters",      "Vehicle Master",    "/vehicles",            Permission.MastersView, "truck"),
         new("Masters",      "Ledger Master",     "/ledgers",             Permission.LedgerManage, "layers"),
 
         new("Transactions", "Sales Invoice",     "/invoices/new",        Permission.InvoiceCreate, "file-text"),
         new("Transactions", "Invoice Display",   "/invoices",            Permission.DaySalesView, "table"),
-        new("Transactions", "Receipt",           "/receipts",            Permission.ReceiptCreate, "download"),
-        new("Transactions", "Payment",           "/payments",            Permission.PaymentCreate, "upload"),
+        new("Transactions", "Receipt",           "/receipts",            Permission.ReceiptCreate, "receipt-in"),
+        new("Transactions", "Payment",           "/payments",            Permission.PaymentCreate, "payment-out"),
 
-        new("Accounts",     "Ledger Statement",  "/statements",          Permission.StatementsView, "book"),
-        new("Accounts",     "Day Sales",         "/day-sales",           Permission.DaySalesView, "calendar"),
         new("Accounts",     "Reports",           "/reports",             Permission.ReportsView, "chart"),
 
         // Admin only: the Sales login does not see these, and their addresses answer "Page not found".
-        new("Admin",        "Users & Roles",     "/admin/users",         Permission.UsersManage, "shield"),
+        new("Admin",        "Password Management", "/admin/users",       Permission.UsersManage, "key"),
         new("Admin",        "Sales Persons",     "/admin/sales-persons", Permission.SalesPersonsManage, "badge"),
         new("Admin",        "Activity Log",      "/admin/activity-log",  Permission.ActivityLogView, "activity"),
-        new("Admin",        "Backup",            "/admin/backup",        Permission.BackupRun, "database"),
+        new("Admin",        "Backup & Restore",  "/admin/backup",        Permission.BackupRun, "database"),
 
-        // Both logins: after Backup for the Admin, at the bottom of the menu for the Sales login.
-        new("Recovery",     "Recovery",          "/recovery",            Permission.RecoveryManage, "recovery"),
+        // Both logins: after Backup & Restore for the Admin, at the bottom of the menu for the Sales login.
+        new("Recycle Bin",  "Recycle Bin",       "/recovery",            Permission.RecoveryManage, "trash"),
     ];
 
     // The entries the logged-in user may see (none when nobody is logged in).

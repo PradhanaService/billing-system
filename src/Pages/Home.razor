@@ -2,11 +2,13 @@
 @attribute [Authorize(Policy = nameof(Permission.DashboardView))]
 @inherits UserContextBase
 @using WaterBilling.Services.Accounts
+@using WaterBilling.Services.Billing
 @inject DashboardService Svc
 
-@* Dashboard: this month's and today's sales, receipts, payments, outstanding and cash, a 6-month
-   sales chart, quick links and the last 3 invoices. The figures refresh by themselves after any save.
-   Clicking "Outstanding amount" opens the list of who has to pay. *@
+@* Dashboard: this month's and today's sales, receipts, payments and outstanding, a 6-month sales chart,
+   quick links and the last 3 invoices (full width). The figures refresh by themselves after any save.
+   Clicking "Outstanding amount" opens the list of who has to pay.
+   Final design (Nov 2026): no Water trips, Opening cash or Closing cash cards. *@
 
 <PageTitle>Dashboard · Water Supply Billing</PageTitle>
 
@@ -28,50 +30,55 @@
     <div class="cards cards-3">
         @Stat("cash", $"Cash sales ({MonthName})", $"₹{Money.Format(_d.MonthCashSalesPaise)}")
         @Stat("card", $"Credit sales ({MonthName})", $"₹{Money.Format(_d.MonthCreditSalesPaise)}")
-        @Stat("truck", $"Water trips ({MonthName})", _d.MonthTrips.ToString())
         @* Opens the detail: who has to give money. *@
         <a class="stat has-icon stat-link stat-edge" href="/outstanding" title="See who has to pay">
-            <span class="stat-icon"><Icon Name="wallet" Size="22" /></span>
+            <span class="stat-icon"><Icon Name="wallet" Size="24" Duotone="true" /></span>
             <span class="stat-body">
                 <div class="stat-label">Outstanding amount</div><div class="stat-value">₹@Money.Format(_d.OutstandingPaise)</div>
                 <div class="stat-more">View details</div>
             </span>
         </a>
-        @Stat("clock", "Opening cash (today)", $"₹{Money.Format(_d.OpeningCashPaise)}")
-        @Stat("wallet", "Closing cash (today)", $"₹{Money.Format(_d.ClosingCashPaise)}")
     </div>
 
     <div class="dash-grid">
         <div class="card">
             <SalesBarChart Months="_d.LastSixMonths" SelectedKey="@($"{_d.Year:0000}-{_d.Month:00}")" />
         </div>
-        <div>
-            <div class="card">
+        <div class="card">
                 <h2>Quick access</h2>
                 <div class="quick">
-                    @if (Can(Permission.InvoiceCreate)) { <a class="quick-tile" href="/invoices/new"><Icon Name="file-text" Size="26" />Sales Invoice</a> }
-                    @if (Can(Permission.DaySalesView)) { <a class="quick-tile" href="/invoices"><Icon Name="table" Size="26" />Invoice Display</a> }
-                    <a class="quick-tile" href="/vehicles"><Icon Name="truck" Size="26" />Vehicle Master</a>
-                    @if (Can(Permission.ReportsView)) { <a class="quick-tile" href="/reports"><Icon Name="chart" Size="26" />Reports</a> }
+                    @if (Can(Permission.InvoiceCreate)) { <a class="quick-tile" href="/invoices/new"><Icon Name="file-text" Size="28" Duotone="true" />Sales Invoice</a> }
+                    @if (Can(Permission.DaySalesView)) { <a class="quick-tile" href="/invoices"><Icon Name="table" Size="28" Duotone="true" />Invoice Display</a> }
+                    <a class="quick-tile" href="/vehicles"><Icon Name="truck" Size="28" Duotone="true" />Vehicle Master</a>
+                    @if (Can(Permission.ReportsView)) { <a class="quick-tile" href="/reports"><Icon Name="chart" Size="28" Duotone="true" />Reports</a> }
                 </div>
-            </div>
-            <div class="card">
-                <h2>Recent invoices</h2>
-                <table class="data">
-                    <tbody>
-                        @foreach (var i in _d.RecentInvoices)
-                        {
-                            <tr class="@(i.Status == InvoiceStatus.Cancelled ? "muted" : "")">
-                                <td class="nowrap"><a href="/invoices/@i.Id">@i.DisplayNo</a></td><td class="nowrap">@i.VehicleNo</td><td>@i.BillToName</td>
-                                <td class="num">@Money.Format(i.AmountPaise)</td>
-                            </tr>
-                        }
-                        @if (_d.RecentInvoices.Count == 0) { <tr><td class="muted">No invoices yet.</td></tr> }
-                    </tbody>
-                </table>
-                @if (Can(Permission.DaySalesView)) { <p><a href="/invoices">View all</a></p> }
-            </div>
         </div>
+    </div>
+
+    @* Recent invoices, full width under the chart and Quick access. *@
+    <div class="card dash-recent">
+        <h2>Recent invoices</h2>
+        <table class="data">
+            <thead><tr><th>Invoice</th><th>Date</th><th>Vehicle</th><th>Supplier</th><th>Mode</th><th class="num">Amount (₹)</th><th>Status</th><th></th></tr></thead>
+            <tbody>
+                @foreach (var i in _d.RecentInvoices)
+                {
+                    var state = PayStates.For(i);
+                    <tr class="@(i.Status == InvoiceStatus.Cancelled ? "muted" : "")">
+                        <td class="nowrap"><a href="/invoices/@i.Id">@i.DisplayNo</a></td>
+                        <td class="nowrap">@IndianTime.FormatDate(i.InvoiceDate)</td>
+                        <td class="nowrap">@i.VehicleNo</td>
+                        <td>@i.BillToName</td>
+                        <td>@i.PaymentMode</td>
+                        <td class="num">@Money.Format(i.AmountPaise)</td>
+                        <td><span class="badge @(state is PayState.NotPaid or PayState.Cancelled ? "badge-bad" : "")">@PayStates.Text(state)</span></td>
+                        <td><a class="btn btn-small" href="/invoices/@i.Id">View</a></td>
+                    </tr>
+                }
+                @if (_d.RecentInvoices.Count == 0) { <tr><td colspan="8" class="muted">No invoices yet.</td></tr> }
+            </tbody>
+        </table>
+        @if (Can(Permission.DaySalesView)) { <p style="margin-bottom: 0"><a href="/invoices">View all invoices</a></p> }
     </div>
 }
 
@@ -92,7 +99,7 @@
     private static RenderFragment Stat(string icon, string label, string value, bool dark = false) => __builder =>
     {
         <div class="stat has-icon @(dark ? "stat-dark" : "")">
-            <span class="stat-icon"><Icon Name="@icon" Size="22" /></span>
+            <span class="stat-icon"><Icon Name="@icon" Size="24" Duotone="true" /></span>
             <span class="stat-body"><div class="stat-label">@label</div><div class="stat-value">@value</div></span>
         </div>
     };

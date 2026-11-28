@@ -11,11 +11,11 @@ public class ReceiptServiceTests : BillingFixture
 {
     private ReceiptService Rcp => Svc.Receipts;
 
-    private async Task<long> CreditInvoiceAsync(long vehicle, decimal volume = 0) =>
+    private async Task<long> CreditInvoiceAsync(long vehicle) =>
         (await Svc.Invoices.CreateAsync(new InvoiceForm
         {
             SalesPersonId = Seller,
-            VehicleId = vehicle, Rate = vehicle == TripVehicle ? 150 : 12.35m, VolumeKl = volume,
+            VehicleId = vehicle, Rate = vehicle == TripVehicle ? 150 : 129.68m,
         })).Value;
 
     private ReceiptForm Form(decimal amount, PaymentMode mode = PaymentMode.Cash, string? reference = null) =>
@@ -36,13 +36,16 @@ public class ReceiptServiceTests : BillingFixture
     [Theory]
     [InlineData(PaymentMode.Bank)]
     [InlineData(PaymentMode.Upi)]
-    public async Task FR_TXN_03_Reference_Required_For_Bank_And_Upi(PaymentMode mode)
+    // Client decision (Nov 2026, final design): no Reference No. box; Bank and UPI receipts save without one.
+    // A reference that is given is still stored.
+    public async Task FR_TXN_03_Reference_Is_Optional_For_Bank_And_Upi(PaymentMode mode)
     {
-        Assert.False((await Rcp.CreateAsync(Form(100, mode))).Ok);
-        Assert.True((await Rcp.CreateAsync(Form(100, mode, "UTR123"))).Ok);
+        Assert.True((await Rcp.CreateAsync(Form(100, mode))).Ok);
+        var withRef = (await Rcp.CreateAsync(Form(100, mode, "UTR123"))).Value;
 
         using var ctx = Db.NewContext();
-        Assert.Equal(10000, await LedgerQueries.AccountBalanceAsync(ctx, SystemAccounts.ForMode(mode)));
+        Assert.Equal(20000, await LedgerQueries.AccountBalanceAsync(ctx, SystemAccounts.ForMode(mode)));
+        Assert.Equal("UTR123", ctx.Vouchers.Single(v => v.Id == withRef).ReferenceNo);
     }
 
     [Theory]
@@ -55,22 +58,22 @@ public class ReceiptServiceTests : BillingFixture
     public async Task FR_TXN_09_Allocates_Oldest_First_And_Keeps_Remainder_Unallocated()
     {
         var inv1 = await CreditInvoiceAsync(TripVehicle);                 // 150.00
-        var inv2 = await CreditInvoiceAsync(VolumeVehicle, 10);           // 123.50
+        var inv2 = await CreditInvoiceAsync(VolumeVehicle);               // 129.68
         var inv3 = await CreditInvoiceAsync(TripVehicle);                 // 150.00
 
         var preview = await Rcp.PreviewAllocationAsync(PartyType.Supplier, Supplier, 20000);
         Assert.Equal([15000L, 5000L], preview.Select(p => p.AllocatedPaise));
 
         await Rcp.CreateAsync(Form(200));                                 // pays inv1 fully, inv2 by 50.00
-        await Rcp.CreateAsync(Form(300));                                 // 73.50 to inv2, 150 to inv3, 76.50 on account
+        await Rcp.CreateAsync(Form(300));                                 // 79.68 to inv2, 150 to inv3, 70.32 on account
 
         using var ctx = Db.NewContext();
         var statuses = ctx.Invoices.OrderBy(i => i.InvoiceNo).Select(i => new { i.Status, i.AllocatedPaise }).ToList();
         Assert.All(statuses, s => Assert.Equal(InvoiceStatus.Paid, s.Status));
-        Assert.Equal(-7650, await LedgerQueries.PartyBalanceAsync(ctx, PartyType.Supplier, Supplier));
+        Assert.Equal(-7032, await LedgerQueries.PartyBalanceAsync(ctx, PartyType.Supplier, Supplier));
         var (total, vehicles, unallocated) = await LedgerQueries.SupplierSplitAsync(ctx, Supplier);
         Assert.Equal(0, vehicles);                // each vehicle is fully paid
-        Assert.Equal(-7650, unallocated);         // the advance sits on the supplier, not a vehicle
+        Assert.Equal(-7032, unallocated);         // the advance sits on the supplier, not a vehicle
         Assert.Equal(total, vehicles + unallocated);   // FR-LED-08
     }
 
@@ -101,7 +104,7 @@ public class ReceiptServiceTests : BillingFixture
 
         var preview = await Rcp.PreviewAllocationAsync(PartyType.Customer, Customer, 100000);
 
-        Assert.Equal("INV-2", Assert.Single(preview).InvoiceNo);
+        Assert.Equal("2", Assert.Single(preview).InvoiceNo);
     }
 
     [Fact]

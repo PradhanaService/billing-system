@@ -105,6 +105,7 @@ builder.Services.AddScoped<WaterBilling.Services.Masters.SupplierService>();
 builder.Services.AddScoped<WaterBilling.Services.Masters.CustomerService>();
 builder.Services.AddScoped<WaterBilling.Services.Masters.VehicleService>();
 builder.Services.AddScoped<WaterBilling.Services.Billing.InvoiceService>();
+builder.Services.AddScoped<WaterBilling.Services.Billing.InvoiceSearchService>();
 builder.Services.AddScoped<WaterBilling.Services.Accounts.ReceiptService>();
 builder.Services.AddScoped<WaterBilling.Services.Accounts.PaymentService>();
 builder.Services.AddScoped<WaterBilling.Services.Accounts.LedgerMasterService>();
@@ -113,6 +114,8 @@ builder.Services.AddScoped<WaterBilling.Services.Accounts.OutstandingService>();
 builder.Services.AddScoped<WaterBilling.Services.Accounts.DaySalesService>();
 builder.Services.AddScoped<WaterBilling.Services.Accounts.DashboardService>();
 builder.Services.AddScoped<WaterBilling.Services.Reports.ReportService>();
+builder.Services.AddScoped<WaterBilling.Services.Reports.TripReportService>();
+builder.Services.AddScoped<WaterBilling.Services.Billing.MeterReadingService>();
 builder.Services.AddScoped<WaterBilling.Services.Admin.ActivityLogService>();
 builder.Services.AddScoped<WaterBilling.Services.Admin.BackupService>();
 builder.Services.AddScoped<WaterBilling.Services.Admin.SalesPersonService>();
@@ -256,6 +259,20 @@ app.MapGet("/pdf/report", async (HttpContext context, CurrentUser currentUser,
     currentUser.UseHttpUser(context.User);
     if (to < from) return Results.BadRequest("The To date is before the From date.");
     var table = await reports.BuildAsync(kind, new(from, to, supplierId, vehicleId));
+    return Results.File(WaterBilling.Components.Pdf.ReportPdf.Generate(table, company.Value, clock.GetUtcNow().UtcDateTime), "application/pdf");
+}).RequireAuthorization(nameof(Permission.ReportsView));
+
+// Vehicle Trip Report as PDF: the same rows and totals as the Reports screen.
+app.MapGet("/pdf/trip-report", async (HttpContext context, CurrentUser currentUser,
+    WaterBilling.Services.Reports.TripReportService trips,
+    Microsoft.Extensions.Options.IOptions<WaterBilling.Services.Common.CompanyInfo> company, TimeProvider clock,
+    DateOnly from, DateOnly to, long? supplierId, long? vehicleId) =>
+{
+    currentUser.UseHttpUser(context.User);
+    if (to < from) return Results.BadRequest("The To date is before the From date.");
+    var report = await trips.BuildAsync(new(from, to, supplierId, vehicleId));
+    var table = WaterBilling.Services.Reports.TripReportService.ToTable(report);
+    // No file name: the PDF opens in the app's PDF window (with Print and Save) instead of downloading.
     return Results.File(WaterBilling.Components.Pdf.ReportPdf.Generate(table, company.Value, clock.GetUtcNow().UtcDateTime), "application/pdf");
 }).RequireAuthorization(nameof(Permission.ReportsView));
 

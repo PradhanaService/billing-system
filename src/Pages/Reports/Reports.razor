@@ -1,68 +1,129 @@
 @page "/reports"
 @attribute [Authorize(Policy = nameof(Permission.ReportsView))]
 @inherits UserContextBase
+@using WaterBilling.Services.Billing
 @using WaterBilling.Services.Masters
 @using WaterBilling.Services.Reports
-@inject ReportService Svc
+@inject TripReportService Svc
 @inject SupplierService SupplierSvc
 @inject VehicleService VehicleSvc
 @inject TimeProvider Clock
 
-@* Reports: 8 reports (sales by day, date, supplier and vehicle; supplier and customer outstanding;
-   trial balance; cash book), filtered by dates, supplier and vehicle, each printable as PDF.
-   Report totals always equal the accounts (they read the same entries). *@
+@* Reports (final design, Nov 2026): the Vehicle Trip Report. Choose From and To dates, a Supplier
+   (All or one) and a Vehicle (All or one); the report updates as soon as a choice changes.
+   When a supplier is chosen, the Vehicle list shows only that supplier's vehicles.
+   Export PDF gives the same rows and totals as the screen. Cancelled invoices are not counted. *@
 
 <PageTitle>Reports</PageTitle>
 
-<PageHeader IconName="chart" Title="Reports" Subtitle="Eight reports, on screen and as PDF." />
+<PageHeader IconName="chart" Title="Vehicle Trip Report" Subtitle="Trips by supplier or by vehicle for a date range. Export it as a PDF." />
 
 <PageMessage Text="@MessageText" Ok="@MessageOk" />
 
-<div class="toolbar">
-    <div class="field">
-        <label for="kind">Report</label>
-        <select id="kind" @bind="_kind" @bind:after="LoadAsync">
-            @foreach (var k in Enum.GetValues<ReportKind>()) { <option value="@k">@ReportService.Title(k)</option> }
-        </select>
+<div class="card">
+    <div class="rpt-filters">
+        <div class="field"><label for="from">From Date</label><input id="from" type="date" @bind="_from" @bind:after="LoadAsync" /></div>
+        <div class="field"><label for="to">To Date</label><input id="to" type="date" @bind="_to" @bind:after="LoadAsync" /></div>
+        <div class="field">
+            <label for="supplier">Supplier</label>
+            <select id="supplier" @bind="_supplierId" @bind:after="OnSupplierChangedAsync">
+                <option value="">All suppliers</option>
+                @foreach (var s in _suppliers) { <option value="@s.Id">@s.Name</option> }
+            </select>
+        </div>
+        <div class="field">
+            <label for="vehicle">Vehicle</label>
+            <select id="vehicle" @bind="_vehicleId" @bind:after="LoadAsync">
+                <option value="">All vehicles</option>
+                @foreach (var v in _vehicles) { <option value="@v.Id">@v.Code · @v.VehicleNo</option> }
+            </select>
+        </div>
+        @if (_report is not null)
+        {
+            <a class="btn btn-outline" id="export" href="@PdfLink" target="_blank" rel="noopener"><Icon Name="file-pdf" Size="18" /> Export PDF</a>
+        }
     </div>
-    <div class="field"><label for="from">From</label><input id="from" type="date" @bind="_from" @bind:after="LoadAsync" /></div>
-    <div class="field"><label for="to">To</label><input id="to" type="date" @bind="_to" @bind:after="LoadAsync" /></div>
-    <div class="field">
-        <label for="supplier">Supplier</label>
-        <select id="supplier" @bind="_supplierId" @bind:after="LoadAsync">
-            <option value="">All</option>
-            @foreach (var s in _suppliers) { <option value="@s.Id">@s.Name</option> }
-        </select>
-    </div>
-    <div class="field">
-        <label for="vehicle">Vehicle</label>
-        <select id="vehicle" @bind="_vehicleId" @bind:after="LoadAsync">
-            <option value="">All</option>
-            @foreach (var v in _vehicles) { <option value="@v.Id">@v.Code - @v.VehicleNo</option> }
-        </select>
-    </div>
-    @if (_table is not null)
-    {
-        <a class="btn" href="@PdfLink" target="_blank" rel="noopener">Print PDF</a>
-    }
+    <p class="muted small">Pick All in both for every supplier, or one supplier, or one vehicle. When a supplier is chosen, the Vehicle list shows only that supplier’s vehicles. The report updates as soon as you change a choice.</p>
 </div>
 
-@if (_table is not null)
+@if (_report is { } r)
 {
-    <ReportView Table="_table" />
+    <div class="card">
+        <div class="rpt-band">
+            <Icon Name="@(r.Shape == TripReportShape.OneVehicle ? "truck" : r.Shape == TripReportShape.OneSupplier ? "users" : "chart")" Size="24" />
+            <span class="rpt-title">@r.Title</span>
+            <span class="muted">@r.Subtitle</span>
+        </div>
+
+        @if (!r.Lines.Any())
+        {
+            <p class="muted" id="empty">No trips for this selection.</p>
+        }
+        else if (r.Shape == TripReportShape.AllSuppliers)
+        {
+            @foreach (var s in r.Suppliers)
+            {
+                <div class="rpt-group"><Icon Name="users" Size="20" Duotone="true" /><b>@s.Name</b></div>
+                <table class="data">
+                    <thead><tr><th>Vehicle</th><th>Vehicle No.</th><th class="num">Trips</th><th class="num">Total bill (₹)</th><th class="num">Received (₹)</th><th class="num">Outstanding (₹)</th></tr></thead>
+                    <tbody>
+                        @foreach (var v in s.Vehicles)
+                        {
+                            <tr><td>@v.Code</td><td>@v.VehicleNo</td><td class="num">@v.Trips</td><td class="num">@Money.Format(v.BillPaise)</td><td class="num">@Money.Format(v.ReceivedPaise)</td><td class="num">@Money.Format(v.OutstandingPaise)</td></tr>
+                        }
+                    </tbody>
+                    <tfoot><tr><td colspan="2">Supplier subtotal</td><td class="num">@s.Trips</td><td class="num">@Money.Format(s.BillPaise)</td><td class="num">@Money.Format(s.ReceivedPaise)</td><td class="num">@Money.Format(s.OutstandingPaise)</td></tr></tfoot>
+                </table>
+            }
+        }
+        else
+        {
+            @foreach (var v in r.Suppliers.SelectMany(s => s.Vehicles))
+            {
+                @if (r.Shape == TripReportShape.OneSupplier)
+                {
+                    <div class="rpt-group"><Icon Name="truck" Size="20" Duotone="true" /><b>@v.Code · @v.VehicleNo</b><span class="muted">@v.Trips trips · ₹@Money.Format(v.BillPaise)</span></div>
+                }
+                <table class="data">
+                    <thead><tr><th>S.No.</th><th>Invoice No.</th><th>Date</th>@if (r.Shape == TripReportShape.OneVehicle) { <th>Vehicle No.</th> }<th>In Time</th><th>Out Time</th><th class="num">Trips</th><th class="num">Trip Cost (₹)</th><th>Status</th></tr></thead>
+                    <tbody>
+                        @foreach (var l in v.Lines)
+                        {
+                            <tr>
+                                <td>@l.SNo</td><td>@l.InvoiceNo</td><td>@IndianTime.FormatDate(l.Date)</td>
+                                @if (r.Shape == TripReportShape.OneVehicle) { <td>@l.VehicleNo</td> }
+                                <td>@Time(l.InTimeUtc)</td><td>@Time(l.OutTimeUtc)</td><td class="num">@l.Trips</td><td class="num">@Money.Format(l.AmountPaise)</td>
+                                <td><span class="pill @(l.State == PayState.Paid ? "pill-ok" : "pill-bad")">@PayStates.Text(l.State)</span></td>
+                            </tr>
+                        }
+                    </tbody>
+                    <tfoot><tr><td colspan="@(r.Shape == TripReportShape.OneVehicle ? 6 : 5)">@(r.Shape == TripReportShape.OneVehicle ? "Total" : "Vehicle subtotal")</td><td class="num">@v.Trips</td><td class="num">@Money.Format(v.BillPaise)</td><td></td></tr></tfoot>
+                </table>
+            }
+        }
+
+        <div class="rpt-totals" id="totals">
+            <div><div class="lbl">@(r.Shape switch { TripReportShape.AllSuppliers => "Grand total trips", TripReportShape.OneSupplier => "Supplier total trips", _ => "Total trips" })</div><div class="val">@r.Trips</div></div>
+            <div><div class="lbl">@(r.Shape == TripReportShape.AllSuppliers ? "Total bill" : "Total amount")</div><div class="val">₹@Money.Format(r.BillPaise)</div></div>
+            <div><div class="lbl">Received</div><div class="val">₹@Money.Format(r.ReceivedPaise)</div></div>
+            <div><div class="lbl">Total outstanding</div><div class="val accent">₹@Money.Format(r.OutstandingPaise)</div></div>
+        </div>
+    </div>
+    <p class="muted small">Cancelled invoices are not counted. The PDF has the same rows and totals as the screen.</p>
 }
 
 @code {
-    private ReportKind _kind = ReportKind.DailySales;
     private DateOnly _from, _to;
     private long? _supplierId, _vehicleId;
     private IReadOnlyList<SupplierRow> _suppliers = [];
     private IReadOnlyList<VehicleRow> _vehicles = [];
-    private ReportTable? _table;
+    private TripReport? _report;
 
     private string PdfLink =>
-        $"/pdf/report?kind={_kind}&from={_from:yyyy-MM-dd}&to={_to:yyyy-MM-dd}"
+        $"/pdf/trip-report?from={_from:yyyy-MM-dd}&to={_to:yyyy-MM-dd}"
         + (_supplierId is { } s ? $"&supplierId={s}" : "") + (_vehicleId is { } v ? $"&vehicleId={v}" : "");
+
+    private static string Time(DateTime? utc) => utc is { } t ? IndianTime.FormatTime(t) : "";
 
     protected override async Task OnUserReadyAsync()
     {
@@ -74,10 +135,18 @@
         await LoadAsync();
     }
 
+    // A new supplier narrows the Vehicle list; a vehicle of another supplier is cleared.
+    private async Task OnSupplierChangedAsync()
+    {
+        _vehicles = await VehicleSvc.SearchAsync(null, StatusFilter.All, _supplierId);
+        if (_vehicleId is { } v && _vehicles.All(x => x.Id != v)) _vehicleId = null;
+        await LoadAsync();
+    }
+
     private async Task LoadAsync()
     {
         MessageText = null;
-        if (_to < _from) { ShowError("The To date is before the From date."); _table = null; return; }
-        _table = await Svc.BuildAsync(_kind, new ReportFilter(_from, _to, _supplierId, _vehicleId));
+        if (_to < _from) { ShowError("The To date is before the From date."); _report = null; return; }
+        _report = await Svc.BuildAsync(new ReportFilter(_from, _to, _supplierId, _vehicleId));
     }
 }

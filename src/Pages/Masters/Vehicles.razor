@@ -4,28 +4,35 @@
 @using WaterBilling.Services.Masters
 @inject VehicleService Svc
 @inject SupplierService SupplierSvc
+@inject WaterBilling.Services.Admin.SalesPersonService SalesPersons
 
-@* Vehicle Master: tankers, each owned by one supplier, with capacity and billing rate (per trip or
-   per kL). The vehicle code (A1, A2 ...) is proposed by the system and never reused. Only Active
-   vehicles of Active suppliers can be invoiced. Rate changes are recorded in the Activity Log. *@
+@* Vehicle Master: tankers, each owned by one supplier, with capacity and rate per trip.
+   Final design (Nov 2026): the list shows on open with Search, a Supplier filter and Show; "Add vehicle"
+   opens the form in its own view with "Back to list"; Delete asks for confirmation and "Deleted by" in a
+   pop-up (Admin login: always Admin; Sales login: a name from Sales Persons). The vehicle code is typed
+   by the user and never reused. Only Active vehicles of Active suppliers can be invoiced. Rate changes are
+   recorded in the Activity Log. Driver and water details are no longer asked for (old values are kept). *@
 
 <PageTitle>Vehicle Master</PageTitle>
 
-<PageHeader IconName="truck" Title="Vehicle Master" Subtitle="Tankers, their supplier, billing basis and rate." />
-
-<PageMessage Text="@MessageText" Ok="@MessageOk" />
-
 @if (_form is not null)
 {
+    <PageHeader IconName="truck" Title="Vehicle Master" Subtitle="@(_editingId is null ? "Add a tanker under its supplier." : "Change this tanker's details.")">
+        <button class="btn" @onclick="CloseForm"><Icon Name="chevron-left" Size="18" /> Back to list</button>
+    </PageHeader>
+
+    <PageMessage Text="@MessageText" Ok="@MessageOk" />
+
     <div class="card">
         <h2>@(_editingId is null ? "Add vehicle" : $"Edit vehicle {_form.Code}")</h2>
         <EditForm Model="_form" OnValidSubmit="SaveAsync">
             <DataAnnotationsValidator />
             <div class="form-grid">
                 <div class="field">
-                    <label for="code">Vehicle Code</label>
-                    <InputText id="code" @bind-Value="_form.Code" readonly="@(_editingId is not null || !Can(Permission.VehicleCodeOverride))" />
-                    <small>@(_editingId is null ? "Proposed by the system. Never reused." : "Fixed after creation.")</small>
+                    <label for="code">Vehicle Code*</label>
+                    <InputText id="code" @bind-Value="_form.Code" readonly="@(_editingId is not null)" placeholder="e.g. A13" maxlength="10" />
+                    <small>@(_editingId is null ? "Typed by you. Letters and numbers; a code is never reused." : "Fixed after creation.")</small>
+                    <ValidationMessage For="() => _form.Code" />
                 </div>
                 <div class="field">
                     <label for="vno">Vehicle No.*</label>
@@ -53,7 +60,7 @@
                 <div class="field">
                     <label for="nick">Vehicle Name (nickname)</label>
                     <InputText id="nick" @bind-Value="_form.Nickname" />
-                    <small>Leave blank for supplier short name + number.</small>
+                    <small>Blank = supplier short name + number.</small>
                 </div>
                 <div class="field">
                     <label for="cap">Capacity (Litres)*</label>
@@ -61,113 +68,130 @@
                     <ValidationMessage For="() => _form.TankCapacityLitres" />
                 </div>
                 <div class="field">
-                    <label for="basis">Billing basis</label>
-                    <InputSelect id="basis" @bind-Value="_form.BillingBasis">
-                        <option value="@BillingBasis.Trip">Per trip</option>
-                        <option value="@BillingBasis.Volume">Per kL (volume)</option>
-                    </InputSelect>
-                </div>
-                <div class="field">
-                    <label for="rate">Rate (₹ per @(_form.BillingBasis == BillingBasis.Trip ? "trip" : "kL"))*</label>
+                    <label for="rate">Rate (₹ per trip)*</label>
                     <InputNumber id="rate" @bind-Value="_form.Rate" step="0.01" min="0" />
                     <ValidationMessage For="() => _form.Rate" />
                 </div>
                 <div class="field">
-                    <label for="tripcost">Trip Cost (₹)*</label>
+                    <label for="tripcost">Trip Cost (₹)</label>
                     <InputNumber id="tripcost" @bind-Value="_form.TripCost" step="0.01" min="0" />
                     <small>For reference. Not used on invoices.</small>
                     <ValidationMessage For="() => _form.TripCost" />
                 </div>
                 <div class="field">
-                    <label for="status">Vehicle Status*</label>
+                    <label for="status">Status</label>
                     <InputSelect id="status" @bind-Value="_form.Status">
                         <option value="@VehicleStatus.Active">Active</option>
                         <option value="@VehicleStatus.Inactive">Inactive</option>
                         <option value="@VehicleStatus.Maintenance">Maintenance</option>
                     </InputSelect>
                 </div>
-                <div class="field">
-                    <label for="water">Water Details</label>
-                    <InputText id="water" @bind-Value="_form.WaterDetails" />
-                </div>
-                <div class="field">
-                    <label for="dname">Driver name</label>
-                    <InputText id="dname" @bind-Value="_form.DriverName" />
-                </div>
-                <div class="field">
-                    <label for="dphone">Driver phone</label>
-                    <InputText id="dphone" @bind-Value="_form.DriverPhone" inputmode="tel" />
-                    <ValidationMessage For="() => _form.DriverPhone" />
-                </div>
-                <div class="field">
-                    <label for="dlic">Driver licence no.</label>
-                    <InputText id="dlic" @bind-Value="_form.DriverLicenceNo" />
-                </div>
             </div>
             <div class="form-actions">
                 <button type="submit" class="btn btn-primary" disabled="@Busy">Save</button>
-                <button type="button" class="btn" @onclick="() => _form = null">Cancel</button>
+                <button type="button" class="btn" @onclick="CloseForm">Cancel</button>
             </div>
         </EditForm>
     </div>
 }
+else
+{
+    <PageHeader IconName="truck" Title="Vehicle Master" Subtitle="Tankers, their supplier and rate per trip.">
+        @if (Can(Permission.MastersEdit))
+        {
+            <button class="btn btn-primary" @onclick="StartNewAsync"><Icon Name="plus" Size="18" /> Add vehicle</button>
+        }
+    </PageHeader>
 
-<div class="toolbar">
-    <div class="field">
-        <label for="search">Search</label>
-        <input id="search" @bind="_search" @bind:event="oninput" @bind:after="LoadAsync" placeholder="Number, code, name or supplier" />
+    <PageMessage Text="@MessageText" Ok="@MessageOk" />
+
+    <div class="toolbar">
+        <div class="field grow">
+            <label for="search">Search</label>
+            <span class="search-box"><Icon Name="search" Size="18" />
+                <input id="search" @bind="_search" @bind:event="oninput" @bind:after="LoadAsync" placeholder="Supplier name, vehicle name or vehicle code" />
+            </span>
+        </div>
+        <div class="field">
+            <label for="supfilter">Supplier</label>
+            <select id="supfilter" @bind="_supplierFilter" @bind:after="LoadAsync">
+                <option value="0">All suppliers</option>
+                @foreach (var s in _allSuppliers) { <option value="@s.Id">@s.Name</option> }
+            </select>
+        </div>
+        <div class="field">
+            <label for="filter">Show</label>
+            <select id="filter" @bind="_filter" @bind:after="LoadAsync">
+                <option value="@StatusFilter.Active">Active</option>
+                <option value="@StatusFilter.Inactive">Inactive / Maintenance</option>
+                <option value="@StatusFilter.All">All</option>
+            </select>
+        </div>
     </div>
-    <div class="field">
-        <label for="filter">Show</label>
-        <select id="filter" @bind="_filter" @bind:after="LoadAsync">
-            <option value="@StatusFilter.Active">Active</option>
-            <option value="@StatusFilter.Inactive">Inactive / Maintenance</option>
-            <option value="@StatusFilter.All">All</option>
-        </select>
+
+    <div class="card">
+        <table class="data">
+            <thead>
+                <tr><th>Code</th><th>Vehicle No.</th><th>Vehicle Name</th><th>Supplier</th><th class="num">Capacity (L)</th><th class="num">Rate (₹)</th><th>Status</th><th></th></tr>
+            </thead>
+            <tbody>
+                @foreach (var v in _rows)
+                {
+                    <tr class="@(v.Status != VehicleStatus.Active || !v.SupplierActive ? "muted" : "")">
+                        <td>@v.Code</td>
+                        <td class="nowrap">@v.VehicleNo</td>
+                        <td>@v.Nickname</td>
+                        <td>@v.SupplierName @if (!v.SupplierActive) { <span class="badge badge-off">supplier inactive</span> }</td>
+                        <td class="num">@v.TankCapacityLitres.ToString("N0", System.Globalization.CultureInfo.GetCultureInfo("en-IN"))</td>
+                        <td class="num">@Money.Format(v.RatePaise) / trip</td>
+                        <td><span class="badge @(v.Status != VehicleStatus.Active ? "badge-off" : "")">@v.Status</span></td>
+                        <td class="nowrap">
+                            @if (Can(Permission.MastersEdit))
+                            {
+                                <button class="btn btn-small" @onclick="() => EditAsync(v)">Edit</button>
+                                <button class="btn btn-small btn-danger" @onclick="() => StartDeleteAsync(v)">Delete</button>
+                            }
+                        </td>
+                    </tr>
+                }
+                @if (_rows.Count == 0)
+                {
+                    <tr><td colspan="8" class="muted">@(_loaded ? "No vehicles found." : "Loading vehicles…")</td></tr>
+                }
+            </tbody>
+        </table>
+        <p class="muted" style="margin: 0.75rem 0 0; font-size: 0.85rem">@_rows.Count vehicle(s) · a deleted vehicle goes to the Recycle Bin for 30 days.</p>
     </div>
-    @if (Can(Permission.MastersEdit))
+}
+
+@* ---------- Delete confirmation pop-up ---------- *@
+<Modal Open="@(_deleting is not null)" Title="Delete vehicle?" Narrow OnClose="CloseDelete">
+    @if (_deleting is not null)
     {
-        <button class="btn btn-primary" @onclick="StartNewAsync">Add vehicle</button>
+        <p style="margin-top: 0">Are you sure you want to delete vehicle <b>@_deleting.Code · @_deleting.VehicleNo</b>? It moves to the Recycle Bin and can be restored for 30 days.</p>
+        @if (_deleteError is not null) { <div class="alert alert-error" role="alert">@_deleteError</div> }
+        <div class="field">
+            <label for="deletedby">Deleted by*</label>
+            @if (IsAdmin)
+            {
+                <input id="deletedby" value="Admin" readonly />
+                <small>Filled in from the Admin login.</small>
+            }
+            else
+            {
+                <select id="deletedby" @bind="_deletedBy">
+                    <option value="">Choose your name</option>
+                    @foreach (var p in _people) { <option value="@p.Id">@p.Name</option> }
+                </select>
+                <small>Names from the Sales Persons list. Delete stays off until a name is chosen.</small>
+            }
+        </div>
+        <div class="form-actions">
+            <button type="button" class="btn" @onclick="CloseDelete">Cancel</button>
+            <button type="button" class="btn btn-danger-solid" @onclick="DeleteAsync" disabled="@(!CanConfirmDelete)">Delete</button>
+        </div>
     }
-</div>
-
-<table class="data">
-    <thead>
-        <tr><th>Code</th><th>Vehicle No.</th><th>Vehicle Name</th><th>Supplier</th><th class="num">Capacity (L)</th><th class="num">Rate (₹)</th><th>Status</th><th></th></tr>
-    </thead>
-    <tbody>
-        @foreach (var v in _rows)
-        {
-            <tr class="@(v.Status != VehicleStatus.Active || !v.SupplierActive ? "muted" : "")">
-                <td>@v.Code</td>
-                <td>@v.VehicleNo</td>
-                <td>@v.Nickname</td>
-                <td>@v.SupplierName @if (!v.SupplierActive) { <span class="badge badge-off">supplier inactive</span> }</td>
-                <td class="num">@v.TankCapacityLitres.ToString("N0", System.Globalization.CultureInfo.GetCultureInfo("en-IN"))</td>
-                <td class="num">@Money.Format(v.RatePaise) / @(v.BillingBasis == BillingBasis.Trip ? "trip" : "kL")</td>
-                <td><span class="badge @(v.Status != VehicleStatus.Active ? "badge-off" : "")">@v.Status</span></td>
-                <td>
-                    @if (Can(Permission.MastersEdit))
-                    {
-                        <button class="btn btn-small" @onclick="() => EditAsync(v)">Edit</button>
-                        @if (_confirmDeleteId == v.Id)
-                        {
-                            <DeleteConfirm Id="v.Id" Admin="IsAdmin" OnConfirm="who => DeleteAsync(v.Id, who)" OnCancel="() => _confirmDeleteId = null" />
-                        }
-                        else
-                        {
-                            <button class="btn btn-small btn-danger" @onclick="() => _confirmDeleteId = v.Id">Delete</button>
-                        }
-                    }
-                </td>
-            </tr>
-        }
-        @if (_rows.Count == 0)
-        {
-            <tr><td colspan="8" class="muted">No vehicles found.</td></tr>
-        }
-    </tbody>
-</table>
+</Modal>
 
 @code {
     private IReadOnlyList<VehicleRow> _rows = [];
@@ -175,18 +199,36 @@
     private VehicleForm? _form;
     private long? _editingId;
     private string? _editingSupplierName;
-    private long? _confirmDeleteId;
+    private IReadOnlyList<(long Id, string Name)> _allSuppliers = [];
     private string _search = "";
+    private long _supplierFilter;
     private StatusFilter _filter = StatusFilter.Active;
+    private bool _loaded;
 
-    protected override Task OnUserReadyAsync() => LoadAsync();
+    private VehicleRow? _deleting;
+    private long? _deletedBy;
+    private string? _deleteError;
+    private IReadOnlyList<(long Id, string Name)> _people = [];
+    private bool CanConfirmDelete => !Busy && (IsAdmin || _deletedBy is not null);
 
-    private async Task LoadAsync() => _rows = await Svc.SearchAsync(_search, _filter);
+    protected override async Task OnUserReadyAsync()
+    {
+        _allSuppliers = await SupplierSvc.ListActiveAsync();
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _rows = await Svc.SearchAsync(_search, _filter, _supplierFilter == 0 ? null : _supplierFilter);
+        _loaded = true;
+    }
+
+    private void CloseForm() { _form = null; _editingId = null; }
 
     private async Task StartNewAsync()
     {
-        _suppliers = await SupplierSvc.ListActiveAsync();
-        _form = new VehicleForm { Code = await Svc.ProposeCodeAsync(), TankCapacityLitres = 12000 };
+        _suppliers = await SupplierSvc.ListActiveAsync();   // the code is typed in by the user
+        _form = new VehicleForm { TankCapacityLitres = 12000 };
         _editingId = null;
         MessageText = null;
     }
@@ -225,12 +267,31 @@
 
     private bool IsAdmin => Me?.Role == UserRole.Admin;
 
-    // who: the name chosen in "Deleted by" (Sales login).
-    private async Task DeleteAsync(long id, long? who)
+    // ---- Delete (pop-up with "Deleted by") ----
+    private async Task StartDeleteAsync(VehicleRow row)
     {
-        var result = await Svc.DeleteAsync(id, who);
-        if (result.Ok) _confirmDeleteId = null;   // stay on the confirm step if no name was chosen
-        Show(result, "Vehicle deleted. It can be restored from Recovery for 30 days.");
-        await LoadAsync();
+        _deleting = row;
+        _deletedBy = null;
+        _deleteError = null;
+        MessageText = null;
+        if (!IsAdmin) _people = await SalesPersons.ListActiveAsync();
+    }
+
+    private void CloseDelete() { _deleting = null; _deletedBy = null; _deleteError = null; }
+
+    private async Task DeleteAsync()
+    {
+        if (_deleting is null || !CanConfirmDelete) return;
+        Busy = true;
+        try
+        {
+            var name = $"{_deleting.Code} · {_deleting.VehicleNo}";
+            var result = await Svc.DeleteAsync(_deleting.Id, _deletedBy);   // the server checks "Deleted by" again
+            if (!result.Ok) { _deleteError = result.Error; return; }
+            ShowOk($"Vehicle {name} deleted. It can be restored from the Recycle Bin for 30 days.");
+            CloseDelete();
+            await LoadAsync();
+        }
+        finally { Busy = false; }
     }
 }

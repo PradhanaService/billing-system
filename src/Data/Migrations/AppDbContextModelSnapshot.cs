@@ -260,6 +260,9 @@ namespace WaterBilling.Data.Migrations
                         .HasMaxLength(10)
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("DoneBy")
+                        .HasColumnType("TEXT");
+
                     b.Property<long?>("EntityId")
                         .HasColumnType("INTEGER");
 
@@ -443,6 +446,9 @@ namespace WaterBilling.Data.Migrations
                     b.Property<long?>("CancelledByUserId")
                         .HasColumnType("INTEGER");
 
+                    b.Property<int>("CapacityLitres")
+                        .HasColumnType("INTEGER");
+
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("TEXT");
 
@@ -457,6 +463,9 @@ namespace WaterBilling.Data.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("TEXT");
 
+                    b.Property<DateTime?>("InTimeUtc")
+                        .HasColumnType("TEXT");
+
                     b.Property<DateOnly>("InvoiceDate")
                         .HasColumnType("TEXT");
 
@@ -468,8 +477,29 @@ namespace WaterBilling.Data.Migrations
                         .HasMaxLength(120)
                         .HasColumnType("TEXT");
 
+                    b.Property<long?>("Meter1EndTenths")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long?>("Meter1StartTenths")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long?>("Meter2EndTenths")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long?>("Meter2StartTenths")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long?>("Meter3EndTenths")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long?>("Meter3StartTenths")
+                        .HasColumnType("INTEGER");
+
                     b.Property<string>("Narration")
                         .HasMaxLength(300)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("OutTimeUtc")
                         .HasColumnType("TEXT");
 
                     b.Property<string>("PaymentMode")
@@ -484,6 +514,12 @@ namespace WaterBilling.Data.Migrations
                         .IsRequired()
                         .HasMaxLength(10)
                         .HasColumnType("TEXT");
+
+                    b.Property<long?>("ReplacedByInvoiceId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long?>("ReplacesInvoiceId")
+                        .HasColumnType("INTEGER");
 
                     b.Property<long?>("ReversalVoucherId")
                         .HasColumnType("INTEGER");
@@ -544,6 +580,10 @@ namespace WaterBilling.Data.Migrations
                             t.HasCheckConstraint("CK_Invoices_Amount", "AmountPaise > 0 AND RatePaise > 0");
 
                             t.HasCheckConstraint("CK_Invoices_BillTo", "(BillToType = 'Supplier' AND CustomerId IS NULL) OR (BillToType = 'Customer' AND CustomerId IS NOT NULL)");
+
+                            t.HasCheckConstraint("CK_Invoices_Capacity", "CapacityLitres >= 0");
+
+                            t.HasCheckConstraint("CK_Invoices_TripTimes", "InTimeUtc IS NULL OR OutTimeUtc IS NULL OR OutTimeUtc >= InTimeUtc");
 
                             t.HasCheckConstraint("CK_Invoices_Trips", "Trips >= 1 AND VolumeTenths >= 0");
                         });
@@ -672,7 +712,7 @@ namespace WaterBilling.Data.Migrations
                         {
                             Code = "INVOICE",
                             NextNo = 1L,
-                            Prefix = "INV-"
+                            Prefix = ""
                         },
                         new
                         {
@@ -707,6 +747,9 @@ namespace WaterBilling.Data.Migrations
                         .HasColumnType("INTEGER");
 
                     b.Property<long>("AmountPaise")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("FromAdvance")
                         .HasColumnType("INTEGER");
 
                     b.Property<long>("InvoiceId")
@@ -912,6 +955,9 @@ namespace WaterBilling.Data.Migrations
                     b.Property<string>("NormalizedUserName")
                         .IsRequired()
                         .HasMaxLength(50)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("PasswordChangedAtUtc")
                         .HasColumnType("TEXT");
 
                     b.Property<string>("PasswordHash")

@@ -88,7 +88,7 @@ public class LedgerPosterTests : IDisposable
     [Fact]
     public async Task FR_LED_07_Vehicle_Balance_Is_A_View_Of_Tagged_Lines()
     {
-        var vehicle = (await _svc.Vehicles.CreateAsync(new VehicleForm { VehicleNo = "TN 38 M 3", SupplierId = _supplier, TankCapacityLitres = 12000, Rate = 150 })).Value;
+        var vehicle = (await _svc.Vehicles.CreateAsync(new VehicleForm { Code = "A1", VehicleNo = "TN 38 M 3", SupplierId = _supplier, TankCapacityLitres = 12000, Rate = 150 })).Value;
         await PostAsync(LineDraft.Dr(SystemAccounts.SupplierReceivables, 15000, "Sale", _supplier, vehicle: vehicle), SalesCr(15000));
         await PostAsync(SupplierDr(7000), SalesCr(7000));   // not tied to the vehicle
 

@@ -32,7 +32,7 @@ public class ActivityLogServiceTests : BillingFixture
         await Svc.Invoices.CreateAsync(new InvoiceForm { SalesPersonId = Seller, VehicleId = TripVehicle, Rate = 150 });
         Me.User = Db.AddUser(UserRole.Admin);
 
-        Assert.Single(await Svc.ActivityLog.SearchAsync(new ActivityFilter(Today, Today, Text: "INV-1")));
+        Assert.Single(await Svc.ActivityLog.SearchAsync(new ActivityFilter(Today, Today, Text: "INVOICE_CREATED")));
         Assert.Empty(await Svc.ActivityLog.SearchAsync(new ActivityFilter(Today, Today, UserName: "nobody")));
     }
 

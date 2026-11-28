@@ -101,7 +101,7 @@ public class LedgerMasterService(IDbContextFactory<AppDbContext> dbFactory, ICur
         if (await db.LedgerEntries.AnyAsync(e => e.AccountId == id) || await db.Vouchers.AnyAsync(v => v.PurposeAccountId == id))
             return Result.Fail("This ledger has entries, so it cannot be deleted. Set it to Inactive instead.");
         RecoveryService.MarkDeleted(account, me, Now, deletedBy);
-        ActivityLogger.Add(db, Now, me, ActivityCategory.Master, "LEDGER_DELETED", nameof(Account), id, before: new { account.Name }, reason: $"Deleted by {who.Value}");
+        ActivityLogger.Add(db, Now, me, ActivityCategory.Master, "LEDGER_DELETED", nameof(Account), id, before: new { account.Name }, reason: $"Deleted by {who.Value}", doneBy: who.Value);
         await db.SaveChangesAsync();
         return Result.Success();
     }

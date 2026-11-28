@@ -126,33 +126,34 @@ public class ReportService(IDbContextFactory<AppDbContext> dbFactory, ICurrentUs
                 Money.Format(rows.Sum(r => r.AmountPaise)))]);
     }
 
-    // FR-RPT-02: vehicle, registration, total volume, unit rate, total bill, received, outstanding,
-    // with a subtotal per supplier and a grand total.
+    // FR-RPT-02: vehicle, registration, total trips, unit rate, total bill, received, outstanding,
+    // with a subtotal per supplier and a grand total. (Client change, Nov 2026: billing is per trip,
+    // so the report counts trips where it used to add up the volume.)
     private static async Task<ReportTable> VehicleOperationalAsync(AppDbContext db, ReportFilter f, List<string> subtitle)
     {
         var rows = await SalesAsync(db, f);
-        var vehicleRates = await db.Vehicles.ToDictionaryAsync(v => v.Id, v => (v.RatePaise, v.BillingBasis));
+        var vehicleRates = await db.Vehicles.ToDictionaryAsync(v => v.Id, v => v.RatePaise);
         var table = new List<IReadOnlyList<string>>();
         foreach (var supplier in rows.GroupBy(r => r.Supplier).OrderBy(g => g.Key))
         {
             foreach (var vehicle in supplier.GroupBy(r => r.VehicleId).OrderBy(g => g.First().VehicleCode.Length).ThenBy(g => g.First().VehicleCode))
             {
                 var first = vehicle.First();
-                var (rate, basis) = vehicleRates[vehicle.Key];
+                var rate = vehicleRates[vehicle.Key];
                 var bill = vehicle.Sum(r => r.AmountPaise);
                 var received = vehicle.Sum(r => r.AllocatedPaise);
-                table.Add(Row(first.VehicleName, first.VehicleNo, Volume.Format(vehicle.Sum(r => r.VolumeTenths)),
-                    $"{Money.Format(rate)}/{(basis == BillingBasis.Trip ? "trip" : "kL")}", Money.Format(bill), Money.Format(received), Money.Format(bill - received)));
+                table.Add(Row(first.VehicleName, first.VehicleNo, vehicle.Sum(r => r.Trips).ToString(),
+                    $"{Money.Format(rate)}/trip", Money.Format(bill), Money.Format(received), Money.Format(bill - received)));
             }
-            table.Add(Row($"Subtotal - {supplier.Key}", "", Volume.Format(supplier.Sum(r => r.VolumeTenths)), "",
+            table.Add(Row($"Subtotal - {supplier.Key}", "", supplier.Sum(r => r.Trips).ToString(), "",
                 Money.Format(supplier.Sum(r => r.AmountPaise)), Money.Format(supplier.Sum(r => r.AllocatedPaise)),
                 Money.Format(supplier.Sum(r => r.AmountPaise - r.AllocatedPaise))));
         }
         return new ReportTable(Title(ReportKind.VehicleOperational), subtitle,
-            [new("Vehicle Name", Width: 2.2f), new("Registration No."), new("Total Volume (kL)", true), new("Unit Rate", true, 1.1f),
+            [new("Vehicle Name", Width: 2.2f), new("Registration No."), new("Total Trips", true), new("Unit Rate", true, 1.1f),
              new("Total Bill", true), new("Received", true), new("Outstanding", true)],
             table,
-            [Row("Grand total", "", Volume.Format(rows.Sum(r => r.VolumeTenths)), "", Money.Format(rows.Sum(r => r.AmountPaise)),
+            [Row("Grand total", "", rows.Sum(r => r.Trips).ToString(), "", Money.Format(rows.Sum(r => r.AmountPaise)),
                 Money.Format(rows.Sum(r => r.AllocatedPaise)), Money.Format(rows.Sum(r => r.AmountPaise - r.AllocatedPaise)))],
             Landscape: true);
     }

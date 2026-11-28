@@ -10,6 +10,8 @@ namespace WaterBilling.Services.Security;
 // temporary password changed at first sign-in, logins deactivated but never deleted, the last Admin
 // cannot be removed. Changing a role or deactivating signs that user out straight away.
 
+public sealed record LoginCard(UserRole Role, long? Id, string? UserName, DateTime? PasswordChangedAtUtc, DateTime? LastLoginAtUtc);
+
 public sealed record UserRow(long Id, string UserName, string FullName, UserRole Role,
     RecordStatus Status, DateTime? LastLoginAtUtc, int Version);
 
@@ -66,6 +68,7 @@ public class UserService(IDbContextFactory<AppDbContext> dbFactory, ICurrentUser
             Phone = string.IsNullOrWhiteSpace(form.Phone) ? null : form.Phone.Trim(),
             Role = form.Role,
             MustChangePassword = true,
+            PasswordChangedAtUtc = Now,
         };
         user.PasswordHash = AuthService.HashPassword(user, form.TemporaryPassword!);
 
@@ -148,8 +151,60 @@ public class UserService(IDbContextFactory<AppDbContext> dbFactory, ICurrentUser
         user.PasswordHash = AuthService.HashPassword(user, temporaryPassword!);
         user.MustChangePassword = true;
         user.SecurityStamp = Guid.NewGuid().ToString("N");
+        user.PasswordChangedAtUtc = Now;
         ActivityLogger.Add(db, Now, me, ActivityCategory.Admin, "PASSWORD_RESET", "User", user.Id);
         return await SaveAsync(db);
+    }
+
+    // ---------- Password Management (final design, Nov 2026) ----------
+    // Only two logins exist: Admin and the shared Sales login. The Admin sets either password here.
+    // The new password works from the next sign-in: the user's open sessions are signed out.
+    // If the Sales login has not been made yet, setting its password creates it (user name "sales").
+
+    public const string SalesUserName = "sales";
+
+    public async Task<IReadOnlyList<LoginCard>> LoginsAsync()
+    {
+        await currentUser.RequireAsync(Permission.UsersManage);
+        await using var db = await dbFactory.CreateDbContextAsync();
+        var users = await db.Users.Where(u => u.Status == RecordStatus.Active).ToListAsync();
+        return [.. new[] { UserRole.Admin, UserRole.SalesPerson }.Select(role =>
+        {
+            var u = users.Where(x => x.Role == role).OrderBy(x => x.Id).FirstOrDefault();
+            return new LoginCard(role, u?.Id, u?.UserName, u?.PasswordChangedAtUtc, u?.LastLoginAtUtc);
+        })];
+    }
+
+    public async Task<Result> SetPasswordAsync(UserRole role, string? newPassword, string? confirm)
+    {
+        var me = await currentUser.RequireAsync(Permission.UsersManage);
+        if (string.IsNullOrEmpty(newPassword)) return Result.Fail("Enter the new password.");
+        if (newPassword != confirm) return Result.Fail("The two passwords do not match.");
+
+        await using var db = await dbFactory.CreateDbContextAsync();
+        var user = await db.Users.Where(u => u.Role == role && u.Status == RecordStatus.Active).OrderBy(u => u.Id).FirstOrDefaultAsync();
+        var created = user is null;
+        if (user is null)
+        {
+            if (role != UserRole.SalesPerson) return Result.Fail("There is no active Admin login.");
+            if (await db.Users.AnyAsync(u => u.NormalizedUserName == SalesUserName.ToUpperInvariant()))
+                return Result.Fail("A login named \"sales\" already exists but is inactive.");
+            user = new User { UserName = SalesUserName, NormalizedUserName = SalesUserName.ToUpperInvariant(), FullName = "Sales", Role = role };
+            db.Users.Add(user);
+        }
+        if (PasswordRules.Check(newPassword, user.UserName) is { } problem) return Result.Fail(problem);
+
+        user.PasswordHash = AuthService.HashPassword(user, newPassword);
+        user.MustChangePassword = false;
+        user.SecurityStamp = Guid.NewGuid().ToString("N");
+        user.PasswordChangedAtUtc = Now;
+        await using var tx = await db.Database.BeginTransactionAsync();
+        await db.SaveChangesAsync();
+        ActivityLogger.Add(db, Now, me, ActivityCategory.Admin, created ? "USER_CREATED" : "PASSWORD_SET", "User", user.Id,
+            after: new { user.UserName, Role = role.ToString() });
+        await db.SaveChangesAsync();
+        await tx.CommitAsync();
+        return Result.Success();
     }
 
     private DateTime Now => clock.GetUtcNow().UtcDateTime;

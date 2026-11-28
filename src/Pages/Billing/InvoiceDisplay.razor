@@ -1,80 +1,269 @@
 @page "/invoices"
 @attribute [Authorize(Policy = nameof(Permission.DaySalesView))]
 @inherits UserContextBase
-@using WaterBilling.Services.Accounts
-@inject DaySalesService Svc
+@using WaterBilling.Services.Billing
+@using WaterBilling.Services.Masters
+@inject InvoiceSearchService Search
+@inject InvoiceService Invoices
+@inject SupplierService Suppliers
+@inject WaterBilling.Services.Admin.SalesPersonService SalesPersons
+@inject NavigationManager Nav
 
-@* Invoice Display: every invoice, receipt and payment in a chosen period, with cash, credit,
-   receipt and payment totals and the opening and closing cash. Click an invoice number to open it. *@
+@* Invoice Display (final design, Nov 2026): find, view, edit and print invoices.
+   Filters: search text (invoice number, vehicle code or number), supplier, status, date range and an
+   In Time range ("Time from / Time to"). Status: Paid (tap to see the receipt), Paid · cash at billing,
+   Part paid, Not paid or Cancelled. Edit first asks which salesperson is editing, then opens the edit
+   screen. Receipts and payments are on their own screens. *@
 
 <PageTitle>Invoice Display</PageTitle>
 
-<PageHeader IconName="table" Title="Invoice Display" Subtitle="Find, view, print and cancel invoices." />
+<PageHeader IconName="table" Title="Invoice Display" Subtitle="Find, view, edit and print invoices. Tap a Paid status to see its receipt." />
 
-<div class="toolbar">
-    <div class="field"><label for="from">From</label><input id="from" type="date" @bind="_from" @bind:after="LoadAsync" /></div>
-    <div class="field"><label for="to">To</label><input id="to" type="date" @bind="_to" @bind:after="LoadAsync" /></div>
+<PageMessage Text="@MessageText" Ok="@MessageOk" />
+
+<div class="card id-filters">
+    <div class="id-row id-row-1">
+        <div class="field">
+            <label for="isearch">Search</label>
+            <span class="search-box"><Icon Name="search" Size="16" />
+                <input id="isearch" placeholder="Invoice no., vehicle code or number" @bind="_text" @onkeydown="SearchOnEnterAsync" />
+            </span>
+        </div>
+        <div class="field">
+            <label for="isin">Search in</label>
+            <select id="isin" @bind="_in">
+                <option value="@InvoiceSearchIn.All">All</option>
+                <option value="@InvoiceSearchIn.InvoiceNumber">Invoice number</option>
+                <option value="@InvoiceSearchIn.VehicleCode">Vehicle code</option>
+                <option value="@InvoiceSearchIn.VehicleNumber">Vehicle number</option>
+            </select>
+        </div>
+        <div class="field">
+            <label for="isup">Supplier</label>
+            <select id="isup" @bind="_supplier">
+                <option value="0">All suppliers</option>
+                @foreach (var s in _suppliers) { <option value="@s.Id">@s.Name</option> }
+            </select>
+        </div>
+        <div class="field">
+            <label for="istatus">Status</label>
+            <select id="istatus" @bind="_status">
+                <option value="">All</option>
+                <option value="@PayState.Paid">Paid</option>
+                <option value="@PayState.PartPaid">Part paid</option>
+                <option value="@PayState.NotPaid">Not paid</option>
+                <option value="@PayState.Cancelled">Cancelled</option>
+            </select>
+        </div>
+    </div>
+    <div class="id-row id-row-2">
+        <div class="field"><label for="ifrom">From date</label><input id="ifrom" type="date" @bind="_from" /></div>
+        <div class="field"><label for="ito">To date</label><input id="ito" type="date" @bind="_to" /></div>
+        <div class="field"><label for="itf">Time from</label><input id="itf" placeholder="09:00 AM" @bind="_timeFrom" /></div>
+        <div class="field"><label for="itt">Time to</label><input id="itt" placeholder="06:00 PM" @bind="_timeTo" /></div>
+        <button class="btn btn-primary" @onclick="LoadAsync"><Icon Name="search" Size="16" /> Search</button>
+        <button class="btn" @onclick="ClearAsync">Clear</button>
+    </div>
+    <p class="muted id-note">Time from / Time to filter by the invoice In Time, e.g. only trips between 09:00 AM and 06:00 PM.</p>
 </div>
 
-@if (_cash is not null && _totals is not null)
-{
-    <div class="cards">
-        <div class="stat"><div class="stat-label">Cash sales</div><div class="stat-value">₹@Money.Format(_totals.CashSalesPaise)</div></div>
-        <div class="stat"><div class="stat-label">Credit sales</div><div class="stat-value">₹@Money.Format(_totals.CreditSalesPaise)</div></div>
-        <div class="stat"><div class="stat-label">Receipts</div><div class="stat-value">₹@Money.Format(_totals.ReceiptsPaise)</div></div>
-        <div class="stat"><div class="stat-label">Payments</div><div class="stat-value">₹@Money.Format(_totals.PaymentsPaise)</div></div>
-        <div class="stat"><div class="stat-label">Opening balance</div><div class="stat-value">₹@Money.Format(_cash.OpeningPaise)</div></div>
-        <div class="stat"><div class="stat-label">Closing balance</div><div class="stat-value">₹@Money.Format(_cash.ClosingPaise)</div></div>
-    </div>
-    <p class="muted">Closing = Opening + Cash Sales (₹@Money.Format(_cash.CashSalesPaise)) + cash Receipts (₹@Money.Format(_cash.CashReceiptsPaise)) − cash Payments (₹@Money.Format(_cash.CashPaymentsPaise))@(_cash.AdjustmentsPaise != 0 ? $" + cash over/short (₹{Money.Format(_cash.AdjustmentsPaise)})" : "").</p>
+<div class="cards cards-5">
+    @Stat("file-text", "Invoices", _rows.Count.ToString())
+    @Stat("cash", "Cash sales", $"₹{Money.Format(Live.Where(r => r.PaymentMode == InvoicePaymentMode.Cash).Sum(r => r.AmountPaise))}")
+    @Stat("card", "Credit sales", $"₹{Money.Format(Live.Where(r => r.PaymentMode == InvoicePaymentMode.Credit).Sum(r => r.AmountPaise))}")
+    @Stat("check", "Paid", $"₹{Money.Format(Live.Sum(r => r.PaymentMode == InvoicePaymentMode.Cash ? r.AmountPaise : r.AllocatedPaise))}")
+    @Stat("x", "Not paid", $"₹{Money.Format(Live.Sum(r => r.PaymentMode == InvoicePaymentMode.Cash ? 0 : r.AmountPaise - r.AllocatedPaise))}", dark: true)
+</div>
 
-    <table class="data">
-        <thead><tr><th>Type</th><th>No.</th><th>Party / Ledger</th><th>Mode</th><th class="num">Amount</th><th></th></tr></thead>
+<div class="card">
+    <table class="data ilist">
+        <thead><tr><th>Invoice No.</th><th>Date &amp; Time</th><th>Supplier</th><th>Vehicle</th><th>Mode</th><th class="num">Amount (₹)</th><th>Status</th><th class="right">Actions</th></tr></thead>
         <tbody>
-            @foreach (var t in _rows)
+            @foreach (var r in _rows)
             {
-                <tr class="@(t.Cancelled ? "muted" : "")">
-                    <td>@t.Kind</td>
-                    <td>@if (t.InvoiceId is { } id) { <a href="/invoices/@id">@t.DisplayNo</a> } else { @t.DisplayNo }</td>
-                    <td>@t.Party</td><td>@t.Mode</td><td class="num">@Money.Format(t.AmountPaise)</td>
-                    <td>
-                        @if (t.Cancelled) { <span class="badge badge-bad">Cancelled</span> }
-                        @if (t.InvoiceId is { } pid) { <a class="btn btn-small" href="/pdf/invoice/@pid" target="_blank" rel="noopener">Print</a> }
+                var cancelled = r.Status == InvoiceStatus.Cancelled;
+                <tr class="@(cancelled ? "muted" : "")">
+                    <td>@if (cancelled) { <b>@r.DisplayNo</b> } else { <a class="strong-link" href="/invoices/@r.Id">@r.DisplayNo</a> }</td>
+                    <td class="nowrap">@IndianTime.FormatDate(r.InvoiceDate)<br /><small class="muted">@(r.InTimeUtc is { } t ? IndianTime.FormatTime(t) : "-")</small></td>
+                    <td>@r.SupplierName</td>
+                    <td class="nowrap"><b>@r.VehicleCode</b><br /><small class="muted">@r.VehicleNo</small></td>
+                    <td>@r.PaymentMode</td>
+                    <td class="num">@Money.Format(r.AmountPaise)</td>
+                    <td class="status-cell">
+                        @switch (r.State)
+                        {
+                            case PayState.Paid when r.PaymentMode == InvoicePaymentMode.Cash:
+                                <span class="pill pill-ok" title="Paid in cash when the invoice was made"><Icon Name="check" Size="13" /> Paid · cash at billing</span>
+                                break;
+                            case PayState.Paid or PayState.PartPaid:
+                                <button class="pill pill-ok" @onclick="() => ToggleReceiptsAsync(r.Id)" aria-expanded="@(_receiptsFor == r.Id)">
+                                    <Icon Name="check" Size="13" /> @(r.State == PayState.Paid ? "Paid" : "Part paid") · Receipt @string.Join(", ", r.ReceiptNos)
+                                </button>
+                                break;
+                            case PayState.NotPaid:
+                                <span class="pill pill-bad"><Icon Name="x" Size="13" /> Not paid</span>
+                                break;
+                            default:
+                                <span class="badge badge-off">Cancelled</span>
+                                break;
+                        }
+                        @if (_receiptsFor == r.Id)
+                        {
+                            <div class="popover" role="dialog" aria-label="Receipts for invoice @r.DisplayNo">
+                                <div class="popover-head"><b>Paid by receipt</b><button class="link-button" aria-label="Close" @onclick="() => _receiptsFor = null"><Icon Name="x" Size="16" /></button></div>
+                                @foreach (var x in _receipts)
+                                {
+                                    <dl class="popover-list">
+                                        <dt>Receipt</dt><dd><b>@x.ReceiptNo</b></dd>
+                                        <dt>Date</dt><dd>@IndianTime.FormatDate(x.Date)</dd>
+                                        <dt>Received from</dt><dd>@x.ReceivedFrom</dd>
+                                        <dt>Mode</dt><dd>@x.Mode</dd>
+                                        @if (x.Reference is not null) { <dt>Reference</dt><dd>@x.Reference</dd> }
+                                        <dt>Receipt amount</dt><dd>₹@Money.Format(x.ReceiptAmountPaise)</dd>
+                                        <dt>Paid to this invoice</dt><dd><b>₹@Money.Format(x.PaidToThisInvoicePaise)</b>@(x.FromAdvance ? " (from advance)" : "")</dd>
+                                        <dt>Created by</dt><dd>@x.CreatedBy</dd>
+                                    </dl>
+                                }
+                                <div class="popover-foot"><a class="btn btn-small" href="/receipts">Open receipts</a></div>
+                            </div>
+                        }
+                    </td>
+                    <td class="right nowrap">
+                        @if (!cancelled && Can(Permission.InvoiceCancel))
+                        {
+                            <button class="btn btn-small btn-primary" @onclick="() => StartEditAsync(r)"><Icon Name="edit" Size="14" /> Edit</button>
+                        }
+                        <a class="icon-btn" href="/invoices/@r.Id" title="View" aria-label="View invoice @r.DisplayNo"><Icon Name="eye" Size="15" /></a>
+                        <a class="icon-btn" href="/pdf/invoice/@r.Id" target="_blank" rel="noopener" title="Print" aria-label="Print invoice @r.DisplayNo"><Icon Name="printer" Size="15" /></a>
                     </td>
                 </tr>
             }
-            @if (_rows.Count == 0) { <tr><td colspan="6" class="muted">Nothing in this period.</td></tr> }
+            @if (_rows.Count == 0) { <tr><td colspan="8" class="muted">@(_loaded ? "No invoices match." : "Loading invoices…")</td></tr> }
         </tbody>
     </table>
-}
+    <p class="muted" style="margin: 0.75rem 0 0; font-size: 0.85rem">@_rows.Count invoice(s) · newest first · a cancelled invoice cannot be edited · icons: view, print.</p>
+</div>
+
+@* ---------- Which salesperson is editing? ---------- *@
+<Modal Open="@(_editing is not null)" Title="Which salesperson is editing?" Narrow OnClose="() => _editing = null">
+    @if (_editing is not null)
+    {
+        <p style="margin-top: 0">You are about to edit invoice <b>@_editing.DisplayNo</b> (@_editing.SupplierName · @_editing.VehicleCode · ₹@Money.Format(_editing.AmountPaise)). Choose who is making the change.</p>
+        <div class="field">
+            <label for="ewho">Salesperson*</label>
+            @if (IsAdmin)
+            {
+                <input id="ewho" value="Admin" readonly />
+                <small>Filled in from the Admin login.</small>
+            }
+            else
+            {
+                <select id="ewho" @bind="_editor">
+                    <option value="">Choose your name</option>
+                    @foreach (var p in _people) { <option value="@p.Id">@p.Name</option> }
+                </select>
+                <small>Names from the Sales Persons list. The name is recorded with the change.</small>
+            }
+        </div>
+        <div class="form-actions">
+            <button type="button" class="btn" @onclick="() => _editing = null">Cancel</button>
+            <button type="button" class="btn btn-primary" @onclick="ContinueEdit" disabled="@(!IsAdmin && _editor is null)">Continue</button>
+        </div>
+    }
+</Modal>
 
 @code {
+    // The Dashboard chart opens a month: /invoices?month=2026-11
     [SupplyParameterFromQuery(Name = "month")] public string? MonthParam { get; set; }
 
+    private IReadOnlyList<InvoiceListRow> _rows = [];
+    private IReadOnlyList<(long Id, string Name)> _suppliers = [];
+    private bool _loaded;
+    private string? _text, _timeFrom, _timeTo;
+    private InvoiceSearchIn _in = InvoiceSearchIn.All;
+    private long _supplier;
+    private PayState? _status;
     private DateOnly _from, _to;
-    private CashSummary? _cash;
-    private DayTotals? _totals;
-    private IReadOnlyList<DayTransaction> _rows = [];
+
+    private long? _receiptsFor;
+    private IReadOnlyList<InvoiceReceiptInfo> _receipts = [];
+
+    private InvoiceListRow? _editing;
+    private long? _editor;
+    private IReadOnlyList<(long Id, string Name)> _people = [];
+
+    private bool IsAdmin => Me?.Role == UserRole.Admin;
+    private IEnumerable<InvoiceListRow> Live => _rows.Where(r => r.Status != InvoiceStatus.Cancelled);
 
     protected override async Task OnUserReadyAsync()
     {
-        var today = Svc.Today();
+        _suppliers = await Suppliers.ListActiveAsync();
+        SetDefaultDates();
+        await LoadAsync();
+    }
+
+    private void SetDefaultDates()
+    {
         if (DateOnly.TryParse(MonthParam + "-01", out var month))
         {
             _from = month;
             _to = month.AddMonths(1).AddDays(-1);
+            return;
         }
-        else
-        {
-            _from = today;
-            _to = today;
-        }
-        await LoadAsync();
+        _to = Invoices.BusinessDate();
+        _from = _to.AddDays(-1);
     }
 
     private async Task LoadAsync()
     {
-        if (_to < _from || _to.DayNumber - _from.DayNumber > 366) { _rows = []; _cash = null; return; }
-        (_cash, _totals, _rows) = await Svc.PeriodAsync(_from, _to);
+        MessageText = null;
+        var from = IndianTime.ParseTime(_timeFrom);
+        var to = IndianTime.ParseTime(_timeTo);
+        if (!string.IsNullOrWhiteSpace(_timeFrom) && from is null || !string.IsNullOrWhiteSpace(_timeTo) && to is null)
+        {
+            ShowError("Type the times like 09:00 AM.");
+            return;
+        }
+        if (_to < _from) { ShowError("To date cannot be before From date."); return; }
+        _rows = await Search.SearchAsync(new InvoiceFilter(_from, _to, _text, _in, _supplier == 0 ? null : _supplier, _status, from, to));
+        _receiptsFor = null;
+        _loaded = true;
     }
+
+    private async Task SearchOnEnterAsync(KeyboardEventArgs e) { if (e.Key == "Enter") await LoadAsync(); }
+
+    private async Task ClearAsync()
+    {
+        (_text, _timeFrom, _timeTo, _in, _supplier, _status) = (null, null, null, InvoiceSearchIn.All, 0, null);
+        SetDefaultDates();
+        await LoadAsync();
+    }
+
+    private async Task ToggleReceiptsAsync(long invoiceId)
+    {
+        if (_receiptsFor == invoiceId) { _receiptsFor = null; return; }
+        _receipts = await Search.ReceiptsForAsync(invoiceId);
+        _receiptsFor = invoiceId;
+    }
+
+    private async Task StartEditAsync(InvoiceListRow row)
+    {
+        _editing = row;
+        _editor = null;
+        if (!IsAdmin) _people = await SalesPersons.ListActiveAsync();
+    }
+
+    private void ContinueEdit()
+    {
+        if (_editing is null) return;
+        Nav.NavigateTo(IsAdmin ? $"/invoices/{_editing.Id}/edit" : $"/invoices/{_editing.Id}/edit?by={_editor}");
+    }
+
+    private static RenderFragment Stat(string icon, string label, string value, bool dark = false) => __builder =>
+    {
+        <div class="stat has-icon @(dark ? "stat-dark" : "")">
+            <span class="stat-icon"><Icon Name="@icon" Size="22" Duotone="true" /></span>
+            <span class="stat-body"><div class="stat-label">@label</div><div class="stat-value">@value</div></span>
+        </div>
+    };
 }

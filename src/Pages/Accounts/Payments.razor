@@ -8,20 +8,23 @@
 @inject TimeProvider Clock
 
 @* Payment voucher: money paid out, either an expense (Fuel, Maintenance ...) or a refund to a
-   supplier or customer. Bank and UPI need a reference number. Paying more cash than is in hand needs
-   a tick to confirm. A saved payment is never edited: it is cancelled with a reason (a reversal is posted). *@
+   supplier or customer. No reference number (client decision, Nov 2026). Paying more cash than is in hand needs
+   a tick to confirm. A saved payment is never edited: it is cancelled with a reason (a reversal is posted).
+   The history opens in a pop-up from the "Payment History" button (client change, Nov 2026). *@
 
 <PageTitle>Payment</PageTitle>
 
-<PageHeader IconName="upload" Title="Payment Voucher" Subtitle="Expenses and refunds paid out." />
+<PageHeader IconName="payment-out" Title="Payment" Subtitle="Expenses and refunds paid out.">
+    <button class="btn" @onclick="OpenHistoryAsync"><Icon Name="table" Size="18" /> Payment History</button>
+</PageHeader>
 
 <PageMessage Text="@MessageText" Ok="@MessageOk" />
 
 <div class="card">
     <div class="form-grid">
         <div class="field">
-            <label>Voucher No.</label>
-            <input value="@_nextNo" readonly />
+            <label for="pno">Payment No.</label>
+            <input id="pno" value="@VoucherNumbers.Plain(_nextNo)" readonly />
             <small>Expected. Assigned when you save.</small>
         </div>
         <div class="field">
@@ -67,10 +70,6 @@
             <label for="amount">Amount (₹)*</label>
             <input id="amount" type="number" min="0" step="0.01" @bind="_form.Amount" @bind:event="oninput" />
         </div>
-        <div class="field">
-            <label for="ref">Reference Number@(_form.Mode != PaymentMode.Cash ? "*" : "")</label>
-            <input id="ref" @bind="_form.ReferenceNo" maxlength="40" />
-        </div>
     </div>
     <div class="field">
         <label for="narr">Narration</label>
@@ -98,39 +97,84 @@
     </div>
 </div>
 
-<h2>Payment History</h2>
-<div class="toolbar">
-    <div class="field"><label for="from">From</label><input id="from" type="date" @bind="_from" @bind:after="LoadHistoryAsync" /></div>
-    <div class="field"><label for="to">To</label><input id="to" type="date" @bind="_to" @bind:after="LoadHistoryAsync" /></div>
-</div>
-<table class="data">
-    <thead><tr><th>Voucher</th><th>Date</th><th>Ledger</th><th>Pay To</th><th>Vehicle</th><th>Mode</th><th>Reference</th><th class="num">Amount</th><th>Status</th><th></th></tr></thead>
-    <tbody>
-        @foreach (var r in _history)
-        {
-            <tr class="@(r.Status == VoucherStatus.Cancelled ? "muted" : "")">
-                <td>@r.DisplayNo</td><td>@IndianTime.FormatDate(r.Date)</td><td>@r.Ledger</td><td>@r.PayTo</td><td>@r.VehicleNo</td>
-                <td>@r.Mode</td><td>@r.ReferenceNo</td><td class="num">@Money.Format(r.AmountPaise)</td>
-                <td>@r.Status @if (r.CancelReason is not null) { <small>(@r.CancelReason)</small> }</td>
-                <td>
-                    @if (r.Status == VoucherStatus.Posted && Can(Permission.PaymentCancel))
+@* ---------- Payment History pop-up ---------- *@
+<Modal Open="_historyOpen" Title="Payment History" Wide ShowClose OnClose="() => _historyOpen = false">
+    <PageMessage Text="@_historyMessage" Ok="@_historyMessageOk" />
+    <div class="toolbar">
+        <div class="field"><label for="from">From</label><input id="from" type="date" @bind="_from" @bind:after="LoadHistoryAsync" /></div>
+        <div class="field"><label for="to">To</label><input id="to" type="date" @bind="_to" @bind:after="LoadHistoryAsync" /></div>
+        <div class="field">
+            <label for="fmode">Mode</label>
+            <select id="fmode" @bind="_filterMode" @bind:after="LoadHistoryAsync">
+                <option value="">All</option>
+                <option value="Cash">Cash</option><option value="Bank">Bank</option><option value="Upi">UPI</option>
+            </select>
+        </div>
+        <div class="field">
+            <label for="fledger">Ledger</label>
+            <select id="fledger" @bind="_filterLedger" @bind:after="LoadHistoryAsync">
+                <option value="0">All ledgers</option>
+                @foreach (var l in _ledgers) { <option value="@l.Id">@l.Name</option> }
+            </select>
+        </div>
+        <div class="field">
+            <label for="fstatus">Status</label>
+            <select id="fstatus" @bind="_filterStatus" @bind:after="LoadHistoryAsync">
+                <option value="">All</option><option value="Posted">Posted</option><option value="Cancelled">Cancelled</option>
+            </select>
+        </div>
+    </div>
+
+    <div class="table-scroll">
+        <table class="data">
+            <thead><tr><th>Payment</th><th>Date</th><th>Ledger</th><th>Pay To</th><th>Vehicle</th><th>Mode</th><th class="num">Amount</th><th>Status</th><th></th></tr></thead>
+            <tbody>
+                @if (_historyLoading)
+                {
+                    <tr><td colspan="9" class="muted">Loading payments…</td></tr>
+                }
+                else if (_historyError is not null)
+                {
+                    <tr><td colspan="9"><div class="alert alert-error" role="alert" style="margin: 0">@_historyError</div></td></tr>
+                }
+                else if (_history.Count == 0)
+                {
+                    <tr><td colspan="9" class="muted">No payments yet in this period.</td></tr>
+                }
+                else
+                {
+                    @foreach (var r in _history)
                     {
-                        @if (_cancelId == r.VoucherId)
-                        {
-                            <input placeholder="Reason" @bind="_cancelReason" />
-                            <button class="btn btn-small btn-danger" @onclick="() => CancelAsync(r)">Confirm cancel</button>
-                        }
-                        else
-                        {
-                            <button class="btn btn-small btn-danger" @onclick="() => { _cancelId = r.VoucherId; _cancelReason = string.Empty; }">Cancel</button>
-                        }
+                        <tr class="@(r.Status == VoucherStatus.Cancelled ? "muted" : "")">
+                            <td>@VoucherNumbers.Plain(r.DisplayNo)</td><td class="nowrap">@IndianTime.FormatDate(r.Date)</td><td>@r.Ledger</td><td>@r.PayTo</td><td>@r.VehicleNo</td>
+                            <td>@r.Mode</td><td class="num">@Money.Format(r.AmountPaise)</td>
+                            <td>@r.Status @if (r.CancelReason is not null) { <small>(@r.CancelReason)</small> }</td>
+                            <td class="nowrap">
+                                @if (r.Status == VoucherStatus.Posted && Can(Permission.PaymentCancel))
+                                {
+                                    @if (_cancelId == r.VoucherId)
+                                    {
+                                        <input placeholder="Reason" aria-label="Reason for cancelling" @bind="_cancelReason" />
+                                        <button class="btn btn-small btn-danger" @onclick="() => CancelAsync(r)">Confirm cancel</button>
+                                    }
+                                    else
+                                    {
+                                        <button class="btn btn-small btn-danger" @onclick="() => { _cancelId = r.VoucherId; _cancelReason = string.Empty; }">Cancel</button>
+                                    }
+                                }
+                            </td>
+                        </tr>
                     }
-                </td>
-            </tr>
-        }
-        @if (_history.Count == 0) { <tr><td colspan="10" class="muted">No payments in this period.</td></tr> }
-    </tbody>
-</table>
+                }
+            </tbody>
+            @if (!_historyLoading && _historyError is null && _history.Count > 0)
+            {
+                <tfoot><tr id="paytotal"><td colspan="6">Total paid (@_history.Count(r => r.Status == VoucherStatus.Posted) payments@(_filterLedger != 0 ? $", {_ledgers.FirstOrDefault(l => l.Id == _filterLedger)?.Name}" : ""); cancelled not counted)</td>
+                    <td class="num">@Money.Format(_history.Where(r => r.Status == VoucherStatus.Posted).Sum(r => r.AmountPaise))</td><td colspan="2"></td></tr></tfoot>
+            }
+        </table>
+    </div>
+</Modal>
 
 @code {
     private PaymentForm _form = new();
@@ -141,6 +185,13 @@
     private string _nextNo = "";
     private long _balance, _cash;
     private DateOnly _from, _to;
+    private bool _historyOpen;
+    private bool _historyLoading;
+    private string? _historyError;
+    private string? _historyMessage;
+    private bool _historyMessageOk;
+    private string _filterMode = "", _filterStatus = "";
+    private long _filterLedger;
     private long? _cancelId;
     private string _cancelReason = "";
 
@@ -159,7 +210,6 @@
         _vehicles = await VehicleSvc.SearchAsync(null, StatusFilter.All);
         _nextNo = await Svc.PeekNextNumberAsync();
         _cash = await Svc.CashInHandAsync();
-        await LoadHistoryAsync();
     }
 
     private async Task RefreshAsync()
@@ -176,7 +226,33 @@
         _cash = await Svc.CashInHandAsync();
     }
 
-    private async Task LoadHistoryAsync() => _history = await Svc.HistoryAsync(_from, _to);
+    // "Payment History" button: open the pop-up and load the list.
+    private async Task OpenHistoryAsync()
+    {
+        _historyOpen = true;
+        _historyMessage = null;
+        _cancelId = null;
+        await LoadHistoryAsync();
+    }
+
+    private async Task LoadHistoryAsync()
+    {
+        _historyLoading = true;
+        _historyError = null;
+        try
+        {
+            _history = await Svc.HistoryAsync(_from, _to,
+                _filterMode == "" ? null : Enum.Parse<PaymentMode>(_filterMode),
+                _filterStatus == "" ? null : Enum.Parse<VoucherStatus>(_filterStatus),
+                _filterLedger == 0 ? null : _filterLedger);
+        }
+        catch (Exception)
+        {
+            _history = [];
+            _historyError = "The payments could not be loaded. Please try again.";
+        }
+        finally { _historyLoading = false; }
+    }
 
     private async Task SaveAsync()
     {
@@ -187,12 +263,11 @@
             var result = await Svc.CreateAsync(_form);
             if (result.Ok)
             {
-                ShowOk($"Payment {_nextNo} saved.");
+                ShowOk($"Payment {VoucherNumbers.Plain(_nextNo)} saved.");
                 _form = new PaymentForm();
                 _nextNo = await Svc.PeekNextNumberAsync();
                 _balance = 0;
                 _cash = await Svc.CashInHandAsync();
-                await LoadHistoryAsync();
             }
             else ShowError(result.Error!);
         }
@@ -202,7 +277,8 @@
     private async Task CancelAsync(PaymentRow r)
     {
         var result = await Svc.CancelAsync(r.VoucherId, _cancelReason, r.Version);
-        Show(result, $"Payment {r.DisplayNo} cancelled.");
+        _historyMessageOk = result.Ok;
+        _historyMessage = result.Ok ? $"Payment {VoucherNumbers.Plain(r.DisplayNo)} cancelled." : result.Error;
         _cancelId = null;
         _cash = await Svc.CashInHandAsync();
         await LoadHistoryAsync();
