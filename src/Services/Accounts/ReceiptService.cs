@@ -24,9 +24,11 @@ public sealed class ReceiptForm
     [StringLength(40)] public string? ReferenceNo { get; set; }
     [StringLength(300)] public string? Narration { get; set; }
 
-    // Final design: the pending invoices this receipt pays (one or more), oldest first. An amount above
-    // their total keeps the rest as an advance (client scenario, Nov 2026); an amount below pays them
-    // part, oldest first. Left empty (e.g. a supplier with nothing pending): oldest open invoice first.
+    // Final design: the pending invoices this receipt pays (one or more), in full. An amount above their
+    // total keeps the rest as an advance (client scenario, Nov 2026). An amount below their total is
+    // refused: no part payments (client decision, Nov 2026).
+    // Left empty: oldest open invoice first (FR-TXN-09); with nothing pending the whole amount is an
+    // advance. The Receipt screen always asks for ticks when invoices are pending.
     public List<long> InvoiceIds { get; set; } = [];
 }
 
@@ -98,6 +100,9 @@ public class ReceiptService(IDbContextFactory<AppDbContext> dbFactory, ICurrentU
             var chosen = open.Where(o => wanted.Contains(o.Invoice.Id)).ToList();
             if (chosen.Count != wanted.Count)
                 return Result<long>.Fail("One of the chosen invoices is no longer pending for this party. Choose the invoices again.");
+            var total = chosen.Sum(o => o.Invoice.AmountPaise - o.Invoice.AllocatedPaise);
+            if (amount < total)
+                return Result<long>.Fail($"Part payments are not accepted: the amount must be at least the total of the selected invoices (₹{Money.Format(total)}). Untick an invoice or receive the full amount.");
             open = chosen;
         }
         var allocations = Allocate(open, amount);

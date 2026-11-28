@@ -11,7 +11,7 @@
    pending invoices. The user ticks one or more invoices in "Pending invoices" (a supplier often pays
    several at once); the Amount starts at their total and can be changed (client scenario, Nov 2026):
    more than the total keeps the rest as an ADVANCE, used automatically by the supplier's next invoices;
-   less pays the selected invoices part, oldest first. A supplier with nothing pending can pay an advance.
+   less is not accepted (no part payments, client decision). A supplier with nothing pending can pay an advance.
    No Reference No. box (client decision). A saved receipt is never edited: it is cancelled with a
    reason, from the Receipt History pop-up, which also shows which invoices each receipt paid. *@
 
@@ -124,7 +124,7 @@
         <div class="field">
             <label for="amount">Amount received (₹)*</label>
             <input id="amount" type="number" min="0" step="0.01" class="strong" @bind="_amount" @bind:event="oninput" />
-            <small id="split" class="@(Extra > 0 ? "ok-note" : "")">@SplitText</small>
+            <small id="split" class="@(Extra > 0 ? "ok-note" : _chosen.Count > 0 && AmountPaise < ChosenTotal ? "bad-note" : "")">@SplitText</small>
         </div>
         <div class="field">
             <label for="narr">Narration</label>
@@ -231,7 +231,7 @@
     private IEnumerable<PendingInvoice> Chosen => _pending.Where(p => _chosen.Contains(p.Id));
     private long ChosenTotal => Chosen.Sum(p => p.DuePaise);
     private bool AllChosen => _pending.Count > 0 && _chosen.Count == _pending.Count;
-    private bool CanSave => _supplierId != 0 && _amount > 0 && (_pending.Count == 0 || _chosen.Count > 0);
+    private bool CanSave => _supplierId != 0 && _amount > 0 && (_pending.Count == 0 || (_chosen.Count > 0 && AmountPaise >= ChosenTotal));
     private long AmountPaise => _amount > 0 ? Money.FromRupees(Math.Round(_amount, 2)) : 0;
     private long Extra => _chosen.Count > 0 ? AmountPaise - ChosenTotal : _pending.Count == 0 ? AmountPaise : 0;
 
@@ -241,7 +241,7 @@
         : _pending.Count == 0 ? "Nothing pending: the whole amount is kept as an advance and pays the next invoices."
         : _chosen.Count == 0 ? "Tick the invoices this receipt pays."
         : AmountPaise > ChosenTotal ? $"₹{Money.Format(ChosenTotal)} pays the {_chosen.Count} selected invoice{(_chosen.Count == 1 ? "" : "s")} · ₹{Money.Format(AmountPaise - ChosenTotal)} kept as advance for the next trips."
-        : AmountPaise < ChosenTotal && AmountPaise > 0 ? $"Part payment: ₹{Money.Format(AmountPaise)} of ₹{Money.Format(ChosenTotal)}, oldest selected invoice first."
+        : AmountPaise < ChosenTotal ? $"Part payments are not accepted: receive at least ₹{Money.Format(ChosenTotal)} for the selected invoices, or untick one."
         : AmountPaise == ChosenTotal ? $"Pays the {_chosen.Count} selected invoice{(_chosen.Count == 1 ? "" : "s")} in full."
         : "";
     private IEnumerable<PendingInvoice> Visible => string.IsNullOrWhiteSpace(_find) ? _pending

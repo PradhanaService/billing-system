@@ -137,7 +137,7 @@ public class ReceiptUiTests : UiTest
     }
 
     [Fact]
-    public async Task ADV_11_Paying_Less_Is_A_Part_Payment()
+    public async Task ADV_11_Paying_Less_Than_The_Ticked_Invoices_Is_Not_Allowed()
     {
         await CreditInvoiceAsync();
         var page = PickSupplier();
@@ -145,11 +145,10 @@ public class ReceiptUiTests : UiTest
         page.Find(".ms-box").Click();
         page.Find("input[aria-label='Invoice 1']").Change(true);
         page.Find("#amount").Input("100");
-        Assert.Contains("Part payment: ₹100.00 of ₹150.00", page.Find("#split").TextContent);
-        page.FindAll("button").Single(b => b.TextContent.Trim() == "Save receipt").Click();
 
-        page.WaitForAssertion(() => Assert.Contains("saved for ₹100.00", page.Markup));
-        using var db = Db.NewContext();
-        Assert.Equal((10000L, InvoiceStatus.PartPaid), (db.Invoices.Single().AllocatedPaise, db.Invoices.Single().Status));
+        Assert.Contains("Part payments are not accepted: receive at least ₹150.00", page.Find("#split").TextContent);
+        Assert.True(page.FindAll("button").Single(b => b.TextContent.Trim() == "Save receipt").HasAttribute("disabled"));
+        page.Find("#amount").Input("150");
+        Assert.False(page.FindAll("button").Single(b => b.TextContent.Trim() == "Save receipt").HasAttribute("disabled"));
     }
 }
