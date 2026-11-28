@@ -6,7 +6,7 @@ using WaterBilling.Tests.Billing;
 namespace WaterBilling.Tests.Accounts;
 
 // Module 7 (final design): a receipt pays the pending invoices the user ticks, several at once,
-// for exactly their total. FR-TXN-09 oldest-first stays for a receipt with nothing ticked.
+// oldest first (more than their total: the rest is an advance; less: part paid). FR-TXN-09 oldest-first stays for a receipt with nothing ticked.
 public class ReceiptPendingInvoicesTests : BillingFixture
 {
     private ReceiptService Rcp => Svc.Receipts;
@@ -45,14 +45,17 @@ public class ReceiptPendingInvoicesTests : BillingFixture
     }
 
     [Fact]
-    public async Task RCP_03_Amount_Must_Equal_The_Ticked_Total()
+    public async Task RCP_03_Amount_Below_The_Ticked_Total_Pays_Them_Part_Oldest_First()
     {
         var a = await Credit(TripVehicle, 150);
+        var b = await Credit(VolumeVehicle, 129.68m);
 
-        var r = await Rcp.CreateAsync(new ReceiptForm { PartyId = Supplier, Amount = 100, InvoiceIds = [a] });
+        var r = await Rcp.CreateAsync(new ReceiptForm { PartyId = Supplier, Amount = 200, InvoiceIds = [b, a] });
 
-        Assert.False(r.Ok);
-        Assert.Contains("must equal the total of the selected invoices (₹150.00)", r.Error);
+        Assert.True(r.Ok, r.Error);
+        using var db = Db.NewContext();
+        Assert.Equal((15000L, InvoiceStatus.Paid), (db.Invoices.Single(i => i.Id == a).AllocatedPaise, db.Invoices.Single(i => i.Id == a).Status));
+        Assert.Equal((5000L, InvoiceStatus.PartPaid), (db.Invoices.Single(i => i.Id == b).AllocatedPaise, db.Invoices.Single(i => i.Id == b).Status));
     }
 
     [Fact]

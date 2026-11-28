@@ -37,7 +37,9 @@ else
     else
     {
         <div class="alert edit-banner"><Icon Name="user" Size="18" />
-            <span>Editing as <b>@EditorName</b>@(IsAdmin ? " (Admin)" : " (Sales person)"). Only <b>Capacity</b>, <b>Rate</b>, <b>In Time</b> and <b>Out Time</b> can be changed; the amount updates from them. Saving issues a corrected copy with a new number and keeps @_inv.DisplayNo as Cancelled.</span>
+            <span>Editing as <b>@EditorName</b>@(IsAdmin ? " (Admin)" : " (Sales person)"). <b>Capacity</b>, <b>Rate</b>, <b>In Time</b>, <b>Out Time</b> and the
+                meter <b>End readings</b> can be changed. Changing capacity, rate or times issues a corrected copy with a new number and keeps @_inv.DisplayNo as Cancelled;
+                changing only meter readings keeps the same invoice.</span>
         </div>
 
         <section class="card edit-sec">
@@ -98,6 +100,39 @@ else
             }
         </section>
 
+        <section class="card edit-sec" id="emeters">
+            <h2><span class="sec-no">5</span> Meter readings</h2>
+            <table class="meters">
+                <thead><tr><th></th><th>Start reading</th><th>End reading</th><th>Volume (kL)</th></tr></thead>
+                <tbody>
+                    @for (var m = 1; m <= 3; m++)
+                    {
+                        var n = m;
+                        <tr>
+                            <th><span class="meter-tag">Meter @n</span></th>
+                            <td><input type="number" step="0.1" min="0" aria-label="Meter @n start" value="@Kl(_meters.Start(n))" @onchange="e => SetMeter(n, true, e.Value)"
+                                       readonly="@StartLocked(n)" title="@(StartLocked(n) ? "Locked: the End reading of the previous trip" : null)" /></td>
+                            <td class="editable"><input type="number" step="0.1" min="0" aria-label="Meter @n end" value="@Kl(_meters.End(n))" @onchange="e => SetMeter(n, false, e.Value)" /></td>
+                            <td><input readonly class="vol" aria-label="Meter @n volume" value="@(_meters.End(n) - _meters.Start(n) is { } v && v >= 0 ? Kl(v) : "")" /></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+            <p class="muted small">Start readings are locked: each is the End reading of the previous trip on that meter. A changed End reading also becomes
+                the Start reading of the next invoice on that meter. Clear an End reading to take that meter off this trip.</p>
+            @if (IsAdmin)
+            {
+                <label class="check-line"><input type="checkbox" id="ereplaced" @bind="_meters.MeterReplaced" /> Meter replaced or reset: let me type new Start readings (Admin)</label>
+            }
+            @if (MetersChanged)
+            {
+                <div class="field" style="margin-top: 0.75rem">
+                    <label for="emreason">Reason for the meter change*</label>
+                    <input id="emreason" @bind="_meters.Reason" @bind:event="oninput" maxlength="200" placeholder="e.g. Misread the dial" />
+                </div>
+            }
+        </section>
+
         <div class="form-actions edit-actions">
             <a class="btn" href="/invoices">Cancel</a>
             <button class="btn btn-primary" @onclick="SaveAsync" disabled="@(Busy || !CanSave)">Save</button>
@@ -128,6 +163,7 @@ else
 
     private InvoiceDetail? _inv;
     private InvoiceRevision _rev = new();
+    private MeterEdit _meters = new();
     private bool _loaded;
     private bool _askWho;
     private long? _pick;
@@ -174,6 +210,33 @@ else
             OutTime = _inv.OutTimeUtc is { } b2 ? IndianTime.FormatTime(b2) : null,
             Version = _inv.Version,
         };
+        static decimal? K(long? t) => t is { } v ? v / 10m : null;
+        var r = _inv.Meters;
+        _meters = new MeterEdit { Meter1Start = K(r.Start1), Meter1End = K(r.End1), Meter2Start = K(r.Start2), Meter2End = K(r.End2),
+                                  Meter3Start = K(r.Start3), Meter3End = K(r.End3) };
+    }
+
+    // ---- Meter readings ----
+    private static string Kl(decimal? d) => d?.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture) ?? "";
+    private long? SavedStart(int n) => n switch { 1 => _inv!.Meters.Start1, 2 => _inv!.Meters.Start2, _ => _inv!.Meters.Start3 };
+    private long? SavedEnd(int n) => n switch { 1 => _inv!.Meters.End1, 2 => _inv!.Meters.End2, _ => _inv!.Meters.End3 };
+    private bool StartLocked(int n) => !_meters.MeterReplaced && SavedStart(n) is not null;
+    private static long? Tenths(decimal? d) => d is { } v ? (long)Math.Round(v * 10m, MidpointRounding.AwayFromZero) : null;
+    private bool MetersChanged => _inv is not null && Enumerable.Range(1, 3).Any(n => Tenths(_meters.End(n)) != SavedEnd(n)
+        || (Tenths(_meters.Start(n)) != SavedStart(n) && (_meters.MeterReplaced || SavedStart(n) is null) && _meters.End(n) is not null));
+
+    private void SetMeter(int n, bool start, object? value)
+    {
+        decimal? d = decimal.TryParse(value?.ToString(), System.Globalization.NumberStyles.Number, System.Globalization.CultureInfo.InvariantCulture, out var x) ? x : null;
+        switch (n, start)
+        {
+            case (1, true): _meters.Meter1Start = d; break;
+            case (1, false): _meters.Meter1End = d; break;
+            case (2, true): _meters.Meter2Start = d; break;
+            case (2, false): _meters.Meter2End = d; break;
+            case (_, true): _meters.Meter3Start = d; break;
+            default: _meters.Meter3End = d; break;
+        }
     }
 
     private void BackToList() => Nav.NavigateTo("/invoices");
@@ -190,11 +253,19 @@ else
         Busy = true;
         try
         {
-            var result = await Svc.ReviseAsync(Id, _rev);
+            _meters.EditedBySalesPersonId = _rev.EditedBySalesPersonId;
+            _rev.Meters = MetersChanged ? _meters : null;
+            var result = await Svc.EditAsync(Id, _rev);
             if (!result.Ok) { ShowError(result.Error!); return; }
-            var copy = await Svc.GetAsync(result.Value);
-            ShowOk($"Saved. Invoice {_inv.DisplayNo} is now cancelled and its corrected copy is invoice {copy?.DisplayNo} (₹{Money.Format(copy?.AmountPaise ?? 0)}).");
+            var others = result.Value!.MeterChanges.Count == 0 ? "" : $" Meter readings also updated on: {string.Join("; ", result.Value.MeterChanges.Select(c => c.Text))}.";
+            if (result.Value.NewCopy)
+            {
+                var copy = await Svc.GetAsync(result.Value.InvoiceId);
+                ShowOk($"Saved. Invoice {_inv.DisplayNo} is now cancelled and its corrected copy is invoice {copy?.DisplayNo} (₹{Money.Format(copy?.AmountPaise ?? 0)}).{others}");
+            }
+            else ShowOk($"Meter readings of invoice {_inv.DisplayNo} saved.{others}");
             _inv = await Svc.GetAsync(Id);
+            if (_inv is not null && _inv.Status != InvoiceStatus.Cancelled) Fill();
         }
         finally { Busy = false; }
     }

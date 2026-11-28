@@ -1,3 +1,4 @@
+using WaterBilling.Services.Accounts;
 using Bunit;
 using WaterBilling.Data.Entities;
 using WaterBilling.Pages.Accounts;
@@ -62,5 +63,25 @@ public class PaymentUiTests : UiTest
         var row = page.Find(".modal tbody tr");
         Assert.Equal("1", row.Children[0].TextContent.Trim());
         Assert.DoesNotContain("PV-", row.TextContent);
+    }
+
+    [Fact]
+    public async Task PAY_13_History_Filters_By_Ledger_And_Shows_The_Total()
+    {
+        const long Maintenance = 9;   // seeded "Vehicle Maintenance"
+        await S.Payments.CreateAsync(new PaymentForm { AccountId = FuelExpense, Amount = 500, Mode = PaymentMode.Bank });
+        await S.Payments.CreateAsync(new PaymentForm { AccountId = FuelExpense, Amount = 250, Mode = PaymentMode.Bank });
+        await S.Payments.CreateAsync(new PaymentForm { AccountId = Maintenance, Amount = 1200, Mode = PaymentMode.Bank });
+        var page = Page();
+        page.FindAll("button").First(b => b.TextContent.Contains("Payment History")).Click();
+        page.WaitForAssertion(() => Assert.Equal(3, page.FindAll(".modal tbody tr").Count));
+        Assert.Contains("1,950.00", page.Find("#paytotal").TextContent);
+
+        page.Find("#fledger").Change(FuelExpense.ToString());
+
+        page.WaitForAssertion(() => Assert.Equal(2, page.FindAll(".modal tbody tr").Count));
+        Assert.All(page.FindAll(".modal tbody tr"), r => Assert.Contains("Fuel Expense", r.TextContent));
+        Assert.Contains("750.00", page.Find("#paytotal").TextContent);
+        Assert.Contains("Fuel Expense", page.Find("#paytotal").TextContent);
     }
 }

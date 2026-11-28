@@ -214,6 +214,47 @@ public class FullDayIntegrationTests : IDisposable
         Assert.Contains(log, l => l.Action == "VEHICLE_DELETED");
     }
 
+    [Fact]
+    public async Task INT_05_Client_Changes_Nov_2026_Advance_Locked_Meters_And_Payment_Filter_Together()
+    {
+        var shop = await OpenShopAsync();
+        // Three Sangeetha trips on Meter 1: start typed once, then only End readings.
+        var t1 = (await S.Invoices.CreateAsync(new InvoiceForm { SalesPersonId = shop.Ravi, VehicleId = shop.A1, Rate = 150, Meter1Start = 100m, Meter1End = 110m })).Value;
+        var t2 = (await S.Invoices.CreateAsync(new InvoiceForm { SalesPersonId = shop.Ravi, VehicleId = shop.A1, Rate = 150, Meter1End = 121m })).Value;
+        Assert.False((await S.Invoices.CreateAsync(new InvoiceForm { SalesPersonId = shop.Ravi, VehicleId = shop.A1, Rate = 150, Meter1Start = 125m, Meter1End = 130m })).Ok);   // Start is locked
+
+        // Sangeetha owes ₹300, pays ₹500: ₹200 stays as advance.
+        var receipt = await S.Receipts.CreateAsync(new ReceiptForm { PartyId = shop.Sangeetha, Amount = 500, Mode = PaymentMode.Upi, InvoiceIds = [t1, t2] });
+        Assert.True(receipt.Ok, receipt.Error);
+        Assert.Equal(20000, await S.Receipts.AdvanceAvailableAsync(PartyType.Supplier, shop.Sangeetha));
+
+        // The next trip (End only) is paid from the advance; its Start follows invoice 2.
+        var t3 = (await S.Invoices.CreateAsync(new InvoiceForm { SalesPersonId = shop.Kumar, VehicleId = shop.A1, Rate = 150, Meter1End = 128m })).Value;
+        Assert.Equal(PayState.Paid, PayStates.For(await InvoiceRowAsync(t3)));
+        Assert.Equal(5000, await S.Receipts.AdvanceAvailableAsync(PartyType.Supplier, shop.Sangeetha));
+
+        // Invoice 2's End was misread (121 -> 120.5): corrected on the same invoice; invoice 3's Start follows.
+        var two = (await S.Invoices.GetAsync(t2))!;
+        var edit = await S.Invoices.EditAsync(t2, new InvoiceRevision { EditedBySalesPersonId = shop.Kumar, CapacityLitres = two.CapacityLitres, Rate = 150,
+            Version = two.Version, Meters = new MeterEdit { Meter1End = 120.5m, Reason = "Misread" } });
+        Assert.True(edit.Ok, edit.Error);
+        Assert.False(edit.Value!.NewCopy);
+        Assert.Equal(1205L, (await S.Invoices.GetAsync(t3))!.Meters.Start1);
+
+        // Payments by ledger.
+        await S.Payments.CreateAsync(new PaymentForm { AccountId = 10, Amount = 50, Mode = PaymentMode.Upi });      // Fuel Expense
+        await S.Payments.CreateAsync(new PaymentForm { AccountId = 9, Amount = 70, Mode = PaymentMode.Upi });       // Vehicle Maintenance
+        var fuel = await S.Payments.HistoryAsync(Day, Day, accountId: 10);
+        Assert.Equal(5000, fuel.Single().AmountPaise);
+
+        // Money still adds up everywhere.
+        using var h = Ctx();
+        Balanced(h);
+        Assert.Equal(-5000, await LedgerQueries.PartyBalanceAsync(h.Db, PartyType.Supplier, shop.Sangeetha));   // ₹50 advance left (Cr)
+        var report = await S.TripReports.BuildAsync(new ReportFilter(Day, Day, shop.Sangeetha));
+        Assert.Equal((45000L, 45000L, 0L), (report.BillPaise, report.ReceivedPaise, report.OutstandingPaise));
+    }
+
     private async Task<InvoiceRow> InvoiceRowAsync(long id) =>
         (await S.Invoices.ListAsync(DateOnly.MinValue, DateOnly.MaxValue)).Single(r => r.Id == id);
 

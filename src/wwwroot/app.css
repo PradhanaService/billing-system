@@ -366,3 +366,5 @@ input.strong { font-weight: 700; }
 .meter-edit { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line-soft); display: grid; gap: 10px; }
 .meter-edit .form-grid { margin: 0; }
 .meter-edit .form-actions { margin: 0; justify-content: flex-end; }
+.check-line { display: flex; gap: 8px; align-items: center; font-size: 0.88rem; font-weight: 600; }
+table.meters input[readonly] { background: var(--readonly); color: var(--ink); }

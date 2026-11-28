@@ -120,7 +120,7 @@
                                         <dt>Mode</dt><dd>@x.Mode</dd>
                                         @if (x.Reference is not null) { <dt>Reference</dt><dd>@x.Reference</dd> }
                                         <dt>Receipt amount</dt><dd>₹@Money.Format(x.ReceiptAmountPaise)</dd>
-                                        <dt>Paid to this invoice</dt><dd><b>₹@Money.Format(x.PaidToThisInvoicePaise)</b></dd>
+                                        <dt>Paid to this invoice</dt><dd><b>₹@Money.Format(x.PaidToThisInvoicePaise)</b>@(x.FromAdvance ? " (from advance)" : "")</dd>
                                         <dt>Created by</dt><dd>@x.CreatedBy</dd>
                                     </dl>
                                 }

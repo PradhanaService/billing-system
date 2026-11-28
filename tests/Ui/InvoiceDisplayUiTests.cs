@@ -112,7 +112,7 @@ public class InvoiceDisplayUiTests : UiTest
         var page = RenderComponent<InvoiceEdit>(p => p.Add(x => x.Id, id));
 
         page.WaitForAssertion(() => Assert.Contains("Editing as <b>Ravi</b>", page.Markup));
-        foreach (var fixedBox in page.FindAll(".edit-sec input").Where(i => !i.ClassList.Contains("time-input") && i.Id is not ("ecap" or "erate" or "eindate" or "eoutdate")))
+        foreach (var fixedBox in page.FindAll(".edit-sec:not(#emeters) input").Where(i => !i.ClassList.Contains("time-input") && i.Id is not ("ecap" or "erate" or "eindate" or "eoutdate")))
             Assert.True(fixedBox.HasAttribute("readonly"), $"{fixedBox.OuterHtml} should be read-only");
         page.Find("#erate").Input("150");
         page.Find("#eouttime").Change("10:30 AM");
@@ -134,5 +134,29 @@ public class InvoiceDisplayUiTests : UiTest
 
         page.WaitForAssertion(() => Assert.Contains("Which salesperson is editing?", page.Markup));
         Assert.True(page.FindAll("button").First(b => b.TextContent.Trim() == "Save").HasAttribute("disabled"));
+    }
+
+    [Fact]
+    public async Task MTR_13_Edit_Screen_Changes_Meter_End_Readings_On_The_Same_Invoice_With_Start_Locked()
+    {
+        if (_vehicle == 0) { (_supplier, _vehicle) = await SupplierWithVehicleAsync(); _ravi = Db.AddSalesPerson("Ravi"); }
+        var first = (await S.Invoices.CreateAsync(new InvoiceForm { VehicleId = _vehicle, Rate = 129.68m, SalesPersonId = _ravi, Meter1Start = 100m, Meter1End = 110m })).Value;
+        var second = (await S.Invoices.CreateAsync(new InvoiceForm { VehicleId = _vehicle, Rate = 129.68m, SalesPersonId = _ravi, Meter1End = 120m })).Value;
+        Services.GetRequiredService<NavigationManager>().NavigateTo($"/invoices/{first}/edit?by={_ravi}");
+        var page = RenderComponent<InvoiceEdit>(p => p.Add(x => x.Id, first));
+
+        page.WaitForAssertion(() => Assert.Equal("110.0", page.Find("#emeters input[aria-label='Meter 1 end']").GetAttribute("value")));
+        Assert.True(page.Find("#emeters input[aria-label='Meter 1 start']").HasAttribute("readonly"));
+        Assert.False(page.Find("#emeters input[aria-label='Meter 1 end']").HasAttribute("readonly"));
+        Assert.Empty(page.FindAll("#ereplaced"));                                  // the meter-replaced option is Admin only
+
+        page.Find("#emeters input[aria-label='Meter 1 end']").Change("108.5");
+        page.Find("#emreason").Input("Misread the dial");
+        page.FindAll("button").First(b => b.TextContent.Trim() == "Save").Click();
+
+        page.WaitForAssertion(() => Assert.Contains("Meter readings of invoice 1 saved. Meter readings also updated on: invoice 2, Meter 1 start: 110.0 → 108.5", page.Markup));
+        using var db = Db.NewContext();
+        Assert.Equal(2, db.Invoices.Count());                                       // no corrected copy for a meter-only change
+        Assert.Equal(1085L, db.Invoices.Single(i => i.Id == second).Meter1StartTenths);
     }
 }

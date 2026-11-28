@@ -49,7 +49,7 @@ public class ReceiptUiTests : UiTest
         var page = PickSupplier();
 
         page.WaitForAssertion(() => Assert.Contains("0 of 2 selected", page.Markup));
-        Assert.True(page.Find("#amount").HasAttribute("readonly"));
+        Assert.False(page.Find("#amount").HasAttribute("readonly"));   // filled in from the ticks, and can be changed
         page.Find(".ms-box").Click();
         page.Find("input[aria-label='Invoice 1']").Change(true);
         Assert.Equal("150.00", page.Find("#amount").GetAttribute("value"));
@@ -83,7 +83,7 @@ public class ReceiptUiTests : UiTest
         var page = PickSupplier();
         page.WaitForAssertion(() => Assert.Contains("No pending invoices", page.Markup));
         Assert.False(page.Find("#amount").HasAttribute("readonly"));
-        page.Find("#amount").Change("500");
+        page.Find("#amount").Input("500");
         page.FindAll("button").Single(b => b.TextContent.Trim() == "Save receipt").Click();
 
         page.WaitForAssertion(() => Assert.Contains("saved for ₹500.00", page.Markup));
@@ -111,5 +111,45 @@ public class ReceiptUiTests : UiTest
         page.WaitForAssertion(() => Assert.Contains("reason", page.Find(".modal").TextContent, StringComparison.OrdinalIgnoreCase));
         using var db = Db.NewContext();
         Assert.Equal(15000, db.Invoices.Single().AllocatedPaise);   // still paid: nothing cancelled
+    }
+
+    [Fact]
+    public async Task ADV_10_Paying_More_Than_The_Ticked_Invoices_Shows_The_Advance_And_It_Pays_The_Next_Trip()
+    {
+        await CreditInvoiceAsync();
+        await CreditInvoiceAsync();                                        // two trips, ₹300 owed
+        var page = PickSupplier();
+        page.WaitForAssertion(() => page.Find(".ms-box"));
+        page.Find(".ms-box").Click();
+        page.Find(".ms-all input").Change(true);
+        Assert.Equal("300.00", page.Find("#amount").GetAttribute("value"));
+
+        page.Find("#amount").Input("500");
+        Assert.Contains("₹300.00 pays the 2 selected invoices · ₹200.00 kept as advance", page.Find("#split").TextContent);
+        page.FindAll("button").Single(b => b.TextContent.Trim() == "Save receipt").Click();
+
+        page.WaitForAssertion(() => Assert.Contains("₹200.00 is kept as advance and pays the next invoices automatically", page.Markup));
+        page.WaitForAssertion(() => Assert.Contains("Advance with us: ₹200.00", page.Find("#advnote").TextContent));
+
+        var next = await CreditInvoiceAsync();                             // the next trip is paid from the advance
+        using var db = Db.NewContext();
+        Assert.Equal(InvoiceStatus.Paid, db.Invoices.Single(i => i.Id == next).Status);
+    }
+
+    [Fact]
+    public async Task ADV_11_Paying_Less_Is_A_Part_Payment()
+    {
+        await CreditInvoiceAsync();
+        var page = PickSupplier();
+        page.WaitForAssertion(() => page.Find(".ms-box"));
+        page.Find(".ms-box").Click();
+        page.Find("input[aria-label='Invoice 1']").Change(true);
+        page.Find("#amount").Input("100");
+        Assert.Contains("Part payment: ₹100.00 of ₹150.00", page.Find("#split").TextContent);
+        page.FindAll("button").Single(b => b.TextContent.Trim() == "Save receipt").Click();
+
+        page.WaitForAssertion(() => Assert.Contains("saved for ₹100.00", page.Markup));
+        using var db = Db.NewContext();
+        Assert.Equal((10000L, InvoiceStatus.PartPaid), (db.Invoices.Single().AllocatedPaise, db.Invoices.Single().Status));
     }
 }

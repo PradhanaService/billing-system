@@ -111,6 +111,13 @@
             </select>
         </div>
         <div class="field">
+            <label for="fledger">Ledger</label>
+            <select id="fledger" @bind="_filterLedger" @bind:after="LoadHistoryAsync">
+                <option value="0">All ledgers</option>
+                @foreach (var l in _ledgers) { <option value="@l.Id">@l.Name</option> }
+            </select>
+        </div>
+        <div class="field">
             <label for="fstatus">Status</label>
             <select id="fstatus" @bind="_filterStatus" @bind:after="LoadHistoryAsync">
                 <option value="">All</option><option value="Posted">Posted</option><option value="Cancelled">Cancelled</option>
@@ -160,6 +167,11 @@
                     }
                 }
             </tbody>
+            @if (!_historyLoading && _historyError is null && _history.Count > 0)
+            {
+                <tfoot><tr id="paytotal"><td colspan="6">Total paid (@_history.Count(r => r.Status == VoucherStatus.Posted) payments@(_filterLedger != 0 ? $", {_ledgers.FirstOrDefault(l => l.Id == _filterLedger)?.Name}" : ""); cancelled not counted)</td>
+                    <td class="num">@Money.Format(_history.Where(r => r.Status == VoucherStatus.Posted).Sum(r => r.AmountPaise))</td><td colspan="2"></td></tr></tfoot>
+            }
         </table>
     </div>
 </Modal>
@@ -179,6 +191,7 @@
     private string? _historyMessage;
     private bool _historyMessageOk;
     private string _filterMode = "", _filterStatus = "";
+    private long _filterLedger;
     private long? _cancelId;
     private string _cancelReason = "";
 
@@ -230,7 +243,8 @@
         {
             _history = await Svc.HistoryAsync(_from, _to,
                 _filterMode == "" ? null : Enum.Parse<PaymentMode>(_filterMode),
-                _filterStatus == "" ? null : Enum.Parse<VoucherStatus>(_filterStatus));
+                _filterStatus == "" ? null : Enum.Parse<VoucherStatus>(_filterStatus),
+                _filterLedger == 0 ? null : _filterLedger);
         }
         catch (Exception)
         {

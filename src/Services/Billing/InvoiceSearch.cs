@@ -21,7 +21,10 @@ public sealed record InvoiceListRow(long Id, string DisplayNo, DateOnly InvoiceD
 }
 
 public sealed record InvoiceReceiptInfo(long VoucherId, string ReceiptNo, DateOnly Date, string ReceivedFrom, PaymentMode? Mode,
-    string? Reference, long ReceiptAmountPaise, long PaidToThisInvoicePaise, string CreatedBy);
+    string? Reference, long ReceiptAmountPaise, long PaidToThisInvoicePaise, string CreatedBy)
+{
+    public bool FromAdvance { get; init; }   // paid later from money kept on account
+}
 
 public class InvoiceSearchService(IDbContextFactory<AppDbContext> dbFactory, ICurrentUser currentUser)
 {
@@ -94,7 +97,7 @@ public class InvoiceSearchService(IDbContextFactory<AppDbContext> dbFactory, ICu
                           orderby v.Number descending
                           select new InvoiceReceiptInfo(v.Id, v.Number.ToString(), v.VoucherDate,
                               s != null ? s.Name : c != null ? c.Name : "", v.Mode, v.ReferenceNo, v.AmountPaise, a.AmountPaise,
-                              u.Role == UserRole.Admin ? "Admin" : u.FullName)).ToListAsync();
+                              u.Role == UserRole.Admin ? "Admin" : u.FullName) { FromAdvance = a.FromAdvance }).ToListAsync();
         return rows;
     }
 }

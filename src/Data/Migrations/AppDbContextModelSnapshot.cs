@@ -749,6 +749,9 @@ namespace WaterBilling.Data.Migrations
                     b.Property<long>("AmountPaise")
                         .HasColumnType("INTEGER");
 
+                    b.Property<bool>("FromAdvance")
+                        .HasColumnType("INTEGER");
+
                     b.Property<long>("InvoiceId")
                         .HasColumnType("INTEGER");
 

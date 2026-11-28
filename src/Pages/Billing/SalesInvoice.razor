@@ -201,7 +201,8 @@
                             <th><span class="meter-tag">Meter @n</span></th>
                             @if (_shown is not null && _meterEdit is not null)
                             {
-                                <td><input type="number" step="0.1" min="0" aria-label="Meter @n start" value="@Kl(EditGet(n, start: true))" @onchange="e => EditSet(n, true, e.Value)" /></td>
+                                <td><input type="number" step="0.1" min="0" aria-label="Meter @n start" value="@Kl(EditGet(n, start: true))" @onchange="e => EditSet(n, true, e.Value)"
+                                           readonly="@EditStartLocked(n)" title="@(EditStartLocked(n) ? "Locked: the End reading of the previous trip" : null)" /></td>
                                 <td><input type="number" step="0.1" min="0" aria-label="Meter @n end" value="@Kl(EditGet(n, start: false))" @onchange="e => EditSet(n, false, e.Value)" /></td>
                             }
                             else if (_shown is not null)
@@ -211,7 +212,8 @@
                             }
                             else
                             {
-                                <td><input type="number" step="0.1" min="0" aria-label="Meter @n start" value="@Kl(GetStart(n))" @onchange="e => SetStart(n, e.Value)" /></td>
+                                <td><input type="number" step="0.1" min="0" aria-label="Meter @n start" value="@Kl(GetStart(n))" @onchange="e => SetStart(n, e.Value)"
+                                           readonly="@NewStartLocked(n)" title="@(NewStartLocked(n) ? "Locked: the End reading of the previous trip" : null)" /></td>
                                 <td><input type="number" step="0.1" min="0" aria-label="Meter @n end" value="@Kl(GetEnd(n))" @onchange="e => SetEnd(n, e.Value)" /></td>
                             }
                             <td><input readonly class="vol" value="@MeterVolume(n)" aria-label="Meter @n volume" /></td>
@@ -224,8 +226,13 @@
             {
                 @* Correcting a saved invoice's readings: the invoices before and after it on the same meter follow. *@
                 <div class="meter-edit" id="meteredit">
-                    <p class="muted small">A changed End reading also becomes the Start reading of the next invoice on that meter;
-                        a changed Start reading becomes the End reading of the previous one. Clear both boxes to take a meter off this invoice.</p>
+                    <p class="muted small">Only End readings can be changed. A changed End reading also becomes the Start reading of the next
+                        invoice on that meter. To fix a Start reading, correct the End reading of the previous invoice. Clear an End reading to take
+                        that meter off this invoice.</p>
+                    @if (IsAdmin)
+                    {
+                        <label class="check-line"><input type="checkbox" id="mreplaced" @bind="_meterEdit.MeterReplaced" /> Meter replaced or reset: let me type new Start readings (Admin)</label>
+                    }
                     <div class="form-grid">
                         @if (!IsAdmin)
                         {
@@ -250,9 +257,20 @@
             }
             @if (_shown is null && _starts.Any(x => x.FromInvoiceNo is not null))
             {
-                <small id="meternote" class="muted">Start readings carry on from the last End reading of each meter
+                <small id="meternote" class="muted">Start readings are locked: they carry on from the last End reading of each meter
                     (@string.Join(", ", _starts.Where(x => x.FromInvoiceNo is not null).Select(x => $"Meter {x.Meter}: invoice {x.FromInvoiceNo}"))).
-                    Type only the End reading. Change a Start reading only if the meter was reset or replaced.</small>
+                    Type only the End reading of the meters used on this trip.</small>
+                @if (IsAdmin)
+                {
+                    <div class="meter-edit">
+                        <label class="check-line"><input type="checkbox" id="newreplaced" @bind="_form.MeterReplaced" /> Meter replaced or reset: let me type new Start readings (Admin)</label>
+                        @if (_form.MeterReplaced)
+                        {
+                            <div class="field"><label for="newreplacedwhy">Reason <span class="req">*</span></label>
+                                <input id="newreplacedwhy" @bind="_form.MeterReplacedReason" maxlength="200" placeholder="e.g. Meter 2 replaced by the technician" /></div>
+                        }
+                    </div>
+                }
             }
         </div>
     </section>
@@ -473,11 +491,8 @@
         Busy = true;
         try
         {
-            // A meter not used on this trip (no End reading) keeps only its carried-on Start: leave it out.
-            var unused = _starts.Where(m => GetEnd(m.Meter) is null && GetStart(m.Meter) == m.Kl && m.Kl is not null).ToList();
-            foreach (var m in unused) SetStartValue(m.Meter, null);
+            // A meter with no End reading is simply not used on this trip (the service leaves it out).
             var result = await Svc.CreateAsync(_form);
-            if (!result.Ok) foreach (var m in unused) SetStartValue(m.Meter, m.Kl);   // put them back on screen
             if (result.Ok)
             {
                 var saved = await Svc.GetAsync(result.Value);
@@ -493,6 +508,11 @@
     }
 
     private bool IsAdmin => Me?.Role == UserRole.Admin;
+
+    // Start readings are locked to the previous trip's End reading; they are typed only for a meter's
+    // first trip (nothing to carry on from) or by the Admin for a replaced or reset meter.
+    private bool NewStartLocked(int n) => !_form.MeterReplaced && _starts.FirstOrDefault(x => x.Meter == n)?.FromInvoiceNo is not null;
+    private bool EditStartLocked(int n) => !(_meterEdit?.MeterReplaced ?? false) && ShownStart(n) is not null;
 
     private void NewForm(long? salesPersonId = null) =>
         _form = new InvoiceForm { SalesPersonId = salesPersonId, PaymentMode = InvoicePaymentMode.Credit, InDate = _date, OutDate = _date };   // paid later, by Receipt

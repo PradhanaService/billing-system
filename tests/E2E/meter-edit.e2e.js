@@ -55,18 +55,18 @@ const results = [];
     if (await val(1, 'start') !== '124.0') throw new Error('start ' + await val(1, 'start'));
     if (await val(1, 'volume') !== '6.0') throw new Error('volume ' + await val(1, 'volume'));
   });
-  await step('MTR_E2E_04', 'Correct invoice 2 Start to 109.0: invoice 1 now ends at 109.0', async () => {
-    await btn('Previous').click(); await settle();
+  await step('MTR_E2E_04', 'Start readings are locked (new invoice, and Edit meter readings on a saved one)', async () => {
+    await p.goto(BASE + '/invoices/new'); await settle();
+    if (!(await meter(1, 'start').getAttribute('readonly') !== null)) throw new Error('new invoice start not locked');
+    await p.fill('[aria-label="Find invoice"]', '2'); await btn('Search').click(); await settle();
     await btn('Edit meter readings').click(); await settle();
-    await meter(1, 'start').fill('109.0'); await meter(1, 'start').press('Tab');
-    await p.locator('#mwho').selectOption({ label: 'Ravi' }); await p.fill('#mreason', 'Typing mistake');
-    await btn('Save meter readings').click(); await settle();
-    await see('invoice 1, Meter 1 end: 110.0 → 109.0');
-    await btn('Previous').click(); await settle();
-    if (await val(1, 'end') !== '109.0') throw new Error('end ' + await val(1, 'end'));
+    if (await meter(1, 'start').getAttribute('readonly') === null) throw new Error('edit start not locked');
+    if (await meter(1, 'end').getAttribute('readonly') !== null) throw new Error('edit end is locked');
+    await btn('Cancel').click(); await settle();
   });
   await step('MTR_E2E_05', 'A correction past the next invoice is refused', async () => {
-    await btn('Next').click(); await settle();
+    await p.goto(BASE + '/invoices/new'); await settle();
+    await p.fill('[aria-label="Find invoice"]', '2'); await btn('Search').click(); await settle();
     await btn('Edit meter readings').click(); await settle();
     await meter(1, 'end').fill('140.0'); await meter(1, 'end').press('Tab');
     await p.locator('#mwho').selectOption({ label: 'Ravi' }); await p.fill('#mreason', 'test');
@@ -74,9 +74,17 @@ const results = [];
     await see('above the end reading of invoice 3');
     await btn('Cancel').click(); await settle();
   });
-  await step('MTR_E2E_06', 'A new invoice starts from the corrected chain (130.0)', async () => {
+  await step('MTR_E2E_06', 'Invoice Display > Edit: change only invoice 3 End to 131.0 (same invoice number)', async () => {
+    await p.goto(BASE + '/invoices'); await settle();
+    await p.locator('tbody tr').filter({ hasText: /^\s*3\b/ }).first().getByRole('button', { name: 'Edit' }).click().catch(async () => {
+      await p.locator('tbody tr').first().getByRole('button', { name: 'Edit' }).click(); });
+    await p.locator('#ewho').selectOption({ label: 'Ravi' }); await btn('Continue').click(); await settle();
+    await p.locator('#emeters input[aria-label="Meter 1 end"]').fill('131.0'); await p.locator('#emeters input[aria-label="Meter 1 end"]').press('Tab'); await settle();
+    await p.fill('#emreason', 'Misread the dial');
+    await btn('Save').click(); await settle();
+    await see('Meter readings of invoice 3 saved');
     await p.goto(BASE + '/invoices/new'); await settle();
-    if (await val(1, 'start') !== '130.0') throw new Error('start ' + await val(1, 'start'));
+    if (await val(1, 'start') !== '131.0') throw new Error('new start ' + await val(1, 'start'));
   });
   await step('MTR_E2E_07', 'Activity Log records the change and the follow-on changes under Ravi', async () => {
     await btn('Sign out').click().catch(() => p.click('text=Sign out')); await settle();
@@ -85,7 +93,7 @@ const results = [];
     await p.fill('#text', 'METERS'); await btn('Search').click(); await settle();
     const body = await p.locator('tbody').innerText();
     if ((body.match(/INVOICE_METERS_CHANGED/g) || []).length !== 2) throw new Error('changed rows: ' + body);
-    if ((body.match(/INVOICE_METERS_ADJUSTED/g) || []).length !== 2) throw new Error('adjusted rows');
+    if ((body.match(/INVOICE_METERS_ADJUSTED/g) || []).length !== 1) throw new Error('adjusted rows');
     if (!body.includes('Ravi')) throw new Error('no Ravi');
   });
   await step('MTR_E2E_08', 'No browser errors', async () => { if (errors.length) throw new Error(errors.join(' | ')); });

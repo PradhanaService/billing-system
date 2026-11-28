@@ -10,4 +10,7 @@ public class ReceiptAllocation
     public long VehicleId { get; set; }
     public long AmountPaise { get; set; }
     public bool IsActive { get; set; } = true;
+    // True when a later invoice was paid from this receipt's advance (money kept on account),
+    // false when the invoice was ticked on the receipt itself.
+    public bool FromAdvance { get; set; }
 }

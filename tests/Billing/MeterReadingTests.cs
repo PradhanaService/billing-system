@@ -46,14 +46,25 @@ public class MeterReadingTests : BillingFixture
     }
 
     [Fact]
-    public async Task MTR_02_Changing_The_Start_Reading_Moves_The_Previous_Invoices_End()
+    public async Task MTR_02_The_Start_Reading_Is_Locked_And_Only_The_Admin_Can_Set_One_For_A_Replaced_Meter()
     {
         var ids = await ThreeTripsAsync();
 
-        Assert.True((await Meters.UpdateAsync(ids[1], EditOf(ids[1], 108.5m, 125.5m))).Ok);
+        var refused = await Meters.UpdateAsync(ids[1], EditOf(ids[1], 108.5m, 125.5m));
+        Assert.Contains("start reading cannot be changed", refused.Error);
+        Assert.Contains("invoice 1", refused.Error);                                   // fix it on the previous invoice
 
-        Assert.Equal((1000L, 1085L, 85L), (Get(ids[0]).Meter1StartTenths!.Value, Get(ids[0]).Meter1EndTenths!.Value, Get(ids[0]).VolumeTenths));
-        Assert.Equal(1255L, Get(ids[2]).Meter1StartTenths);                    // next invoice untouched
+        var salesReplace = EditOf(ids[1], 0m, 15.5m); salesReplace.MeterReplaced = true;
+        Assert.Contains("Only the Admin", (await Meters.UpdateAsync(ids[1], salesReplace)).Error);
+
+        Me.User = Db.AddUser(UserRole.Admin);
+        var replaced = EditOf(ids[1], 0m, 15.5m, "Meter 1 replaced"); replaced.MeterReplaced = true;
+        Assert.True((await Meters.UpdateAsync(ids[1], replaced)).Ok);
+        Assert.Equal((0L, 155L), (Get(ids[1]).Meter1StartTenths!.Value, Get(ids[1]).Meter1EndTenths!.Value));
+        Assert.Equal(1100L, Get(ids[0]).Meter1EndTenths);                              // the old meter's last trip is untouched
+        Assert.Equal(155L, Get(ids[2]).Meter1StartTenths);                             // the next trip follows the new meter
+        using var db = Db.NewContext();
+        Assert.Contains(db.ActivityLogs, l => l.Action == "INVOICE_METER_REPLACED" && l.Reason == "Meter 1 replaced");
     }
 
     [Fact]
@@ -61,12 +72,12 @@ public class MeterReadingTests : BillingFixture
     {
         var ids = await ThreeTripsAsync();
 
-        var tooHigh = await Meters.UpdateAsync(ids[1], EditOf(ids[1], 110.0m, 131.0m));   // invoice 3 ends at 130.0
-        var tooLow = await Meters.UpdateAsync(ids[1], EditOf(ids[1], 99.0m, 125.5m));     // invoice 1 starts at 100.0
+        var tooHigh = await Meters.UpdateAsync(ids[1], EditOf(ids[1], null, 131.0m));    // invoice 3 ends at 130.0
+        var tooLow = await Meters.UpdateAsync(ids[1], EditOf(ids[1], null, 105.0m));     // below its own start 110.0
 
         Assert.Contains("above the end reading of invoice 3", tooHigh.Error);
-        Assert.Contains("below the start reading of invoice 1", tooLow.Error);
-        Assert.Equal((1255L, 1100L), (Get(ids[2]).Meter1StartTenths!.Value, Get(ids[0]).Meter1EndTenths!.Value));   // nothing saved
+        Assert.Contains("cannot be lower than the start reading (110.0)", tooLow.Error);
+        Assert.Equal(1255L, Get(ids[2]).Meter1StartTenths);                            // nothing saved
     }
 
     [Fact]
@@ -89,14 +100,14 @@ public class MeterReadingTests : BillingFixture
         Assert.True((await Svc.Invoices.CancelAsync(ids[2], "Wrong vehicle", Get(ids[2]).Version)).Ok);   // invoice 3 cancelled
         var copy = (await Svc.Invoices.ReviseAsync(ids[0], new InvoiceRevision { CapacityLitres = 12000, Rate = 160, Version = Get(ids[0]).Version })).Value;   // invoice 1 -> copy 4
 
-        // Correcting invoice 2's start moves the END of the copy (it stands where invoice 1 stood), not of the cancelled 1.
-        Assert.True((await Meters.UpdateAsync(ids[1], EditOf(ids[1], 109.0m, 126.0m))).Ok);
+        // Correcting the copy's End (it stands where invoice 1 stood) moves invoice 2's Start, not anything on cancelled invoices.
+        Assert.True((await Meters.UpdateAsync(copy, EditOf(copy, null, 109.0m))).Ok);
 
-        Assert.Equal(1090L, Get(copy).Meter1EndTenths);
+        Assert.Equal(1090L, Get(ids[1]).Meter1StartTenths);
         Assert.Equal(1100L, Get(ids[0]).Meter1EndTenths);                     // cancelled original untouched
         Assert.Equal(1255L, Get(ids[2]).Meter1StartTenths);                   // cancelled invoice 3 untouched
         var starts = await Svc.Invoices.MeterStartsAsync();
-        Assert.Equal((1260L, "2"), (starts[0].EndTenths!.Value, starts[0].FromInvoiceNo));   // the next new invoice starts at 126.0
+        Assert.Equal((1255L, "2"), (starts[0].EndTenths!.Value, starts[0].FromInvoiceNo));   // the next new invoice starts at 125.5
     }
 
     [Fact]
@@ -128,8 +139,8 @@ public class MeterReadingTests : BillingFixture
     public async Task MTR_07_Cancelled_Invoice_Cannot_Be_Corrected_And_Bad_Readings_Are_Refused()
     {
         var ids = await ThreeTripsAsync();
-        Assert.Contains("end reading cannot be lower", (await Meters.UpdateAsync(ids[1], EditOf(ids[1], 120.0m, 115.0m))).Error);
-        Assert.Contains("both the start and the end", (await Meters.UpdateAsync(ids[1], EditOf(ids[1], 110.0m, null))).Error);
+        Assert.Contains("end reading cannot be lower", (await Meters.UpdateAsync(ids[1], EditOf(ids[1], null, 105.0m))).Error);
+        Assert.Contains("one decimal place", (await Meters.UpdateAsync(ids[1], EditOf(ids[1], null, 120.05m))).Error);
         Me.User = Db.AddUser(UserRole.Admin);
         await Svc.Invoices.CancelAsync(ids[1], "test", Get(ids[1]).Version);
         Assert.Contains("cancelled", (await Meters.UpdateAsync(ids[1], EditOf(ids[1], 110.0m, 124.0m))).Error);
@@ -148,5 +159,67 @@ public class MeterReadingTests : BillingFixture
         Assert.Equal(5060L, Get(c).Meter2StartTenths);    // the next Meter 2 trip is invoice 3, not invoice 2
         Assert.Equal(200L, Get(b).Meter1StartTenths);
         Assert.Null(Get(b).Meter2StartTenths);
+    }
+
+    [Fact]
+    public async Task MTR_09_New_Invoice_Start_Is_The_Last_End_And_Cannot_Be_Typed_Differently()
+    {
+        await ThreeTripsAsync();                                                  // meter 1 last ended at 130.0
+
+        var typedWrong = await Svc.Invoices.CreateAsync(new InvoiceForm { SalesPersonId = Seller, VehicleId = TripVehicle, Rate = 150, Meter1Start = 128m, Meter1End = 140m });
+        Assert.Contains("start reading cannot be changed", typedWrong.Error);
+
+        var endOnly = await Svc.Invoices.CreateAsync(new InvoiceForm { SalesPersonId = Seller, VehicleId = TripVehicle, Rate = 150, Meter1End = 140m });
+        Assert.True(endOnly.Ok, endOnly.Error);
+        Assert.Equal((1300L, 1400L), (Get(endOnly.Value).Meter1StartTenths!.Value, Get(endOnly.Value).Meter1EndTenths!.Value));
+
+        var unused = await Svc.Invoices.CreateAsync(new InvoiceForm { SalesPersonId = Seller, VehicleId = TripVehicle, Rate = 150, Meter1Start = 140m });
+        Assert.True(unused.Ok, unused.Error);                                    // no End: meter not used on this trip
+        Assert.Null(Get(unused.Value).Meter1StartTenths);
+
+        var salesReset = new InvoiceForm { SalesPersonId = Seller, VehicleId = TripVehicle, Rate = 150, Meter1Start = 0m, Meter1End = 5m, MeterReplaced = true, MeterReplacedReason = "new meter" };
+        Assert.Contains("Only the Admin", (await Svc.Invoices.CreateAsync(salesReset)).Error);
+        Me.User = Db.AddUser(UserRole.Admin);
+        salesReset.SalesPersonId = null;
+        var reset = await Svc.Invoices.CreateAsync(salesReset);
+        Assert.True(reset.Ok, reset.Error);
+        Assert.Equal((0L, 50L), (Get(reset.Value).Meter1StartTenths!.Value, Get(reset.Value).Meter1EndTenths!.Value));
+    }
+
+    [Fact]
+    public async Task MTR_12_Invoice_Edit_Meters_Only_Keeps_The_Number_And_With_Rate_Goes_On_The_Corrected_Copy()
+    {
+        var ids = await ThreeTripsAsync();
+        var inv = Get(ids[1]);
+        var meters = new MeterEdit { EditedBySalesPersonId = Seller, Meter1End = 124.0m, Reason = "Misread the dial" };
+
+        var onlyMeters = await Svc.Invoices.EditAsync(ids[1], new InvoiceRevision { EditedBySalesPersonId = Seller, CapacityLitres = inv.CapacityLitres,
+            Rate = 150, Version = inv.Version, Meters = meters });
+
+        Assert.True(onlyMeters.Ok, onlyMeters.Error);
+        Assert.Equal((ids[1], false), (onlyMeters.Value!.InvoiceId, onlyMeters.Value.NewCopy));             // same invoice, same number
+        Assert.Equal("invoice 3, Meter 1 start: 125.5 → 124.0", onlyMeters.Value.MeterChanges.Single().Text);
+        Assert.Equal(InvoiceStatus.Posted, Get(ids[1]).Status);
+
+        inv = Get(ids[1]);
+        var withRate = await Svc.Invoices.EditAsync(ids[1], new InvoiceRevision { EditedBySalesPersonId = Seller, CapacityLitres = inv.CapacityLitres,
+            Rate = 160, Version = inv.Version, Meters = new MeterEdit { Meter1End = 123.0m, Reason = "Rate and reading" } });
+
+        Assert.True(withRate.Ok, withRate.Error);
+        Assert.True(withRate.Value!.NewCopy);
+        var copy = Get(withRate.Value.InvoiceId);
+        Assert.Equal((1100L, 1230L, 16000L), (copy.Meter1StartTenths!.Value, copy.Meter1EndTenths!.Value, copy.AmountPaise));
+        Assert.Equal(1230L, Get(ids[2]).Meter1StartTenths);                     // the next trip follows the copy
+        Assert.Equal(InvoiceStatus.Cancelled, Get(ids[1]).Status);
+
+        // A refused meter change keeps the whole edit from saving (no corrected copy is issued).
+        inv = Get(ids[2]);
+        var refused = await Svc.Invoices.EditAsync(ids[2], new InvoiceRevision { EditedBySalesPersonId = Seller, CapacityLitres = inv.CapacityLitres,
+            Rate = 170, Version = inv.Version, Meters = new MeterEdit { Meter1End = 100.0m, Reason = "x" } });
+        Assert.False(refused.Ok);
+        Assert.Equal(InvoiceStatus.Posted, Get(ids[2]).Status);
+        using var db = Db.NewContext();
+        Assert.Equal(4, db.Invoices.Count());                                   // 3 trips + 1 corrected copy; the refused edit added none
+        Assert.Equal(db.LedgerEntries.Sum(e => e.DebitPaise), db.LedgerEntries.Sum(e => e.CreditPaise));
     }
 }

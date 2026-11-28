@@ -9,8 +9,9 @@
 
 @* Receipt (final design, Nov 2026): money received from a supplier, set against the supplier's
    pending invoices. The user ticks one or more invoices in "Pending invoices" (a supplier often pays
-   several at once); the Amount is their total and cannot be typed over. A supplier with nothing
-   pending can still pay an advance: then the amount is typed and kept on account.
+   several at once); the Amount starts at their total and can be changed (client scenario, Nov 2026):
+   more than the total keeps the rest as an ADVANCE, used automatically by the supplier's next invoices;
+   less pays the selected invoices part, oldest first. A supplier with nothing pending can pay an advance.
    No Reference No. box (client decision). A saved receipt is never edited: it is cancelled with a
    reason, from the Receipt History pop-up, which also shows which invoices each receipt paid. *@
 
@@ -39,6 +40,10 @@
                 <option value="0">Choose supplier</option>
                 @foreach (var s in _suppliers) { <option value="@s.Id">@s.Name</option> }
             </select>
+            @if (_supplierId != 0 && _advanceAvailable > 0)
+            {
+                <small id="advnote" class="ok-note"><Icon Name="wallet" Size="14" /> Advance with us: ₹@Money.Format(_advanceAvailable). It pays this supplier's next invoices automatically.</small>
+            }
         </div>
         <div class="field">
             <label for="mode">Mode of Receipt*</label>
@@ -117,17 +122,9 @@
 
     <div class="form-grid">
         <div class="field">
-            <label for="amount">Amount (₹)*</label>
-            @if (_pending.Count > 0)
-            {
-                <input id="amount" value="@Money.Format(ChosenTotal)" readonly class="strong" />
-                <small>Filled in from the selected invoices.</small>
-            }
-            else
-            {
-                <input id="amount" type="number" min="0" step="0.01" @bind="_advance" />
-                <small>Advance: kept on the supplier's account.</small>
-            }
+            <label for="amount">Amount received (₹)*</label>
+            <input id="amount" type="number" min="0" step="0.01" class="strong" @bind="_amount" @bind:event="oninput" />
+            <small id="split" class="@(Extra > 0 ? "ok-note" : "")">@SplitText</small>
         </div>
         <div class="field">
             <label for="narr">Narration</label>
@@ -183,7 +180,8 @@
                     {
                         <tr class="@(r.Status == VoucherStatus.Cancelled ? "muted" : "")">
                             <td>@VoucherNumbers.Plain(r.DisplayNo)</td><td class="nowrap">@IndianTime.FormatDate(r.Date)</td><td>@r.PartyName</td><td>@r.Mode</td><td>@r.ReferenceNo</td>
-                            <td>@(r.InvoicesPaid.Count == 0 ? "On account" : string.Join(", ", r.InvoicesPaid))</td>
+                            <td>@(r.InvoicesPaid.Count == 0 ? "On account" : string.Join(", ", r.InvoicesPaid))
+                                @if (r.Status == VoucherStatus.Posted && r.AmountPaise > r.AllocatedPaise) { <br /><small class="ok-note">Advance not yet used: ₹@Money.Format(r.AmountPaise - r.AllocatedPaise)</small> }</td>
                             <td class="num">@Money.Format(r.AmountPaise)</td>
                             <td><span class="badge @(r.Status == VoucherStatus.Cancelled ? "badge-bad" : "")">@r.Status</span> @if (r.CancelReason is not null) { <small>(@r.CancelReason)</small> }</td>
                             <td class="nowrap">
@@ -216,7 +214,8 @@
     private readonly HashSet<long> _chosen = [];
     private bool _open;
     private string? _find;
-    private decimal _advance;
+    private decimal _amount;
+    private long _advanceAvailable;
     private string? _narration;
     private string _nextNo = "";
     private DateOnly _today;
@@ -232,7 +231,19 @@
     private IEnumerable<PendingInvoice> Chosen => _pending.Where(p => _chosen.Contains(p.Id));
     private long ChosenTotal => Chosen.Sum(p => p.DuePaise);
     private bool AllChosen => _pending.Count > 0 && _chosen.Count == _pending.Count;
-    private bool CanSave => _supplierId != 0 && (_pending.Count > 0 ? _chosen.Count > 0 : _advance > 0);
+    private bool CanSave => _supplierId != 0 && _amount > 0 && (_pending.Count == 0 || _chosen.Count > 0);
+    private long AmountPaise => _amount > 0 ? Money.FromRupees(Math.Round(_amount, 2)) : 0;
+    private long Extra => _chosen.Count > 0 ? AmountPaise - ChosenTotal : _pending.Count == 0 ? AmountPaise : 0;
+
+    // What the amount does, shown under it as the user types.
+    private string SplitText =>
+        _supplierId == 0 ? ""
+        : _pending.Count == 0 ? "Nothing pending: the whole amount is kept as an advance and pays the next invoices."
+        : _chosen.Count == 0 ? "Tick the invoices this receipt pays."
+        : AmountPaise > ChosenTotal ? $"₹{Money.Format(ChosenTotal)} pays the {_chosen.Count} selected invoice{(_chosen.Count == 1 ? "" : "s")} · ₹{Money.Format(AmountPaise - ChosenTotal)} kept as advance for the next trips."
+        : AmountPaise < ChosenTotal && AmountPaise > 0 ? $"Part payment: ₹{Money.Format(AmountPaise)} of ₹{Money.Format(ChosenTotal)}, oldest selected invoice first."
+        : AmountPaise == ChosenTotal ? $"Pays the {_chosen.Count} selected invoice{(_chosen.Count == 1 ? "" : "s")} in full."
+        : "";
     private IEnumerable<PendingInvoice> Visible => string.IsNullOrWhiteSpace(_find) ? _pending
         : _pending.Where(p => p.DisplayNo.Contains(_find.Trim(), StringComparison.OrdinalIgnoreCase)
                            || p.VehicleCode.Contains(_find.Trim(), StringComparison.OrdinalIgnoreCase)
@@ -253,14 +264,18 @@
         _open = false;
         _find = null;
         _pending = _supplierId == 0 ? [] : await Svc.PendingInvoicesAsync(PartyType.Supplier, _supplierId);
+        _advanceAvailable = _supplierId == 0 ? 0 : await Svc.AdvanceAvailableAsync(PartyType.Supplier, _supplierId);
+        _amount = 0;
     }
 
-    private void Toggle(long id) { if (!_chosen.Remove(id)) _chosen.Add(id); }
+    // Ticking invoices fills the amount with their total; it can then be changed (more = advance).
+    private void Toggle(long id) { if (!_chosen.Remove(id)) _chosen.Add(id); _amount = ChosenTotal * 0.01m; }
 
     private void ToggleAll()
     {
         if (AllChosen) _chosen.Clear();
         else foreach (var p in _pending) _chosen.Add(p.Id);
+        _amount = ChosenTotal * 0.01m;   // "* 0.01m" keeps two decimals on screen, e.g. 150.00
     }
 
     private async Task SaveAsync()
@@ -274,15 +289,16 @@
                 PartyType = PartyType.Supplier,
                 PartyId = _supplierId,
                 Mode = _mode,
-                Amount = _pending.Count > 0 ? Money.ToRupees(ChosenTotal) : _advance,
+                Amount = Money.ToRupees(AmountPaise),
                 Narration = string.IsNullOrWhiteSpace(_narration) && _chosen.Count > 0 ? "Invoices " + string.Join(", ", Chosen.Select(c => c.DisplayNo)) : _narration,
                 InvoiceIds = _chosen.ToList(),
             };
             var result = await Svc.CreateAsync(form);
             if (result.Ok)
             {
-                ShowOk($"Receipt {VoucherNumbers.Plain(_nextNo)} saved for ₹{Money.Format(Money.FromRupees(form.Amount))}.");
-                _advance = 0;
+                var extra = Extra;
+                ShowOk($"Receipt {VoucherNumbers.Plain(_nextNo)} saved for ₹{Money.Format(Money.FromRupees(form.Amount))}."
+                    + (extra > 0 ? $" ₹{Money.Format(extra)} is kept as advance and pays the next invoices automatically." : ""));
                 _narration = null;
                 _nextNo = await Svc.PeekNextNumberAsync();
                 await OnSupplierChangedAsync();

@@ -203,8 +203,9 @@ public class PaymentService(IDbContextFactory<AppDbContext> dbFactory, ICurrentU
         return Result.Success();
     }
 
-    // FR-TXN-12: Payment History.
-    public async Task<IReadOnlyList<PaymentRow>> HistoryAsync(DateOnly fromDate, DateOnly toDate, PaymentMode? mode = null, VoucherStatus? status = null)
+    // FR-TXN-12: Payment History. accountId: only payments for that ledger (client request, Nov 2026).
+    public async Task<IReadOnlyList<PaymentRow>> HistoryAsync(DateOnly fromDate, DateOnly toDate, PaymentMode? mode = null, VoucherStatus? status = null,
+        long? accountId = null)
     {
         await currentUser.RequireAsync(Permission.PaymentCreate);
         await using var db = await dbFactory.CreateDbContextAsync();
@@ -212,6 +213,7 @@ public class PaymentService(IDbContextFactory<AppDbContext> dbFactory, ICurrentU
             from v in db.Vouchers
             where v.Type == VoucherType.Payment && v.VoucherDate >= fromDate && v.VoucherDate <= toDate
                 && (mode == null || v.Mode == mode) && (status == null || v.Status == status)
+                && (accountId == null || v.PurposeAccountId == accountId)
             join a in db.Accounts on v.PurposeAccountId equals a.Id
             join veh in db.Vehicles on v.VehicleId equals veh.Id into vj
             from veh in vj.DefaultIfEmpty()

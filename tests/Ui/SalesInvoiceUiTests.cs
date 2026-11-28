@@ -228,4 +228,35 @@ public class SalesInvoiceUiTests : UiTest
 
         page.WaitForAssertion(() => Assert.Contains("No invoice numbered 99999", page.Markup));
     }
+
+    [Fact]
+    public async Task MTR_14_New_Invoice_Start_Is_Locked_After_The_First_Trip_And_Admin_Can_Unlock_For_A_Replaced_Meter()
+    {
+        await SupplierWithVehicleAsync();
+        var page = RenderComponent<SalesInvoice>();
+        page.WaitForAssertion(() => page.Find("input[aria-label='Meter 1 start']"));
+        Assert.False(page.Find("input[aria-label='Meter 1 start']").HasAttribute("readonly"));   // first trip: typed
+        page.Find("#vcode").Change("A2");
+        page.Find("input[aria-label='Meter 1 start']").Change("100.0");
+        page.Find("input[aria-label='Meter 1 end']").Change("110.0");
+        page.FindAll("button").First(b => b.TextContent.Trim() == "Save").Click();
+        page.WaitForAssertion(() => Assert.Contains("Invoice 1 saved", page.Markup));
+
+        page.WaitForAssertion(() => Assert.True(page.Find("input[aria-label='Meter 1 start']").HasAttribute("readonly")));
+        Assert.Equal("110.0", page.Find("input[aria-label='Meter 1 start']").GetAttribute("value"));
+        Assert.False(page.Find("input[aria-label='Meter 2 start']").HasAttribute("readonly"));   // meter 2 never used yet
+        Assert.Contains("Start readings are locked", page.Find("#meternote").TextContent);
+
+        page.Find("#newreplaced").Change(true);                                                   // Admin login in this test class
+        Assert.False(page.Find("input[aria-label='Meter 1 start']").HasAttribute("readonly"));
+        page.Find("#vcode").Change("A2");
+        page.Find("input[aria-label='Meter 1 start']").Change("0.0");
+        page.Find("input[aria-label='Meter 1 end']").Change("5.0");
+        page.Find("#newreplacedwhy").Change("Meter 1 replaced");
+        page.FindAll("button").First(b => b.TextContent.Trim() == "Save").Click();
+        page.WaitForAssertion(() => Assert.Contains("Invoice 2 saved", page.Markup));
+        using var db = Db.NewContext();
+        Assert.Equal((0L, 50L), (db.Invoices.Single(i => i.DisplayNo == "2").Meter1StartTenths!.Value, db.Invoices.Single(i => i.DisplayNo == "2").Meter1EndTenths!.Value));
+        Assert.Contains(db.ActivityLogs, l => l.Action == "INVOICE_METER_REPLACED" && l.Reason == "Meter 1 replaced");
+    }
 }

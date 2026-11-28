@@ -45,6 +45,10 @@ public sealed class InvoiceForm
     public decimal? Meter2End { get; set; }
     public decimal? Meter3Start { get; set; }
     public decimal? Meter3End { get; set; }
+
+    // Meter replaced or reset (Admin only): the typed Start readings are used instead of the previous End.
+    public bool MeterReplaced { get; set; }
+    [StringLength(200)] public string? MeterReplacedReason { get; set; }
 }
 
 // The invoice edit screen (final design): only Capacity, Rate, In Time and Out Time can change.
@@ -59,7 +63,14 @@ public sealed class InvoiceRevision
     public DateOnly? OutDate { get; set; }
     public string? OutTime { get; set; }
     public int Version { get; set; }
+
+    // New meter readings (End readings; see MeterReadingService). Null: meters not changed.
+    public MeterEdit? Meters { get; set; }
 }
+
+// What an edit did: the invoice that now stands (same one, or the corrected copy) and the other
+// invoices whose meter readings followed.
+public sealed record EditOutcome(long InvoiceId, bool NewCopy, IReadOnlyList<MeterChange> MeterChanges);
 
 // Everything the view screen and the PDF need.
 // The Start reading a new invoice gets for one meter, and the invoice it comes from.
@@ -139,7 +150,7 @@ public class InvoiceService(IDbContextFactory<AppDbContext> dbFactory, ICurrentU
 
         var times = TripDetails.Times(form.InDate, form.InTime, form.OutDate, form.OutTime);
         if (!times.Ok) return Result<long>.Fail(times.Error!);
-        var meters = TripDetails.Meters(form.Meter1Start, form.Meter1End, form.Meter2Start, form.Meter2End, form.Meter3Start, form.Meter3End);
+        var meters = await ChainedMetersAsync(db, form, me);
         if (!meters.Ok) return Result<long>.Fail(meters.Error!);
 
         // Client change, Nov 2026: every invoice is Trip x Rate (no volume billing).
@@ -201,8 +212,16 @@ public class InvoiceService(IDbContextFactory<AppDbContext> dbFactory, ICurrentU
         db.Invoices.Add(invoice);
         await db.SaveChangesAsync();
 
+        // The party's advance (money received earlier and kept on account) pays this invoice at once.
+        var fromAdvance = await WaterBilling.Services.Accounts.Advances.ApplyToAsync(db, invoice);
+
+        if (form.MeterReplaced)
+            ActivityLogger.Add(db, Now, me, ActivityCategory.Billing, "INVOICE_METER_REPLACED", nameof(Invoice), invoice.Id,
+                after: new { invoice.DisplayNo, Meter1Start = invoice.Meter1StartTenths, Meter2Start = invoice.Meter2StartTenths, Meter3Start = invoice.Meter3StartTenths },
+                reason: form.MeterReplacedReason!.Trim(), doneBy: createdBy);
         ActivityLogger.Add(db, Now, me, ActivityCategory.Billing, "INVOICE_CREATED", nameof(Invoice), invoice.Id,
-            after: new { invoice.DisplayNo, CreatedBy = createdBy, vehicle.VehicleNo, BillTo = billToName, Mode = form.PaymentMode.ToString(), invoice.AmountPaise }, doneBy: createdBy);
+            after: new { invoice.DisplayNo, CreatedBy = createdBy, vehicle.VehicleNo, BillTo = billToName, Mode = form.PaymentMode.ToString(), invoice.AmountPaise,
+                PaidFromAdvancePaise = fromAdvance }, doneBy: createdBy);
         if (overridden)
         {
             ActivityLogger.Add(db, Now, me, ActivityCategory.Billing, "INVOICE_RATE_OVERRIDDEN", nameof(Invoice), invoice.Id,
@@ -225,11 +244,16 @@ public class InvoiceService(IDbContextFactory<AppDbContext> dbFactory, ICurrentU
         if (invoice is null) return Result.Fail("Invoice not found.");
         if (invoice.Version != version) return Result.Fail(Messages.ChangedBySomeoneElse);
         if (invoice.Status == InvoiceStatus.Cancelled) return Result.Fail($"{invoice.DisplayNo} is already cancelled.");
-        if (invoice.PaymentMode == InvoicePaymentMode.Credit && invoice.AllocatedPaise > 0)
+        // Money matched from an advance goes back to the advance; a receipt that was ticked for this
+        // invoice must be cancelled first (as before).
+        var advanceParts = await db.ReceiptAllocations.Where(a => a.InvoiceId == invoice.Id && a.IsActive).ToListAsync();
+        if (invoice.PaymentMode == InvoicePaymentMode.Credit && advanceParts.Any(a => !a.FromAdvance))
         {
             var receipts = await ReceiptsAllocatedToAsync(db, invoice.Id);
             return Result.Fail($"Receipts are allocated to this invoice ({receipts}). Cancel those receipts first.");
         }
+        foreach (var a in advanceParts) a.IsActive = false;
+        invoice.AllocatedPaise -= advanceParts.Sum(a => a.AmountPaise);
 
         try
         {
@@ -259,26 +283,35 @@ public class InvoiceService(IDbContextFactory<AppDbContext> dbFactory, ICurrentU
     // the old invoice is cancelled with a reversal and a corrected copy is posted with a new number.
     // Receipts set against the old invoice move to the copy. Everything happens in one transaction.
     // Returns the id of the corrected invoice.
+    // Money edit (rate, capacity, times): cancel + corrected copy. Kept for callers that only need the id.
     public async Task<Result<long>> ReviseAsync(long id, InvoiceRevision r)
     {
+        var outcome = await EditAsync(id, r);
+        return outcome.Ok ? Result<long>.Success(outcome.Value!.InvoiceId) : Result<long>.Fail(outcome.Error!);
+    }
+
+    // Invoice Display > Edit. Changing only meter readings corrects the same invoice (no money changes);
+    // changing capacity, rate or times issues a corrected copy (with any new meter readings on it).
+    public async Task<Result<EditOutcome>> EditAsync(long id, InvoiceRevision r)
+    {
         var me = await currentUser.RequireAsync(Permission.InvoiceCancel);
-        if (FormValidator.FirstError(r) is { } error) return Result<long>.Fail(error);
+        if (FormValidator.FirstError(r) is { } error) return Result<EditOutcome>.Fail(error);
         var times = TripDetails.Times(r.InDate, r.InTime, r.OutDate, r.OutTime);
-        if (!times.Ok) return Result<long>.Fail(times.Error!);
+        if (!times.Ok) return Result<EditOutcome>.Fail(times.Error!);
 
         await using var db = await dbFactory.CreateDbContextAsync();
         await using var tx = await db.Database.BeginTransactionAsync();
         var old = await db.Invoices.SingleOrDefaultAsync(i => i.Id == id);
-        if (old is null) return Result<long>.Fail("Invoice not found.");
-        if (old.Version != r.Version) return Result<long>.Fail(Messages.ChangedBySomeoneElse);
-        if (old.Status == InvoiceStatus.Cancelled) return Result<long>.Fail($"{old.DisplayNo} is cancelled and cannot be edited.");
+        if (old is null) return Result<EditOutcome>.Fail("Invoice not found.");
+        if (old.Version != r.Version) return Result<EditOutcome>.Fail(Messages.ChangedBySomeoneElse);
+        if (old.Status == InvoiceStatus.Cancelled) return Result<EditOutcome>.Fail($"{old.DisplayNo} is cancelled and cannot be edited.");
 
         // Who is editing: Admin login = "Admin"; Sales login = an active name from Sales Persons.
         string editor = AdminName;
         if (me.Role != UserRole.Admin)
         {
             var person = await db.SalesPersons.SingleOrDefaultAsync(p => p.Id == r.EditedBySalesPersonId && p.Status == RecordStatus.Active);
-            if (person is null) return Result<long>.Fail("Choose which salesperson is editing.");
+            if (person is null) return Result<EditOutcome>.Fail("Choose which salesperson is editing.");
             editor = person.Name;
         }
 
@@ -287,11 +320,21 @@ public class InvoiceService(IDbContextFactory<AppDbContext> dbFactory, ICurrentU
         var outUtc = times.Value.OutUtc;
         static DateTime? Utc(DateTime? t) => t is { } v ? DateTime.SpecifyKind(v, DateTimeKind.Utc) : null;
         if (ratePaise == old.RatePaise && r.CapacityLitres == old.CapacityLitres && inUtc == Utc(old.InTimeUtc) && outUtc == Utc(old.OutTimeUtc))
-            return Result<long>.Fail("Nothing was changed.");
+        {
+            // Only meter readings (no money): corrected on the same invoice, keeping its number.
+            if (r.Meters is null) return Result<EditOutcome>.Fail("Nothing was changed.");
+            var onlyMeters = await MeterReadingService.ApplyAsync(db, old, r.Meters, me, editor, Now);
+            if (!onlyMeters.Ok) return Result<EditOutcome>.Fail(onlyMeters.Error!);
+            if (!onlyMeters.Value!.Changed) return Result<EditOutcome>.Fail("Nothing was changed.");
+            old.Version++;
+            await db.SaveChangesAsync();
+            await tx.CommitAsync();
+            return Result<EditOutcome>.Success(new(old.Id, false, onlyMeters.Value.Others));
+        }
 
         var amount = InvoiceMath.Amount(old.Trips, ratePaise);
         if (old.PaymentMode == InvoicePaymentMode.Credit && old.AllocatedPaise > amount)
-            return Result<long>.Fail($"₹{Money.Format(old.AllocatedPaise)} has already been received against {old.DisplayNo}; the new amount cannot be lower than that.");
+            return Result<EditOutcome>.Fail($"₹{Money.Format(old.AllocatedPaise)} has already been received against {old.DisplayNo}; the new amount cannot be lower than that.");
 
         var vehicle = await db.Vehicles.IgnoreQueryFilters().SingleAsync(v => v.Id == old.VehicleId);
         var reason = $"Edited by {editor}: corrected copy issued";
@@ -304,7 +347,7 @@ public class InvoiceService(IDbContextFactory<AppDbContext> dbFactory, ICurrentU
         }
         catch (BusinessRuleException ex)
         {
-            return Result<long>.Fail(ex.Message);
+            return Result<EditOutcome>.Fail(ex.Message);
         }
 
         var copy = new Invoice
@@ -347,6 +390,8 @@ public class InvoiceService(IDbContextFactory<AppDbContext> dbFactory, ICurrentU
         // Receipts that paid the old invoice now pay the corrected copy.
         foreach (var a in await db.ReceiptAllocations.Where(a => a.InvoiceId == old.Id && a.IsActive).ToListAsync())
             a.InvoiceId = copy.Id;
+        // A higher amount on the copy is paid from the party's advance where there is one.
+        await WaterBilling.Services.Accounts.Advances.ApplyToAsync(db, copy);
 
         var before = new { old.DisplayNo, old.CapacityLitres, old.RatePaise, old.AmountPaise, InTime = Show(Utc(old.InTimeUtc)), OutTime = Show(Utc(old.OutTimeUtc)) };
         old.AllocatedPaise = 0;
@@ -367,10 +412,20 @@ public class InvoiceService(IDbContextFactory<AppDbContext> dbFactory, ICurrentU
         }
         catch (DbUpdateConcurrencyException)
         {
-            return Result<long>.Fail(Messages.ChangedBySomeoneElse);
+            return Result<EditOutcome>.Fail(Messages.ChangedBySomeoneElse);
+        }
+
+        // New meter readings go on the corrected copy, which stands where the original stood.
+        IReadOnlyList<MeterChange> meterChanges = [];
+        if (r.Meters is not null)
+        {
+            var applied = await MeterReadingService.ApplyAsync(db, copy, r.Meters, me, editor, Now);
+            if (!applied.Ok) return Result<EditOutcome>.Fail(applied.Error!);   // nothing is kept: the transaction is not committed
+            meterChanges = applied.Value!.Others;
+            await db.SaveChangesAsync();
         }
         await tx.CommitAsync();
-        return Result<long>.Success(copy.Id);
+        return Result<EditOutcome>.Success(new(copy.Id, true, meterChanges));
     }
 
     private static string? Show(DateTime? utc) => utc is { } t ? IndianTime.FormatDateTime(t) : null;
@@ -440,14 +495,46 @@ public class InvoiceService(IDbContextFactory<AppDbContext> dbFactory, ICurrentU
     {
         await currentUser.RequireAsync(Permission.InvoiceCreate);
         await using var db = await dbFactory.CreateDbContextAsync();
-        var order = await MeterChain.OrderAsync(db);
-        var active = await db.Invoices.Where(i => i.Status != InvoiceStatus.Cancelled
-                && (i.Meter1EndTenths != null || i.Meter2EndTenths != null || i.Meter3EndTenths != null)).ToListAsync();
-        return [.. Enumerable.Range(1, 3).Select(m =>
+        var last = await MeterChain.LastEndsAsync(db);
+        return [.. Enumerable.Range(1, 3).Select(m => new MeterStart(m, last[m].End, last[m].InvoiceNo))];
+    }
+
+    // The readings a new invoice gets (meter rules in MeterReadingService.cs): a meter with no End
+    // reading was not used; a used meter starts at its last End reading (typed only on its first trip,
+    // or by the Admin for a replaced meter, with a reason).
+    private static async Task<Result<MeterReadings>> ChainedMetersAsync(AppDbContext db, InvoiceForm form, UserInfo me)
+    {
+        if (form.MeterReplaced)
         {
-            var last = active.Where(i => MeterChain.End(i, m) is not null).OrderBy(i => order[i.Id]).LastOrDefault();
-            return new MeterStart(m, last is null ? null : MeterChain.End(last, m), last?.DisplayNo);
-        })];
+            if (me.Role != UserRole.Admin) return Result<MeterReadings>.Fail("Only the Admin can set a new start reading for a replaced or reset meter.");
+            if (string.IsNullOrWhiteSpace(form.MeterReplacedReason)) return Result<MeterReadings>.Fail("Give a reason for the new start reading (meter replaced or reset).");
+        }
+        var last = await MeterChain.LastEndsAsync(db);
+        var values = new long?[7];
+        decimal?[] typed = [null, form.Meter1Start, form.Meter1End, form.Meter2Start, form.Meter2End, form.Meter3Start, form.Meter3End];
+        for (var m = 1; m <= 3; m++)
+        {
+            var end = MeterChain.Tenths(typed[m * 2], m);
+            if (!end.Ok) return Result<MeterReadings>.Fail(end.Error!);
+            if (end.Value is null) continue;                                  // meter not used on this trip
+            var start = MeterChain.Tenths(typed[m * 2 - 1], m);
+            if (!start.Ok) return Result<MeterReadings>.Fail(start.Error!);
+
+            long s;
+            if (form.MeterReplaced && start.Value is { } reset) s = reset;
+            else if (last[m].End is { } previous)
+            {
+                if (start.Value is { } t && t != previous) return Result<MeterReadings>.Fail(MeterChain.LockedStart(m, last[m].InvoiceNo));
+                s = previous;
+            }
+            else if (start.Value is { } first) s = first;
+            else return Result<MeterReadings>.Fail($"Meter {m}: type the start reading. This is the meter's first trip.");
+
+            if (end.Value < s) return Result<MeterReadings>.Fail($"Meter {m}: the end reading cannot be lower than the start reading ({Volume.Format(s)}).");
+            values[m * 2 - 1] = s;
+            values[m * 2] = end.Value;
+        }
+        return Result<MeterReadings>.Success(new MeterReadings(values[1], values[2], values[3], values[4], values[5], values[6]));
     }
 
     // The newest invoice, where Previous starts from on a blank Sales Invoice.

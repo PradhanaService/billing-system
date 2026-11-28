@@ -24,8 +24,9 @@ public sealed class ReceiptForm
     [StringLength(40)] public string? ReferenceNo { get; set; }
     [StringLength(300)] public string? Narration { get; set; }
 
-    // Final design: the pending invoices this receipt pays (one or more). The amount must equal their
-    // total. Left empty (e.g. an advance from a supplier with nothing pending): oldest invoice first.
+    // Final design: the pending invoices this receipt pays (one or more), oldest first. An amount above
+    // their total keeps the rest as an advance (client scenario, Nov 2026); an amount below pays them
+    // part, oldest first. Left empty (e.g. a supplier with nothing pending): oldest open invoice first.
     public List<long> InvoiceIds { get; set; } = [];
 }
 
@@ -87,7 +88,8 @@ public class ReceiptService(IDbContextFactory<AppDbContext> dbFactory, ICurrentU
         var partyName = await PartyNameAsync(db, form.PartyType, form.PartyId);
         if (partyName is null) return Result<long>.Fail("Party not found.");
 
-        // Final design: the receipt pays the invoices the user ticked, in full; the amount is their total.
+        // The receipt pays the invoices the user ticked, oldest first; money left over stays on the party's
+        // account as an advance (Advances.cs), used by their next invoices.
         // Nothing ticked: FR-TXN-09, oldest open invoice first, anything left over stays unallocated.
         var open = await OpenInvoicesAsync(db, form.PartyType, form.PartyId);
         if (form.InvoiceIds.Count > 0)
@@ -96,9 +98,6 @@ public class ReceiptService(IDbContextFactory<AppDbContext> dbFactory, ICurrentU
             var chosen = open.Where(o => wanted.Contains(o.Invoice.Id)).ToList();
             if (chosen.Count != wanted.Count)
                 return Result<long>.Fail("One of the chosen invoices is no longer pending for this party. Choose the invoices again.");
-            var total = chosen.Sum(o => o.Invoice.AmountPaise - o.Invoice.AllocatedPaise);
-            if (amount != total)
-                return Result<long>.Fail($"The amount must equal the total of the selected invoices (₹{Money.Format(total)}).");
             open = chosen;
         }
         var allocations = Allocate(open, amount);
@@ -233,6 +232,14 @@ public class ReceiptService(IDbContextFactory<AppDbContext> dbFactory, ICurrentU
         return rows.Select(r => new ReceiptRow(r.v.Id, r.v.DisplayNo, r.v.VoucherDate, r.v.PartyType!.Value, r.PartyName,
             r.v.Mode!.Value, r.v.ReferenceNo, r.v.AmountPaise, allocated.GetValueOrDefault(r.v.Id), r.v.Status, r.v.CancelReason, r.v.Version)
             { InvoicesPaid = numbers.GetValueOrDefault(r.v.Id, []) }).ToList();
+    }
+
+    // "Advance available" on the Receipt screen: money already received and not yet used by invoices.
+    public async Task<long> AdvanceAvailableAsync(PartyType type, long partyId)
+    {
+        await currentUser.RequireAsync(Permission.ReceiptCreate);
+        await using var db = await dbFactory.CreateDbContextAsync();
+        return await Advances.AvailableAsync(db, type, partyId);
     }
 
     // The supplier's (or customer's) unpaid invoices for the "Pending invoices" list, newest first.

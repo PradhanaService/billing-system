@@ -80,12 +80,12 @@ public class TripDetailsTests : BillingFixture
 
     [Theory]
     [InlineData(100.0, 99.5, "end reading cannot be lower")]
-    [InlineData(100.0, null, "give both the start and the end")]
+    [InlineData(null, 101.0, "type the start reading")]   // first trip on a meter: the start must be typed
     [InlineData(100.05, 101.0, "one decimal place")]
-    public async Task SI_07_Bad_Meter_Readings_Are_Refused(double start, double? end, string message)
+    public async Task SI_07_Bad_Meter_Readings_Are_Refused(double? start, double? end, string message)
     {
         var f = Form();
-        f.Meter2Start = (decimal)start;
+        f.Meter2Start = start is null ? null : (decimal)start;
         f.Meter2End = end is null ? null : (decimal)end;
 
         var r = await Inv.CreateAsync(f);
